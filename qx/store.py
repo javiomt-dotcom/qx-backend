@@ -4,6 +4,7 @@ Las dos clases exponen lo mismo: upsert(tabla, filas, conflicto) y select(tabla,
 """
 from __future__ import annotations
 
+import datetime as dt
 import json
 import sqlite3
 import requests
@@ -50,7 +51,7 @@ class SupabaseStore:
     def log_run(self, kind, status, detail):
         r = self.s.post(f"{self.url}/runs", headers={**self.h, "Prefer": "return=minimal"},
                         data=json.dumps({"kind": kind, "status": status, "detail": detail,
-                                         "finished_at": "now()"}), timeout=60)
+                                         "finished_at": dt.datetime.now(dt.timezone.utc).isoformat()}), timeout=60)
         r.raise_for_status()
 
 

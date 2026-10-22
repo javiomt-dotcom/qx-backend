@@ -86,3 +86,12 @@ create table if not exists runs (
   status      text not null default 'running',
   detail      jsonb not null default '{}'::jsonb
 );
+
+-- Seguridad: nadie con la llave pública puede leer ni escribir; la rutina usa la llave service_role.
+alter table symbols       enable row level security;
+alter table bars          enable row level security;
+alter table forecasts     enable row level security;
+alter table picks         enable row level security;
+alter table outcomes      enable row level security;
+alter table daily_results enable row level security;
+alter table runs          enable row level security;
