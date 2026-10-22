@@ -162,6 +162,8 @@ VARIANTS = [
     ("H. Rebote: más castigadas 5d, 5 días", "rev5", True, False, HOLD),
     ("I. Tendencia: más arriba de su media 50d, 5 días", "trend", True, False, HOLD),
     ("J. Baja volatilidad S&P, 5 días", "lowvol", True, True, HOLD),
+    ("K. I sólo S&P 500", "trend", True, True, HOLD),
+    ("L. Mezcla F + I, 5 días", "mix", True, False, HOLD),
 ]
 
 
@@ -191,6 +193,7 @@ def walk_forward(S, ndays):
         sc = {"logit": X @ w_l[:-1] + w_l[-1], "ridge_n": X @ b_n[:-1] + b_n[-1],
               "ridge_r": (X @ b_r[:-1] + b_r[-1]) / np.maximum(S["atrp"][ii], 1e-3),
               "ridge_5": X @ b_5[:-1] + b_5[-1], "rev5": -X[:, 4], "trend": X[:, 10], "lowvol": -X[:, 7]}
+        f5 = sc["ridge_5"]; sc["mix"] = (f5 - f5.mean()) / (f5.std() or 1) + X[:, 10]
         for name, model, filt, sp_only, hold in VARIANTS:
             pk = select(sc[model], ii, S, filt, sp_only)
             if hold == 1:
