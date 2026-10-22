@@ -177,11 +177,42 @@ def run(alpaca, store, now_et=None, send=notify.send, force=False):
     return {"forecast": f, "picks": picks, "yesterday": y, "cum": cum, "message": msg}
 
 
+def check():
+    """Prueba cada conexión por separado y dice cuál falla."""
+    import requests
+    ok = True
+    try:
+        a = Alpaca()
+        cal = a.calendar(dt.date.today() - dt.timedelta(days=7), dt.date.today())
+        bars = a.daily_bars(["SPY"], dt.date.today() - dt.timedelta(days=7))
+        print(f"✅ Alpaca: calendario {len(cal)} días, SPY último cierre {bars['SPY']['t'][-1]} = {bars['SPY']['c'][-1]}")
+    except Exception as e:
+        ok = False; print(f"❌ Alpaca: {e}")
+    try:
+        from qx.store import SupabaseStore
+        n = len(SupabaseStore().select("forecasts", limit=1))
+        print(f"✅ Supabase: conectado, tablas listas ({n} listas guardadas)")
+    except Exception as e:
+        ok = False; print(f"❌ Supabase: {e}")
+    try:
+        me = requests.get(f"https://api.telegram.org/bot{C.TELEGRAM_TOKEN}/getMe", timeout=30)
+        if me.status_code != 200:
+            raise RuntimeError("el token del bot no es válido")
+        notify.send("✅ QX: conexión con Telegram lista. Aquí te llegará la lista diaria.")
+        print(f"✅ Telegram: bot @{me.json()['result']['username']} y mensaje de prueba enviado")
+    except Exception as e:
+        ok = False; print(f"❌ Telegram: {e}")
+    sys.exit(0 if ok else 1)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--local", action="store_true")
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--check", action="store_true")
     a = ap.parse_args()
+    if a.check:
+        check()
     miss = missing_secrets()
     if miss and not a.local:
         print("Faltan estos secretos en GitHub (Settings > Secrets and variables > Actions): " + ", ".join(miss))

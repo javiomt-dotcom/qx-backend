@@ -12,6 +12,10 @@ on:
         description: "Rehacer la lista aunque ya exista"
         type: boolean
         default: false
+      check:
+        description: "Solo revisar las conexiones (Alpaca, Supabase, Telegram)"
+        type: boolean
+        default: false
 
 jobs:
   daily:
@@ -24,7 +28,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - run: python tests/test_daily.py
-      - run: python daily.py ${{ inputs.force && '--force' || '' }}
+      - run: python daily.py ${{ inputs.force && '--force' || '' }} ${{ inputs.check && '--check' || '' }}
         env:
           ALPACA_KEY_ID: ${{ secrets.ALPACA_KEY_ID || secrets.ALPACA_KEY }}
           ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY || secrets.ALPACA_SECRETO }}
