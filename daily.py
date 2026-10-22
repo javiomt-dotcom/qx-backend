@@ -205,6 +205,16 @@ def check():
                                f"{len(left)} caracteres antes y {len(right)} después; "
                                f"{'solo números antes' if left.isdigit() else 'hay letras antes de los dos puntos'}; "
                                f"{'tiene espacios' if ' ' in t else 'sin espacios'})")
+        up = requests.get(f"https://api.telegram.org/bot{C.TELEGRAM_TOKEN}/getUpdates", timeout=30).json().get("result", [])
+        ids = {str(u[k]["chat"]["id"]) for u in up for k in ("message", "my_chat_member") if k in u}
+        cid = C.TELEGRAM_CHAT
+        print(f"Telegram: {len(ids)} chat(s) le han escrito al bot; TELEGRAM_CHAT_ID tiene {len(cid)} dígitos"
+              f"{' y coincide' if cid in ids else (' y NO coincide con ninguno' if ids else '')}")
+        if not ids:
+            raise RuntimeError("nadie le ha escrito al bot todavía: ábrelo en Telegram y mándale /start")
+        if cid not in ids:
+            raise RuntimeError("TELEGRAM_CHAT_ID no coincide con el chat que le escribió al bot; "
+                               + ", ".join(f"ese chat termina en …{i[-3:]}" for i in ids))
         notify.send("✅ QX: conexión con Telegram lista. Aquí te llegará la lista diaria.")
         print(f"✅ Telegram: bot @{me.json()['result']['username']} y mensaje de prueba enviado")
     except Exception as e:
