@@ -97,6 +97,12 @@ def cumulative(results: list[dict]):
     return {"n": len(rs), "model": m - 1, "spy": s - 1, "beat": sum(1 for r in rs if r["model_ret"] > r["spy_oc"])}
 
 
+def missing_secrets():
+    need = {"ALPACA_KEY_ID": C.ALPACA_KEY, "ALPACA_SECRET_KEY": C.ALPACA_SECRET, "SUPABASE_URL": C.SUPABASE_URL,
+            "SUPABASE_SERVICE_KEY": C.SUPABASE_KEY, "TELEGRAM_BOT_TOKEN": C.TELEGRAM_TOKEN, "TELEGRAM_CHAT_ID": C.TELEGRAM_CHAT}
+    return [k for k, v in need.items() if not v]
+
+
 def run(alpaca, store, now_et=None, send=notify.send, force=False):
     now_et = now_et or dt.datetime.now(NY)
     today = now_et.date()
@@ -176,6 +182,10 @@ def main():
     ap.add_argument("--local", action="store_true")
     ap.add_argument("--force", action="store_true")
     a = ap.parse_args()
+    miss = missing_secrets()
+    if miss and not a.local:
+        print("Faltan estos secretos en GitHub (Settings > Secrets and variables > Actions): " + ", ".join(miss))
+        sys.exit(1)
     from qx.store import LocalStore, SupabaseStore
     store = LocalStore("qx.sqlite") if a.local else SupabaseStore()
     try:

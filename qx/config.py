@@ -2,12 +2,16 @@
 import os
 
 # --- secretos (secretos del repositorio en GitHub, o un .env local) ---
-ALPACA_KEY = os.environ.get("ALPACA_KEY_ID", "")
-ALPACA_SECRET = os.environ.get("ALPACA_SECRET_KEY", "")
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
-SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT = os.environ.get("TELEGRAM_CHAT_ID", "")
+def env(name, default=""):
+    return os.environ.get(name, default).strip()   # los secretos pegados a veces traen espacios o saltos de línea
+
+
+ALPACA_KEY = env("ALPACA_KEY_ID")
+ALPACA_SECRET = env("ALPACA_SECRET_KEY")
+SUPABASE_URL = env("SUPABASE_URL").rstrip("/")
+SUPABASE_KEY = env("SUPABASE_SERVICE_KEY")
+TELEGRAM_TOKEN = env("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT = env("TELEGRAM_CHAT_ID")
 
 # --- universo ---
 MIN_PRICE = 5.0            # precio mínimo para entrar al universo
