@@ -192,7 +192,10 @@ def main():
         run(Alpaca(), store, force=a.force)
     except Exception as e:
         traceback.print_exc()
-        notify.send(f"⚠️ QX: la rutina diaria falló: {type(e).__name__}: {e}")
+        try:
+            notify.send(f"⚠️ QX: la rutina diaria falló: {type(e).__name__}: {e}")
+        except Exception as te:
+            print(f"No se pudo avisar por Telegram: {te}")
         try:
             store.log_run("daily", "error", {"error": str(e)})
         except Exception:

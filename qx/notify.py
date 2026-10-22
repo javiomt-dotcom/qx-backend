@@ -16,6 +16,11 @@ def send(text: str, token=None, chat=None, session=None) -> bool:
         r = s.post(f"https://api.telegram.org/bot{token}/sendMessage",
                    json={"chat_id": chat, "text": text[k:k + 3900], "parse_mode": "HTML",
                          "disable_web_page_preview": True}, timeout=30)
+        if r.status_code in (401, 404):
+            raise RuntimeError("Telegram rechazó el token del bot: revisa el secreto BOT / TELEGRAM_BOT_TOKEN")
+        if r.status_code == 400:
+            raise RuntimeError(f"Telegram rechazó el chat id ({r.json().get('description', '')}): revisa TELEGRAM_CHAT_ID "
+                               "y que le hayas mandado un mensaje a tu bot")
         r.raise_for_status()
     return True
 

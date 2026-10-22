@@ -14,13 +14,19 @@ import requests
 from . import config as C
 
 TRADING = "https://paper-api.alpaca.markets"
+LIVE = "https://api.alpaca.markets"
 DATA = "https://data.alpaca.markets"
 ETF_WORDS = (" ETF", " ETN", "ISHARES", "SPDR", "PROSHARES", "DIREXION", " FUND", "INVESCO QQQ", "VANGUARD")
 
 
 class Alpaca:
     def __init__(self, key=None, secret=None, session=None):
-        self.h = {"APCA-API-KEY-ID": key or C.ALPACA_KEY, "APCA-API-SECRET-KEY": secret or C.ALPACA_SECRET}
+        key, secret = key or C.ALPACA_KEY, secret or C.ALPACA_SECRET
+        if secret[:2] in ("PK", "AK") and key[:2] not in ("PK", "AK"):   # se guardaron al revés
+            key, secret = secret, key
+        self.trading = LIVE if key.startswith("AK") else TRADING          # llaves de cuenta real
+        self.h = {"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret}
+        print(f"Alpaca: llave {key[:2]}… ({len(key)} caracteres), secreto de {len(secret)} caracteres, {self.trading}")
         self.s = session or requests.Session()
 
     def _get(self, url, params=None, tries=5):
@@ -35,7 +41,7 @@ class Alpaca:
 
     # --- trading API ---
     def assets(self):
-        rows = self._get(f"{TRADING}/v2/assets", {"status": "active", "asset_class": "us_equity"})
+        rows = self._get(f"{self.trading}/v2/assets", {"status": "active", "asset_class": "us_equity"})
         out = []
         for a in rows:
             name = (a.get("name") or "").upper()
@@ -47,7 +53,7 @@ class Alpaca:
         return out
 
     def calendar(self, start: dt.date, end: dt.date):
-        rows = self._get(f"{TRADING}/v2/calendar", {"start": start.isoformat(), "end": end.isoformat()})
+        rows = self._get(f"{self.trading}/v2/calendar", {"start": start.isoformat(), "end": end.isoformat()})
         return [{"date": r["date"], "close": r["close"]} for r in rows]
 
     # --- data API ---
