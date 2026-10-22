@@ -191,8 +191,14 @@ def check():
         ok = False; print(f"❌ Alpaca: {e}")
     try:
         from qx.store import SupabaseStore
-        n = len(SupabaseStore().select("forecasts", limit=1))
-        print(f"✅ Supabase: conectado, tablas listas ({n} listas guardadas)")
+        st = SupabaseStore()
+        n = len(st.select("forecasts", limit=1))
+        try:
+            st.log_run("check", "ok", {})
+        except Exception as e:
+            raise RuntimeError("lee pero no puede escribir: SUPABASE_SERVICE_KEY debe ser la llave service_role "
+                               "(o la secret sb_secret_...), no la anon/publishable") from e
+        print(f"✅ Supabase: conectado, lee y escribe ({n} listas guardadas)")
     except Exception as e:
         ok = False; print(f"❌ Supabase: {e}")
     try:
