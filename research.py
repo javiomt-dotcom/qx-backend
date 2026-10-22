@@ -25,6 +25,7 @@ COST = 0.001            # ida y vuelta
 WARMUP = 250            # sesiones de entrenamiento antes de la primera prueba
 RETRAIN = 20
 MAX_ATRP = 0.08
+HOLD = 5                # días para las versiones que mantienen la posición
 
 
 def log(msg):
@@ -65,9 +66,9 @@ def build(p, universe):
     spy = idx["SPY"]
     rows_all = np.array(sorted(idx[s] for s in universe if s in idx))
     is_sp = np.array([p.syms[r] in SP500 for r in rows_all])
-    S = {k: [] for k in ("X", "day", "row", "sp", "top", "ret", "skip", "stop", "atrp", "r1", "oc", "cc")}
-    days, spy_oc, regime = [], [], []
-    for i in range(55, len(p.dates) - 1):
+    S = {k: [] for k in ("X", "day", "row", "sp", "top", "ret", "skip", "stop", "atrp", "r1", "oc", "cc", "g")}
+    days, spy_oc, spy_cc, regime = [], [], [], []
+    for i in range(55, len(p.dates) - HOLD):
         F = E.raw_features(p, i, spy)[rows_all]
         with np.errstate(invalid="ignore", divide="ignore"):
             dv = np.nanmean((p.c[rows_all, i - 19:i + 1] * p.v[rows_all, i - 19:i + 1]), axis=1)
@@ -91,13 +92,17 @@ def build(p, universe):
         breadth = float((Fv[:, 10] > 0).mean())
         regime.append(E.regime_at(p, spy, i, breadth)["key"])
         spy_oc.append(p.c[spy, i + 1] / p.o[spy, i + 1] - 1)
+        spy_cc.append(p.c[spy, i + 1] / p.c[spy, i] - 1)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            # camino de una posición de HOLD días: apertura del día 1 al cierre, luego cierre a cierre
+            g = np.stack([oc] + [p.c[rows, i + k] / p.c[rows, i + k - 1] - 1 for k in range(2, HOLD + 1)], axis=1)
         S["X"].append(E.zday(Fv).astype(np.float32)); S["day"].append(np.full(len(rows), d, np.int32))
         S["row"].append(rows); S["sp"].append(is_sp[ok]); S["top"].append(top); S["ret"].append(ret)
         S["skip"].append(skip); S["stop"].append(stop); S["atrp"].append(a / p.c[rows, i]); S["r1"].append(Fv[:, 0])
-        S["oc"].append(oc); S["cc"].append(cc)
+        S["oc"].append(oc); S["cc"].append(cc); S["g"].append(g.astype(np.float32))
     S = {k: np.concatenate(v) for k, v in S.items()}
     log(f"{len(days)} sesiones con datos, {len(S['day']):,} muestras")
-    return S, days, np.array(spy_oc), regime
+    return S, days, np.array(spy_oc), np.array(spy_cc), regime
 
 
 def weights(day, t):
@@ -145,12 +150,18 @@ def select(score, idxs, S, filt, sp_only=False, n=10):
     return out
 
 
+# (nombre, puntaje, filtro de volatilidad, sólo S&P, días que se mantiene)
 VARIANTS = [
-    ("A. Actual (producción)", "logit", False, False),
-    ("B. Actual + filtro de volatilidad", "logit", True, False),
-    ("C. Retorno ajustado por riesgo", "ridge_n", True, False),
-    ("D. Retorno ÷ volatilidad", "ridge_r", True, False),
-    ("E. C sólo S&P 500", "ridge_n", True, True),
+    ("A. Actual (producción)", "logit", False, False, 1),
+    ("B. Actual + filtro de volatilidad", "logit", True, False, 1),
+    ("C. Retorno ajustado por riesgo", "ridge_n", True, False, 1),
+    ("D. Retorno ÷ volatilidad", "ridge_r", True, False, 1),
+    ("E. C sólo S&P 500", "ridge_n", True, True, 1),
+    ("F. Retorno a 5 días (modelo)", "ridge_5", True, False, HOLD),
+    ("G. F sólo S&P 500", "ridge_5", True, True, HOLD),
+    ("H. Rebote: más castigadas 5d, 5 días", "rev5", True, False, HOLD),
+    ("I. Tendencia: más arriba de su media 50d, 5 días", "trend", True, False, HOLD),
+    ("J. Baja volatilidad S&P, 5 días", "lowvol", True, True, HOLD),
 ]
 
 
@@ -160,8 +171,11 @@ def walk_forward(S, ndays):
     lab = np.isfinite(S["ret"])
     y_n = np.clip(np.nan_to_num(S["ret"]) / np.maximum(S["atrp"], 1e-3), -3, 3).astype(np.float32)
     y_r = np.clip(np.nan_to_num(S["ret"]), -0.3, 0.3).astype(np.float32)
+    g5 = np.nansum(S["g"], axis=1)
+    lab5 = np.isfinite(S["g"]).all(axis=1)
+    y_5 = np.clip(g5 / np.maximum(S["atrp"] * np.sqrt(HOLD), 1e-3), -3, 3).astype(np.float32)
     res = {v[0]: [] for v in VARIANTS}
-    w_l = b_n = b_r = None
+    w_l = b_n = b_r = b_5 = None
     for t in range(WARMUP, ndays):
         if (t - WARMUP) % RETRAIN == 0:
             m = (S["day"] < t) & lab
@@ -169,19 +183,40 @@ def walk_forward(S, ndays):
             w_l = fit_logit(X, y_top[m], W, w_l, 220 if w_l is None else 60)
             b_n = fit_ridge(X, y_n[m], W)
             b_r = fit_ridge(X, y_r[m], W)
+            m5 = (S["day"] < t - HOLD) & lab5          # el resultado a 5 días sólo se conoce 5 sesiones después
+            b_5 = fit_ridge(S["X"][m5], y_5[m5], weights(S["day"][m5], t))
             log(f"re-entrenado en la sesión {t}/{ndays} ({m.sum():,} muestras)")
         ii = by_day[t]
         X = S["X"][ii]
         sc = {"logit": X @ w_l[:-1] + w_l[-1], "ridge_n": X @ b_n[:-1] + b_n[-1],
-              "ridge_r": (X @ b_r[:-1] + b_r[-1]) / np.maximum(S["atrp"][ii], 1e-3)}
-        for name, model, filt, sp_only in VARIANTS:
+              "ridge_r": (X @ b_r[:-1] + b_r[-1]) / np.maximum(S["atrp"][ii], 1e-3),
+              "ridge_5": X @ b_5[:-1] + b_5[-1], "rev5": -X[:, 4], "trend": X[:, 10], "lowvol": -X[:, 7]}
+        for name, model, filt, sp_only, hold in VARIANTS:
             pk = select(sc[model], ii, S, filt, sp_only)
-            r = S["ret"][pk]
-            r = r[np.isfinite(r)]
-            res[name].append({"t": t, "ret": float(r.mean()) if len(r) else 0.0, "hits": int(S["top"][pk].sum()),
+            if hold == 1:
+                r = S["ret"][pk]
+                r = r[np.isfinite(r)]
+                ret = float(r.mean()) if len(r) else 0.0
+            else:
+                path = S["g"][pk].copy(); path[:, 0] -= COST
+                ret = np.nan_to_num(np.nanmean(path, axis=0)) if len(pk) else np.zeros(hold)   # retorno de la cohorte por día
+            res[name].append({"t": t, "ret": ret, "hold": hold, "hits": int(S["top"][pk].sum()),
                               "stops": int(S["stop"][pk].sum()), "skips": int(S["skip"][pk].sum()),
                               "atrp": float(np.nanmean(S["atrp"][pk])) if pk else np.nan})
-    return res, (w_l, b_n, b_r)
+    return res, (w_l, b_n, b_r, b_5)
+
+
+def daily_series(v):
+    """Convierte cohortes de HOLD días (1/HOLD del capital cada día) en un retorno diario del portafolio."""
+    if v[0]["hold"] == 1:
+        return [x["ret"] for x in v]
+    h = v[0]["hold"]
+    n = len(v)
+    out = []
+    for j in range(n):
+        parts = [v[j - k]["ret"][k] for k in range(h) if j - k >= 0]
+        out.append(float(np.sum(parts)) / h)
+    return out
 
 
 def stats(rs):
@@ -193,33 +228,37 @@ def stats(rs):
             "win": float((r > 0).mean()), "mean": float(r.mean())}
 
 
-def report(S, days, dates, spy_oc, regime, res):
+def report(S, days, dates, spy_oc, spy_cc, regime, res):
     T = sorted({x["t"] for v in res.values() for x in v})
-    uni = []
+    uni, uni_cc = [], []
     for t in T:
         ii = np.where(S["day"] == t)[0]
-        uni.append(float(np.nanmean(S["oc"][ii])))
+        uni.append(float(np.nanmean(S["oc"][ii]))); uni_cc.append(float(np.nanmean(S["cc"][ii])))
     spy = [float(spy_oc[t]) for t in T]
+    spyc = [float(spy_cc[t]) for t in T]
     d0, d1 = dates[days[T[0]]], dates[days[T[-1]]]
-    print(f"\n## Resultados walk-forward: {len(T)} sesiones ({d0} a {d1}), 10 acciones por día, costo 0.10%\n")
+    print(f"\n## Resultados walk-forward: {len(T)} sesiones ({d0} a {d1}), 10 acciones por señal, costo 0.10% por operación\n")
+    print("Las versiones de 1 día compran en la apertura y venden al cierre (con gap, stop y objetivo). "
+          "Las de 5 días invierten 1/5 del capital cada día y mantienen cada grupo 5 sesiones.\n")
     print("| Variante | Acumulado | Anual | Sharpe | Peor caída | Días +  | Le gana al universo | En top 20 | Stops/día | ATR% medio |")
     print("|---|---|---|---|---|---|---|---|---|---|")
     rows = []
     for name, v in res.items():
-        r = [x["ret"] for x in v]
+        r = daily_series(v)
         s = stats(r)
-        beat = np.mean([a > b for a, b in zip(r, uni)])
+        beat = np.mean([a > b for a, b in zip(r, uni if v[0]["hold"] == 1 else uni_cc)])
         rows.append((name, s))
         print(f"| {name} | {s['cum']:+.1%} | {s['ann']:+.1%} | {s['sharpe']:.2f} | {s['dd']:.1%} | {s['win']:.0%} | {beat:.0%} | "
               f"{np.mean([x['hits'] for x in v]):.2f} | {np.mean([x['stops'] for x in v]):.1f} | {np.nanmean([x['atrp'] for x in v]):.1%} |")
-    for name, r in (("Universo (igual peso, apertura a cierre)", uni), ("SPY (apertura a cierre)", spy)):
+    for name, r in (("Universo, apertura a cierre", uni), ("SPY, apertura a cierre", spy),
+                    ("Universo, comprar y mantener", uni_cc), ("SPY, comprar y mantener", spyc)):
         s = stats(r)
         print(f"| {name} | {s['cum']:+.1%} | {s['ann']:+.1%} | {s['sharpe']:.2f} | {s['dd']:.1%} | {s['win']:.0%} | — | — | — | — |")
     years = sorted({dates[days[t]][:4] for t in T})
     print("\n### Por año (acumulado)\n")
     print("| Variante | " + " | ".join(years) + " |")
     print("|---|" + "---|" * len(years))
-    series = {**{n: [x["ret"] for x in v] for n, v in res.items()}, "Universo": uni, "SPY": spy}
+    series = {**{n: daily_series(v) for n, v in res.items()}, "Universo (mantener)": uni_cc, "SPY (mantener)": spyc}
     for name, r in series.items():
         cells = []
         for y in years:
@@ -243,13 +282,14 @@ def main():
     a = ap.parse_args()
     p, universe = load(a.years)
     log(f"panel: {len(p.syms)} símbolos × {len(p.dates)} sesiones ({p.dates[0]} a {p.dates[-1]})")
-    S, days, spy_oc, regime = build(p, universe)
+    S, days, spy_oc, spy_cc, regime = build(p, universe)
     res, models = walk_forward(S, len(days))
-    report(S, days, p.dates, spy_oc, regime, res)
-    w_l, b_n, b_r = models
-    print("\n### Pesos del modelo C (retorno ajustado por riesgo), último entrenamiento\n")
-    for j in np.argsort(-np.abs(b_n[:-1])):
-        print(f"- {E.FEATS[j][1]}: {b_n[j]:+.3f}")
+    report(S, days, p.dates, spy_oc, spy_cc, regime, res)
+    w_l, b_n, b_r, b_5 = models
+    for title, b in (("C (retorno ajustado por riesgo, 1 día)", b_n), ("F (retorno a 5 días)", b_5)):
+        print(f"\n### Pesos del modelo {title}, último entrenamiento\n")
+        for j in np.argsort(-np.abs(b[:-1])):
+            print(f"- {E.FEATS[j][1]}: {b[j]:+.3f}")
     print("\nNota: el universo es el de hoy (acciones que siguen listadas), así que hay algo de sesgo de supervivencia; "
           "el filtro de precio y liquidez sí se aplica con los datos de cada día.")
 
