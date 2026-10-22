@@ -23,7 +23,9 @@ class SupabaseStore:
     def __init__(self, url=None, key=None, session=None):
         self.url = (url or C.SUPABASE_URL) + "/rest/v1"
         k = key or C.SUPABASE_KEY
-        self.h = {"apikey": k, "Authorization": f"Bearer {k}", "Content-Type": "application/json"}
+        self.h = {"apikey": k, "Content-Type": "application/json"}
+        if not k.startswith("sb_"):          # llaves viejas (JWT); las nuevas sb_secret_ van sólo en apikey
+            self.h["Authorization"] = f"Bearer {k}"
         self.s = session or requests.Session()
 
     def upsert(self, table, rows, batch=2000):
