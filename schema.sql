@@ -95,3 +95,27 @@ alter table picks         enable row level security;
 alter table outcomes      enable row level security;
 alter table daily_results enable row level security;
 alter table runs          enable row level security;
+
+-- estrategia swing de 5 días (en paralelo desde oct 2026)
+create table if not exists swing_picks (
+  signal_date  date not null,
+  rank         int  not null,
+  symbol       text not null,
+  score        double precision not null,
+  close        double precision not null,
+  atr          double precision not null,
+  max_entry    double precision not null,
+  shares       int,
+  sp500        boolean not null,
+  reasons      jsonb not null default '[]'::jsonb,
+  sell_session date,              -- se vende al cierre de esta sesión
+  primary key (signal_date, symbol)
+);
+create table if not exists swing_results (
+  session  date primary key,
+  ret      double precision,      -- retorno diario del portafolio (cada cohorte pesa 1/5)
+  spy_cc   double precision,
+  cohorts  int
+);
+alter table swing_picks   enable row level security;
+alter table swing_results enable row level security;

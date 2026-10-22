@@ -21,7 +21,7 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
-from qx import config as C, engine as E, notify
+from qx import config as C, engine as E, notify, swing as SW
 from qx.data_alpaca import Alpaca, last_completed_session
 from qx.sp500 import SP500, INDEXES
 
@@ -90,6 +90,54 @@ def score_forecast(panel: E.Panel, f: dict, picks: list[dict], model_syms: list[
     return res, outs
 
 
+def run_swing(panel, universe, store, last, sessions):
+    """Lista swing del día, calificación de las sesiones cerradas y resumen para el mensaje."""
+    out = {"picks": [], "sells": [], "yesterday": None, "cum": None, "error": None}
+    try:
+        # calificar sesiones cerradas que todavía no tienen resultado
+        prev = store.select("swing_picks", {"signal_date": f"gte.{sessions[0]}"})
+        cohorts = {}
+        for r in prev:
+            cohorts.setdefault(str(r["signal_date"]), []).append(r["symbol"])
+        done = {str(r["session"]) for r in store.select("swing_results")}
+        if cohorts:
+            first = min(cohorts)
+            todo = [d for d in sessions if first < d <= last and d not in done]
+            res = [x for x in (SW.score_session(panel, d, cohorts, sessions) for d in todo) if x]
+            if res:
+                store.upsert("swing_results", res)
+                out["yesterday"] = res[-1]
+        allr = store.select("swing_results", order="session.asc")
+        rs = [r for r in allr if r.get("ret") is not None and r.get("spy_cc") is not None]
+        if rs:
+            m = float(np.prod([1 + r["ret"] for r in rs]) - 1); s = float(np.prod([1 + r["spy_cc"] for r in rs]) - 1)
+            out["cum"] = {"n": len(rs), "model": m, "spy": s}
+        # lista nueva
+        picks, info = SW.run(panel, universe, SP500)
+        i = len(panel.dates) - 1
+        pos = sessions.index(last)
+        sell = sessions[pos + HOLD_SELL] if pos + HOLD_SELL < len(sessions) else None
+        rows = []
+        for k, x in enumerate(picks, 1):
+            pl = SW.plan(panel, i, x)
+            rows.append({"signal_date": last, "rank": k, "symbol": x["s"], "score": x["score"], "sp500": x["sp"],
+                         "reasons": x["reasons"], "sell_session": sell, **pl})
+        store.upsert("swing_picks", rows)
+        out["picks"] = rows
+        # las que se venden al cierre de la próxima sesión: compradas con la señal de hace 4 sesiones
+        sig_sell = sessions[pos - (SW.HOLD - 1)] if pos - (SW.HOLD - 1) >= 0 else None
+        out["sells"] = cohorts.get(sig_sell, []) if sig_sell else []
+        out["sell_signal"] = sig_sell
+    except Exception as e:                      # el swing no debe tumbar la rutina principal
+        import traceback
+        traceback.print_exc()
+        out["error"] = f"{type(e).__name__}: {e}"
+    return out
+
+
+HOLD_SELL = SW.HOLD        # la lista con señal k se vende al cierre de la sesión k+5
+
+
 def cumulative(results: list[dict]):
     rs = [r for r in results if r.get("model_ret") is not None and r.get("spy_oc") is not None]
     m = s = 1.0
@@ -129,7 +177,7 @@ def run(alpaca, store, now_et=None, send=notify.send, force=False):
                               "sp500": s in SP500} for s in bars if s not in known])
     rows = []
     for s, r in bars.items():
-        k0 = 0 if s not in known else max(0, len(r["t"]) - 10)
+        k0 = max(0, len(r["t"]) - (C.STORE_SESSIONS if s not in known else 10))
         rows += [{"symbol": s, "d": r["t"][k], "o": r["o"][k], "h": r["h"][k], "l": r["l"][k], "c": r["c"][k], "v": r["v"][k]}
                  for k in range(k0, len(r["t"]))]
     store.upsert("bars", rows)
@@ -171,11 +219,16 @@ def run(alpaca, store, now_et=None, send=notify.send, force=False):
     store.upsert("forecasts", [f])
     store.upsert("picks", picks)
 
+    # --- swing de 5 días (en paralelo) ---
+    sessions = [r["date"] for r in cal]
+    sw_res = run_swing(panel, universe, store, last, sessions)
+
+
     cum = cumulative(store.select("daily_results", order="signal_date.asc"))
-    msg = notify.daily_message(f, picks, y, cum)
+    msg = notify.swing_message(sw_res, f["for_session"]) + "\n\n" + notify.daily_message(f, picks, y, cum)
     send(msg)
     store.log_run("daily", "ok", {"signal": last, "universe": f["universe"], "picks": [p["symbol"] for p in picks]})
-    return {"forecast": f, "picks": picks, "yesterday": y, "cum": cum, "message": msg}
+    return {"forecast": f, "picks": picks, "yesterday": y, "cum": cum, "message": msg, "swing": sw_res}
 
 
 def check():

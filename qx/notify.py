@@ -33,7 +33,7 @@ REG = {"fav": "Favorable", "neu": "Neutral", "weak": "Débil"}
 
 
 def daily_message(f: dict, picks: list[dict], y: dict | None, cum: dict | None) -> str:
-    L = [f"<b>QX · lista para el {f['for_session']}</b>",
+    L = [f"<b>Modelo anterior (1 día, en comparación) · {f['for_session']}</b>",
          f"Señal: cierre del {f['signal_date']} · régimen {REG[f['regime']]} "
          f"(tamaño {int(C.REGIME_MULT[f['regime']] * 100)}%) · universo {f['universe']} acciones"]
     if y or cum:
@@ -53,4 +53,28 @@ def daily_message(f: dict, picks: list[dict], y: dict | None, cum: dict | None) 
     L.append("<pre>" + "\n".join(rows) + "</pre>")
     L.append("* fuera del S&P 500. Compra en la apertura; si abre arriba de «NoArriba», sáltala. "
              "Stop y objetivo están calculados desde el cierre. No es asesoría financiera.")
+    return "\n".join(L)
+
+
+def swing_message(sw: dict, for_session: str) -> str:
+    """Sección principal: swing de 5 días."""
+    if sw.get("error"):
+        return f"⚠️ <b>Swing 5 días:</b> no se pudo calcular hoy ({sw['error']})."
+    L = [f"<b>QX Swing 5 días · {for_session}</b>",
+         f"Compra en la apertura ${C.CAPITAL / 5 / 10:,.0f} de cada una (1/5 del capital entre 10) y mantén 5 sesiones. "
+         "Si el precio es mayor que eso, usa acciones fraccionarias."]
+    y, cum = sw.get("yesterday"), sw.get("cum")
+    if y:
+        L.append(f"<b>Ayer ({y['session']}):</b> swing {pct(y['ret'])} vs SPY {pct(y['spy_cc'])} · {y['cohorts']} grupos activos")
+    if cum and cum.get("n"):
+        L.append(f"<b>Acumulado real ({cum['n']} sesiones):</b> swing {pct(cum['model'], 1)} vs SPY {pct(cum['spy'], 1)}")
+    rows = ["#  Símbolo  NoArriba  Acc"]
+    for p in sw.get("picks", []):
+        tag = "" if p["sp500"] else "*"
+        rows.append(f"{p['rank']:<2} {p['symbol'] + tag:<8} {p['max_entry']:8.2f} {p['shares']:>4}")
+    L.append("<b>Comprar:</b>")
+    L.append("<pre>" + "\n".join(rows) + "</pre>")
+    if sw.get("sells"):
+        L.append(f"<b>Vender al cierre:</b> {', '.join(sw['sells'])} (compradas con la señal del {sw.get('sell_signal')})")
+    L.append("En prueba en paralelo durante 4 semanas.")
     return "\n".join(L)

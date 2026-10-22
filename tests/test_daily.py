@@ -86,6 +86,11 @@ def test_end_to_end():
     assert all(p["symbol"] != "X15" for p in picks), "descarta el salto de +60%"
     assert all(p["max_entry"] > p["close"] > p["stop"] and p["target"] > p["close"] for p in picks)
     assert sent and "QX" in sent[0]
+    sw = out["swing"]
+    assert sw["error"] is None, sw["error"]
+    assert len(sw["picks"]) == 10 and sum(1 for p in sw["picks"] if not p["sp500"]) <= 3
+    assert all(p["sell_session"] == "2026-10-28" for p in sw["picks"])
+    assert "Swing 5 días" in sent[0]
     # mismo día otra vez: no duplica
     assert daily.run(fa, st, now_et=now, send=sent.append) is None
 
@@ -102,6 +107,9 @@ def test_end_to_end():
     assert len(oc) == 10 and all(o["flag"] in ("OK", "STOP", "TARGET", "SKIPPED") for o in oc)
     assert out2["cum"]["n"] == 1
     assert "Ayer" in sent[-1]
+    y5 = out2["swing"]["yesterday"]
+    assert out2["swing"]["error"] is None and y5 and y5["session"] == "2026-10-22" and y5["cohorts"] == 1
+    assert len(st.select("swing_picks")) == 20
 
 
 def test_trade_rules():

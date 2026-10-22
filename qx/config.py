@@ -16,7 +16,8 @@ TELEGRAM_CHAT = env("TELEGRAM_CHAT_ID")
 # --- universo ---
 MIN_PRICE = 5.0            # precio mínimo para entrar al universo
 MIN_DOLLAR_VOL = 5e6       # promedio 20 días de dólares negociados
-HISTORY_DAYS = 400         # días naturales de historial que se guardan
+HISTORY_DAYS = 1100        # días naturales de historial que se bajan (3 años, para entrenar el swing)
+STORE_SESSIONS = 280       # sesiones que se guardan en la base para símbolos nuevos (~1 año)
 EXCHANGES = {"NYSE", "NASDAQ", "AMEX", "ARCA", "BATS"}
 
 # --- modelo (mismos valores que la terminal) ---
