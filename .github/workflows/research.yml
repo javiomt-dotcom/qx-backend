@@ -1,0 +1,24 @@
+name: QX investigación
+
+on:
+  workflow_dispatch:
+    inputs:
+      years:
+        description: "Años de historia"
+        default: "3"
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python research.py --years ${{ inputs.years || '3' }} | tee research.md
+        env:
+          ALPACA_KEY_ID: ${{ secrets.ALPACA_KEY_ID || secrets.ALPACA_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY || secrets.ALPACA_SECRETO }}
+      - run: grep -v '^\[' research.md >> "$GITHUB_STEP_SUMMARY"
