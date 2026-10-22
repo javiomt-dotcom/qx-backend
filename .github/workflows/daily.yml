@@ -1,0 +1,37 @@
+name: QX diario
+
+on:
+  schedule:
+    # 21:30 UTC = 17:30 en Nueva York con horario de verano, 16:30 en invierno.
+    # La segunda corrida es un reintento: si la lista ya existe, no hace nada.
+    - cron: "30 21 * * 1-5"
+    - cron: "30 22 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Rehacer la lista aunque ya exista"
+        type: boolean
+        default: false
+
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python tests/test_daily.py
+      - run: python daily.py ${{ inputs.force && '--force' || '' }}
+        env:
+          ALPACA_KEY_ID: ${{ secrets.ALPACA_KEY_ID }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          QX_CAPITAL: ${{ vars.QX_CAPITAL || '10000' }}
+          QX_RISK: ${{ vars.QX_RISK || '0.01' }}
+          QX_MAXPOS: ${{ vars.QX_MAXPOS || '0.20' }}
