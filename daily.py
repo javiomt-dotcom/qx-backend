@@ -13,6 +13,7 @@ Uso:  python daily.py            (producción: Alpaca + Supabase + Telegram)
 from __future__ import annotations
 
 import argparse
+import os
 import datetime as dt
 import sys
 import traceback
@@ -197,7 +198,13 @@ def check():
     try:
         me = requests.get(f"https://api.telegram.org/bot{C.TELEGRAM_TOKEN}/getMe", timeout=30)
         if me.status_code != 200:
-            raise RuntimeError("el token del bot no es válido")
+            t = C.TELEGRAM_TOKEN
+            left, _, right = t.partition(":")
+            raise RuntimeError(f"el token del bot no es válido (secreto {os.environ.get('QX_TOKEN_SRC', '?')}: "
+                               f"{len(t)} caracteres, {'con' if ':' in t else 'SIN'} dos puntos, "
+                               f"{len(left)} caracteres antes y {len(right)} después; "
+                               f"{'solo números antes' if left.isdigit() else 'hay letras antes de los dos puntos'}; "
+                               f"{'tiene espacios' if ' ' in t else 'sin espacios'})")
         notify.send("✅ QX: conexión con Telegram lista. Aquí te llegará la lista diaria.")
         print(f"✅ Telegram: bot @{me.json()['result']['username']} y mensaje de prueba enviado")
     except Exception as e:
