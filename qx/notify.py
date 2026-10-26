@@ -76,5 +76,9 @@ def swing_message(sw: dict, for_session: str) -> str:
     L.append("<pre>" + "\n".join(rows) + "</pre>")
     if sw.get("sells"):
         L.append(f"<b>Vender al cierre:</b> {', '.join(sw['sells'])} (compradas con la señal del {sw.get('sell_signal')})")
+    if sw.get("earn_skipped"):
+        L.append(f"<b>Fuera por reporte de resultados:</b> {', '.join(sw['earn_skipped'])}")
+    if sw.get("earn_note"):
+        L.append(f"ℹ️ Filtro de reportes: {sw['earn_note']}.")
     L.append("En prueba en paralelo durante 4 semanas.")
     return "\n".join(L)

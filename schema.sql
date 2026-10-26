@@ -119,3 +119,12 @@ create table if not exists swing_results (
 );
 alter table swing_picks   enable row level security;
 alter table swing_results enable row level security;
+
+-- calendario de reportes de resultados (Alpha Vantage): el swing no compra las que reportan durante los 5 días
+create table if not exists earnings (
+  symbol      text not null,
+  report_date date not null,
+  time        text,               -- pre-market / post-market
+  primary key (symbol, report_date)
+);
+alter table earnings enable row level security;

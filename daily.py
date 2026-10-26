@@ -21,7 +21,7 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
-from qx import config as C, engine as E, notify, swing as SW
+from qx import config as C, earnings as EA, engine as E, notify, swing as SW
 from qx.data_alpaca import Alpaca, last_completed_session
 from qx.sp500 import SP500, INDEXES
 
@@ -112,11 +112,17 @@ def run_swing(panel, universe, store, last, sessions):
         if rs:
             m = float(np.prod([1 + r["ret"] for r in rs]) - 1); s = float(np.prod([1 + r["spy_cc"] for r in rs]) - 1)
             out["cum"] = {"n": len(rs), "model": m, "spy": s}
-        # lista nueva
-        picks, info = SW.run(panel, universe, SP500)
+        # lista nueva, sin las que reportan resultados mientras estarían en cartera
         i = len(panel.dates) - 1
         pos = sessions.index(last)
         sell = sessions[pos + HOLD_SELL] if pos + HOLD_SELL < len(sessions) else None
+        earn, out["earn_note"] = load_earnings(store, last)
+        end = sell or str(dt.date.fromisoformat(last) + dt.timedelta(days=8))
+        # un reporte antes de la apertura del día de la señal ya está en el precio
+        earn = [r for r in earn if not (str(r["report_date"])[:10] == last and r.get("time") == "pre-market")]
+        skip = EA.in_window(earn, last, end)
+        picks, info = SW.run(panel, universe, SP500, exclude=frozenset(skip))
+        out["earn_skipped"] = [f"{s} ({skip[s][5:]})" for s in info["skipped"]]
         rows = []
         for k, x in enumerate(picks, 1):
             pl = SW.plan(panel, i, x)
@@ -136,6 +142,27 @@ def run_swing(panel, universe, store, last, sessions):
 
 
 HOLD_SELL = SW.HOLD        # la lista con señal k se vende al cierre de la sesión k+5
+
+
+def load_earnings(store, last):
+    """Baja el calendario de reportes (si hay llave de Alpha Vantage) y devuelve lo guardado desde la señal."""
+    note = None
+    if C.ALPHAVANTAGE_KEY:
+        try:
+            rows = EA.fetch()
+            if rows:
+                store.upsert("earnings", rows)
+        except Exception as e:
+            note = f"no se pudo bajar el calendario de reportes ({type(e).__name__}); uso el último guardado"
+            print("earnings:", e)
+    try:
+        rows = store.select("earnings", {"report_date": f"gte.{last}"})
+    except Exception as e:
+        print("earnings select:", e)
+        rows = []
+    if not rows and not note:
+        note = "sin calendario de reportes (falta el secreto ALPHAVANTAGE_KEY)" if not C.ALPHAVANTAGE_KEY else "el calendario de reportes llegó vacío"
+    return rows, note
 
 
 def cumulative(results: list[dict]):

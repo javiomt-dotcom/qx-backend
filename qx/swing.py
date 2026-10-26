@@ -36,8 +36,9 @@ def fit_ridge(X, y, W, lam=50.0):
     return np.linalg.solve(A, (Xb * W[:, None]).T @ y)
 
 
-def run(p: E.Panel, universe: list[str], sp500: frozenset):
-    """Devuelve (picks del último día, info). Cada pick: s, row, score, model, trend, atrp, sp."""
+def run(p: E.Panel, universe: list[str], sp500: frozenset, exclude=frozenset()):
+    """Devuelve (picks del último día, info). Cada pick: s, row, score, model, trend, atrp, sp.
+    exclude: símbolos que no se pueden comprar hoy (p. ej. reportan resultados durante los 5 días)."""
     idx = p.idx
     spy = idx["SPY"]
     rows_all = np.array(sorted(idx[s] for s in universe if s in idx))
@@ -63,9 +64,12 @@ def run(p: E.Panel, universe: list[str], sp500: frozenset):
     score = mz + Z[:, 10]
     w_eff = np.append(b[:-1] / (m.std() or 1), 0.0)       # contribución de cada rasgo al puntaje, para el "por qué"
     w_eff[10] += 1.0
-    out, non_sp = [], 0
+    out, non_sp, skipped = [], 0, []
     for k in np.argsort(-score):
         if raw[k, 0] > C.MAX_JUMP or not (atrp[k] <= MAX_ATRP):
+            continue
+        if p.syms[rows[k]] in exclude:
+            skipped.append(p.syms[rows[k]])          # habría entrado a la lista
             continue
         if not sp[k] and non_sp >= C.MAX_NON_SP:
             continue
@@ -75,7 +79,8 @@ def run(p: E.Panel, universe: list[str], sp500: frozenset):
         non_sp += (not sp[k])
         if len(out) == PICKS:
             break
-    return out, {"weights": {E.FEATS[j][0]: float(b[j]) for j in range(E.K)}, "n_train": int(len(y)), "universe": int(len(rows))}
+    return out, {"weights": {E.FEATS[j][0]: float(b[j]) for j in range(E.K)}, "n_train": int(len(y)), "universe": int(len(rows)),
+                 "skipped": skipped}
 
 
 def plan(p: E.Panel, i: int, pick: dict):

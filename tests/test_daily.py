@@ -99,7 +99,14 @@ def test_end_to_end():
     for s in fa.data:                 # el pasado no cambia; sólo se agrega el 22
         for k in fa.data[s]:
             fa2.data[s][k] = fa.data[s][k] + fa2.data[s][k][-1:]
+    first = [p["symbol"] for p in sw["picks"]]
+    st.upsert("earnings", [{"symbol": s, "report_date": "2026-10-27", "time": "post-market"} for s in first]
+              + [{"symbol": "X01", "report_date": "2026-11-20", "time": None}])
     out2 = daily.run(fa2, st, now_et=dt.datetime(2026, 10, 22, 17, 0, tzinfo=NY), send=sent.append)
+    sw2 = out2["swing"]
+    assert not set(first) & {p["symbol"] for p in sw2["picks"]}, "no compra las que reportan durante los 5 días"
+    assert len(sw2["picks"]) == 10 and sw2["earn_skipped"] and all("10-27" in x for x in sw2["earn_skipped"])
+    assert "Fuera por reporte" in sent[-1]
     y = out2["yesterday"]
     assert y and y["session"] == "2026-10-22"
     assert y["model_ret"] is not None and math.isfinite(y["model_ret"])
@@ -110,6 +117,26 @@ def test_end_to_end():
     y5 = out2["swing"]["yesterday"]
     assert out2["swing"]["error"] is None and y5 and y5["session"] == "2026-10-22" and y5["cohorts"] == 1
     assert len(st.select("swing_picks")) == 20
+
+
+def test_earnings_parse():
+    from qx import earnings as EA
+    class R:
+        text = "symbol,name,reportDate,fiscalDateEnding,estimate,currency,timeOfTheDay\r\nAAPL,APPLE,2026-11-02,2026-09-30,2.0,USD,post-market\r\nBRK-B,BERKSHIRE,2026-11-03,,,USD,\r\n"
+        def raise_for_status(self): pass
+    class Sess:
+        def get(self, *a, **k): return R()
+    rows = EA.fetch("k", session=Sess())
+    assert rows[0] == {"symbol": "AAPL", "report_date": "2026-11-02", "time": "post-market"} and rows[1]["symbol"] == "BRK.B"
+    assert EA.in_window(rows, "2026-10-30", "2026-11-02") == {"AAPL": "2026-11-02"}
+    class Bad(R):
+        text = '{"Information": "rate limit"}'
+    class S2:
+        def get(self, *a, **k): return Bad()
+    try:
+        EA.fetch("k", session=S2()); assert False
+    except RuntimeError:
+        pass
 
 
 def test_trade_rules():
@@ -131,4 +158,4 @@ def test_session_cutoff():
 
 
 if __name__ == "__main__":
-    test_trade_rules(); test_session_cutoff(); test_end_to_end(); print("ok")
+    test_trade_rules(); test_earnings_parse(); test_session_cutoff(); test_end_to_end(); print("ok")

@@ -12,6 +12,7 @@ SUPABASE_URL = env("SUPABASE_URL").rstrip("/")
 SUPABASE_KEY = env("SUPABASE_SERVICE_KEY")
 TELEGRAM_TOKEN = env("TELEGRAM_BOT_TOKEN").removeprefix("bot")   # por si se pegó con el "bot" de la URL
 TELEGRAM_CHAT = env("TELEGRAM_CHAT_ID")
+ALPHAVANTAGE_KEY = env("ALPHAVANTAGE_KEY")   # opcional: calendario de reportes para el filtro del swing
 
 # --- universo ---
 MIN_PRICE = 5.0            # precio mínimo para entrar al universo

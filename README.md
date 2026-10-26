@@ -38,6 +38,8 @@ En el repositorio: **Settings → Secrets and variables → Actions → New repo
 | `TELEGRAM_BOT_TOKEN` | token de BotFather |
 | `TELEGRAM_CHAT_ID` | tu chat id |
 
+Opcional: `ALPHAVANTAGE_KEY` con tu llave gratis de https://www.alphavantage.co/support/#api-key. Con ella el swing no compra acciones que reportan resultados durante los 5 días.
+
 Opcional, en la pestaña **Variables**: `QX_CAPITAL` (capital, para calcular acciones), `QX_RISK` (riesgo por operación, ej. `0.01`) y `QX_MAXPOS` (tope por posición, ej. `0.2`).
 
 Nunca pegues estas llaves en un chat ni en el código.
