@@ -140,6 +140,23 @@ def test_end_to_end():
     assert intraday.run(fa3, st, now_et=dt.datetime(2026, 10, 23, 9, 35, tzinfo=NY), send=got.append) is None  # antes de la barra
     assert intraday.run(fa3, st, now_et=dt.datetime(2026, 10, 24, 12, 0, tzinfo=NY), send=got.append) is None  # sábado
 
+    # comandos del bot
+    import bot
+    msgs = [{"update_id": 5, "message": {"chat": {"id": 42}, "text": "/lista"}},
+            {"update_id": 6, "message": {"chat": {"id": 42}, "text": "/posiciones@qxbot"}},
+            {"update_id": 7, "message": {"chat": {"id": 99}, "text": "/lista"}},
+            {"update_id": 8, "message": {"chat": {"id": 42}, "text": "hola"}},
+            {"update_id": 9, "message": {"chat": {"id": 42}, "text": "/resultados"}}]
+    seen = []
+    def get(token, offset=None):
+        seen.append(offset); return [] if offset else msgs
+    out = []
+    assert bot.run(st, fa3, token="t", chat=42, send=out.append, get=get, today=dt.date(2026, 10, 23)) == 4
+    assert seen == [None, 10], "confirma los mensajes leídos"
+    assert "Lista swing · señal 2026-10-22" in out[0]
+    assert "Señal 2026-10-21" in out[1] and "Señal 2026-10-22" in out[1], out[1]
+    assert "Comandos de QX" in out[2] and "Swing 5 días" in out[3]
+
 
 def test_earnings_parse():
     from qx import earnings as EA

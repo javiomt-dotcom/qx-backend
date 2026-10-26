@@ -297,8 +297,9 @@ def check():
         print(f"Telegram: {len(ids)} chat(s) le han escrito al bot; TELEGRAM_CHAT_ID tiene {len(cid)} dígitos"
               f"{' y coincide' if cid in ids else (' y NO coincide con ninguno' if ids else '')}")
         if not ids:
-            raise RuntimeError("nadie le ha escrito al bot todavía: ábrelo en Telegram y mándale /start")
-        if cid not in ids:
+            print("Telegram: no hay mensajes pendientes (el bot de comandos ya los leyó o nadie le ha escrito); "
+                  "si no te llega el mensaje de prueba, mándale /start a tu bot")
+        elif cid not in ids:
             raise RuntimeError("TELEGRAM_CHAT_ID no coincide con el chat que le escribió al bot; "
                                + ", ".join(f"ese chat termina en …{i[-3:]}" for i in ids))
         notify.send("✅ QX: conexión con Telegram lista. Aquí te llegará la lista diaria.")

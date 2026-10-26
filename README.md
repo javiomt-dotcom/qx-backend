@@ -51,6 +51,10 @@ En **Actions → QX diario → Run workflow**. Si todo está bien, te llega el m
 
 El workflow **QX alertas** corre cada 30 minutos con el mercado abierto y te avisa por Telegram si una acción de la lista de hoy abrió arriba de «No comprar arriba de», si una posición abierta cae más de 2 ATR desde la compra, y en la última hora qué lista se vende al cierre. Cada aviso llega una sola vez al día.
 
+## Comandos del bot
+
+El workflow **QX bot** revisa tus mensajes cada 10 minutos y contesta: `/lista` (lista swing más reciente), `/posiciones` (listas abiertas, cuánto van y cuándo se venden), `/resultados` (acumulado real contra SPY) y `/ayuda`. Sólo le contesta a tu chat.
+
 ## Correr en tu computadora
 
 ```bash
@@ -64,6 +68,7 @@ python daily.py --force             # rehace la lista del día aunque ya exista
 
 - `daily.py`: la rutina completa.
 - `intraday.py`: alertas durante la sesión.
+- `bot.py`: comandos de Telegram.
 - `qx/swing.py`: estrategia swing de 5 días.
 - `qx/earnings.py`: calendario de reportes de resultados.
 - `qx/engine.py`: modelo (regresión logística con calibración), backtest y reglas de entrada.
