@@ -2,21 +2,29 @@ name: QX alertas
 
 on:
   schedule:
-    # cada 30 minutos de 13:00 a 20:59 UTC, lunes a viernes; el script revisa si el mercado está abierto
-    - cron: "5,35 13-20 * * 1-5"
+    # GitHub retrasa o se salta muchas corridas programadas; por eso hay tres arranques al día y cada uno
+    # se queda revisando cada 15 minutos durante 160 minutos (cubre 13:20 a ~21:20 UTC, horario de verano e invierno).
+    # Si un arranque se atrasa, el siguiente espera en fila y empieza cuando termina el anterior.
+    - cron: "20 13 * * 1-5"
+    - cron: "50 15 * * 1-5"
+    - cron: "20 18 * * 1-5"
   workflow_dispatch:
+
+concurrency:
+  group: qx-alertas
+  cancel-in-progress: false
 
 jobs:
   alerts:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 175
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: python intraday.py
+      - run: python intraday.py --loop 160 --every 15
         env:
           ALPACA_KEY_ID: ${{ secrets.ALPACA_KEY_ID || secrets.ALPACA_KEY }}
           ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY || secrets.ALPACA_SECRETO }}

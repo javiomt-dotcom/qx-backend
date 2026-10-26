@@ -2,8 +2,10 @@ name: QX bot
 
 on:
   schedule:
-    # revisa los mensajes del bot cada 10 minutos (GitHub a veces se retrasa unos minutos más)
-    - cron: "*/10 * * * *"
+    # cinco ventanas de ~3 horas, de 13:00 a 04:00 UTC (7am a 10pm en México); dentro de cada una el bot
+    # escucha con long polling y contesta en segundos. Si un arranque se atrasa, espera en fila al anterior.
+    - cron: "0 13,16,19,22 * * *"
+    - cron: "0 1 * * *"
   workflow_dispatch:
 
 concurrency:
@@ -13,14 +15,14 @@ concurrency:
 jobs:
   bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 185
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: python bot.py
+      - run: python bot.py --loop 175
         env:
           ALPACA_KEY_ID: ${{ secrets.ALPACA_KEY_ID || secrets.ALPACA_KEY }}
           ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY || secrets.ALPACA_SECRETO }}

@@ -1,4 +1,5 @@
-"""Comandos del bot de Telegram. Corre cada 10 minutos en GitHub Actions, así que contesta con algo de retraso.
+"""Comandos del bot de Telegram. Corre en GitHub Actions en ventanas de ~3 horas (de 7am a 10pm hora de México)
+y dentro de cada ventana escucha con long polling, así que contesta en segundos.
 
 /lista       lista swing más reciente
 /posiciones  listas abiertas, cuánto van y cuándo se venden
@@ -20,12 +21,12 @@ from qx import config as C, notify, swing as SW
 from qx.notify import pct
 
 HELP = ("<b>Comandos de QX</b>\n/lista · lista swing para la próxima sesión\n/posiciones · listas abiertas y cuándo se venden\n"
-        "/resultados · acumulado real contra SPY\n/ayuda · esta ayuda\n\nContesto en unos minutos: reviso los mensajes cada 10.")
+        "/resultados · acumulado real contra SPY\n/ayuda · esta ayuda\n\nContesto de 7am a 10pm hora de México; fuera de ese horario, al empezar el día.")
 
 
-def updates(token, offset=None, session=requests):
+def updates(token, offset=None, session=requests, wait=0):
     r = session.get(f"https://api.telegram.org/bot{token}/getUpdates",
-                    params={"timeout": 0, **({"offset": offset} if offset else {})}, timeout=30)
+                    params={"timeout": wait, **({"offset": offset} if offset else {})}, timeout=wait + 30)
     r.raise_for_status()
     return r.json().get("result", [])
 
@@ -106,18 +107,34 @@ def run(store, a, token=None, chat=None, send=notify.send, get=updates, today=No
         answered += 1
     if ups:
         get(token, ups[-1]["update_id"] + 1)            # marca como leídos
-    print(f"{len(ups)} mensajes, {answered} contestados")
+    if ups:
+        print(f"{len(ups)} mensajes, {answered} contestados")
     return answered
 
 
 def main():
+    """Una pasada, o con --loop MIN escucha durante MIN minutos (long polling de 50 segundos)."""
+    import argparse
+    import time
     from qx.data_alpaca import Alpaca
     from qx.store import SupabaseStore
-    try:
-        run(SupabaseStore(), Alpaca())
-    except Exception:
-        traceback.print_exc()
-        sys.exit(1)
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--loop", type=float, default=0)
+    a = ap.parse_args()
+    store, alp, end, fails = SupabaseStore(), Alpaca(), time.time() + a.loop * 60, 0
+    get = lambda token, offset=None: updates(token, offset, wait=0 if offset or not a.loop else 50)
+    while True:
+        try:
+            run(store, alp, get=get)
+            fails = 0
+        except Exception:
+            traceback.print_exc()
+            fails += 1
+            if not a.loop or fails >= 5:
+                sys.exit(1)
+            time.sleep(30)
+        if time.time() > end:
+            break
 
 
 if __name__ == "__main__":

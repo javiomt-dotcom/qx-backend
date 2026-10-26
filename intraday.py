@@ -76,18 +76,36 @@ def run(a, store, now_et=None, send=notify.send):
 
 
 def main():
+    """Una pasada, o con --loop MIN revisa cada --every minutos durante MIN minutos.
+
+    GitHub retrasa o se salta muchas corridas programadas cada 30 minutos, así que el workflow
+    arranca pocas veces al día y cada corrida se queda revisando."""
+    import argparse
+    import time
     from qx.store import LocalStore, SupabaseStore
-    local = "--local" in sys.argv
-    store = LocalStore("qx.sqlite") if local else SupabaseStore()
-    try:
-        run(Alpaca(), store)
-    except Exception as e:
-        traceback.print_exc()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--local", action="store_true")
+    ap.add_argument("--loop", type=float, default=0)
+    ap.add_argument("--every", type=float, default=15)
+    a = ap.parse_args()
+    store = LocalStore("qx.sqlite") if a.local else SupabaseStore()
+    alp, end, fails = Alpaca(), time.time() + a.loop * 60, 0
+    while True:
         try:
-            store.log_run("intraday", "error", {"error": str(e)})
-        except Exception:
-            pass
-        sys.exit(1)
+            run(alp, store)
+            fails = 0
+        except Exception as e:
+            traceback.print_exc()
+            fails += 1
+            try:
+                store.log_run("intraday", "error", {"error": str(e)})
+            except Exception:
+                pass
+            if not a.loop or fails >= 3:
+                sys.exit(1)
+        if time.time() + a.every * 60 > end:
+            break
+        time.sleep(a.every * 60)
 
 
 if __name__ == "__main__":
