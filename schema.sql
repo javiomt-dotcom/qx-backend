@@ -128,3 +128,14 @@ create table if not exists earnings (
   primary key (symbol, report_date)
 );
 alter table earnings enable row level security;
+
+-- alertas durante la sesión (intraday.py): una por símbolo y tipo al día
+create table if not exists alerts (
+  day        date not null,
+  symbol     text not null,       -- o la fecha de la lista, para el aviso de venta
+  kind       text not null,       -- no_buy / drop / sell
+  detail     jsonb,
+  created_at timestamptz not null default now(),
+  primary key (day, symbol, kind)
+);
+alter table alerts enable row level security;

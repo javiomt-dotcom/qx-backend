@@ -1,0 +1,26 @@
+name: QX alertas
+
+on:
+  schedule:
+    # cada 30 minutos de 13:00 a 20:59 UTC, lunes a viernes; el script revisa si el mercado está abierto
+    - cron: "5,35 13-20 * * 1-5"
+  workflow_dispatch:
+
+jobs:
+  alerts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python intraday.py
+        env:
+          ALPACA_KEY_ID: ${{ secrets.ALPACA_KEY_ID || secrets.ALPACA_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY || secrets.ALPACA_SECRETO }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || secrets.BOT }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

@@ -118,6 +118,28 @@ def test_end_to_end():
     assert out2["swing"]["error"] is None and y5 and y5["session"] == "2026-10-22" and y5["cohorts"] == 1
     assert len(st.select("swing_picks")) == 20
 
+    # alertas del 23 durante la sesión
+    import intraday
+    fa3 = FakeAlpaca(dt.date(2026, 10, 23))
+    for s in fa2.data:
+        for k in fa2.data[s]:
+            fa3.data[s][k] = fa2.data[s][k] + fa3.data[s][k][-1:]
+    p22 = st.select("swing_picks", {"signal_date": "eq.2026-10-22"})
+    p21 = st.select("swing_picks", {"signal_date": "eq.2026-10-21"})
+    nb, dr = p22[0], p21[0]
+    fa3.data[nb["symbol"]]["o"][-1] = nb["max_entry"] * 1.05            # abre arriba del límite
+    e = fa3.data[dr["symbol"]]["o"][-2]                                  # compra del 22
+    fa3.data[dr["symbol"]]["c"][-1] = e - 3 * dr["atr"]                  # cae 3 ATR
+    st.upsert("swing_picks", [{**p21[1], "sell_session": "2026-10-23"}])
+    got = []
+    al = intraday.run(fa3, st, now_et=dt.datetime(2026, 10, 23, 15, 30, tzinfo=NY), send=got.append)
+    kinds = {(x["symbol"], x["kind"]) for x in al}
+    assert (nb["symbol"], "no_buy") in kinds and (dr["symbol"], "drop") in kinds and ("2026-10-21", "sell") in kinds, kinds
+    assert got and "No la compres" in got[0]
+    assert intraday.run(fa3, st, now_et=dt.datetime(2026, 10, 23, 15, 45, tzinfo=NY), send=got.append) == []   # no repite
+    assert intraday.run(fa3, st, now_et=dt.datetime(2026, 10, 23, 9, 35, tzinfo=NY), send=got.append) is None  # antes de la barra
+    assert intraday.run(fa3, st, now_et=dt.datetime(2026, 10, 24, 12, 0, tzinfo=NY), send=got.append) is None  # sábado
+
 
 def test_earnings_parse():
     from qx import earnings as EA

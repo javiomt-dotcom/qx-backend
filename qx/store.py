@@ -17,6 +17,7 @@ PK = {
     "daily_results": ["signal_date"],
     "swing_picks": ["signal_date", "symbol"], "swing_results": ["session"],
     "earnings": ["symbol", "report_date"],
+    "alerts": ["day", "symbol", "kind"],
 }
 JSON_COLS = {"meta", "reasons", "detail"}
 
@@ -75,6 +76,7 @@ class LocalStore:
             "swing_picks": "signal_date, rank, symbol, score, close, atr, max_entry, shares, sp500, reasons, sell_session",
             "swing_results": "session, ret, spy_cc, cohorts",
             "earnings": "symbol, report_date, time",
+            "alerts": "day, symbol, kind, detail",
         }
         for t, c in cols.items():
             pk = f", primary key ({', '.join(PK[t])})" if t in PK else ""
