@@ -190,7 +190,7 @@ def day_rows(articles, d, panel, universe=None):
     for n in reversed(articles):                       # los más recientes primero, máximo 2 por tema
         h = n["headline"]
         th = next((k for k in MACRO if _THEME_RE[k].search(h)), None)
-        if h in seen or th is None or per_theme.get(th, 0) >= 2:
+        if h in seen or th is None or per_theme.get(th, 0) >= 2 or not set(n["symbols"]) <= ETFS:   # macro: sin acciones
             continue
         seen.add(h); per_theme[th] = per_theme.get(th, 0) + 1
         macro.append(h[:180])
