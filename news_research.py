@@ -31,6 +31,30 @@ def probe():
         print("Alpha Vantage: sin llave")
 
 
+def today():
+    """Prueba en seco del resumen diario con datos reales (base local, no manda Telegram)."""
+    import time
+    from qx import engine as E, notify
+    from qx.data_alpaca import last_completed_session
+    from qx.sp500 import SP500, INDEXES
+    from qx.store import LocalStore
+    from zoneinfo import ZoneInfo
+    a = Alpaca()
+    now = dt.datetime.now(ZoneInfo("America/New_York"))
+    cal = a.calendar(now.date() - dt.timedelta(days=40), now.date() + dt.timedelta(days=10))
+    last = last_completed_session(cal, now)
+    bars = a.daily_bars(sorted(SP500) + list(INDEXES), now.date() - dt.timedelta(days=60))
+    for r in bars.values():
+        n = sum(1 for t in r["t"] if t <= last)
+        for k in r:
+            r[k] = r[k][:n]
+    panel = E.Panel.from_bars({s: r for s, r in bars.items() if r["t"]})
+    t0 = time.time()
+    nw = N.daily(a, panel, last, [r["date"] for r in cal], LocalStore(), sorted(SP500))
+    log(f"{nw['fetched']} sesiones bajadas en {time.time() - t0:.0f} s")
+    print(notify.news_message(nw))
+
+
 def fetch_all(a, start, end, threads=3):
     """Baja todos los titulares entre start y end en trozos de 7 días, en paralelo."""
     from concurrent.futures import ThreadPoolExecutor
@@ -160,7 +184,7 @@ def log(msg):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("mode", choices=["probe", "research"])
+    ap.add_argument("mode", choices=["probe", "research", "today"])
     ap.add_argument("--years", type=float, default=3)
     a = ap.parse_args()
-    probe() if a.mode == "probe" else research(a.years)
+    {"probe": probe, "today": today}.get(a.mode, lambda: research(a.years))()

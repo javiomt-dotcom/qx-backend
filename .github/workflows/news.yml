@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "probe = probar fuentes · research = bajar noticias y medir si mejoran el swing"
+        description: "probe = probar fuentes · research = medir si mejoran el swing · today = prueba en seco del resumen diario"
         default: "probe"
 
 jobs:
