@@ -60,7 +60,7 @@ def today(save=False):
     print(notify.news_message(nw))
 
 
-def fetch_all(a, start, end, threads=3):
+def fetch_all(a, start, end, threads=2):
     """Baja todos los titulares entre start y end en trozos de 7 días, en paralelo."""
     from concurrent.futures import ThreadPoolExecutor
     chunks, d = [], start

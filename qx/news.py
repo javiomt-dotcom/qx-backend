@@ -44,7 +44,14 @@ def alpaca_news(a, start: dt.datetime, end: dt.datetime, symbols=None, max_pages
             p["symbols"] = ",".join(symbols)
         if token:
             p["page_token"] = token
-        js = a._get(f"{DATA}/v1beta1/news", p)
+        for k in range(8):                               # Alpaca limita a ~200 consultas por minuto: espera y reintenta
+            try:
+                js = a._get(f"{DATA}/v1beta1/news", p)
+                break
+            except requests.HTTPError as e:
+                if e.response is None or e.response.status_code != 429 or k == 7:
+                    raise
+                time.sleep(20 + 10 * k)
         for n in js.get("news", []):
             out.append({"id": n["id"], "t": n["created_at"], "headline": n.get("headline") or "",
                         "summary": n.get("summary") or "", "symbols": n.get("symbols") or [], "source": n.get("source")})
