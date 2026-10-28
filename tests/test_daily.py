@@ -48,6 +48,30 @@ class FakeAlpaca:
                 r["v"].append(base * (1 + abs(ret) * 20)); p = c
             self.data[s] = r
         self.calls = 0
+        # titulares sintéticos: buenas y malas noticias por acción, macro diaria y aranceles creciendo al final
+        self.news, nid = [], 0
+        for i, d in enumerate(self.days[-40:]):
+            for k, sy in enumerate(self.syms[4:30]):
+                if (i + k) % 3 == 0:
+                    good = (i + k) % 2 == 0
+                    nid += 1
+                    self.news.append({"id": nid, "created_at": f"{d}T14:{k:02d}:00Z", "symbols": [sy], "source": "benzinga",
+                                      "headline": f"{sy} {'beats estimates, raises guidance' if good else 'misses, cuts outlook'}"})
+            nid += 1
+            self.news.append({"id": nid, "created_at": f"{d}T15:00:00Z", "symbols": [], "source": "benzinga",
+                              "headline": "Fed holds rates steady as inflation cools"})
+            for j in range(6 if i >= 35 else (1 if i % 4 == 0 else 0)):
+                nid += 1
+                self.news.append({"id": nid, "created_at": f"{d}T16:{j:02d}:00Z", "symbols": ["SPY"], "source": "benzinga",
+                                  "headline": f"New tariff threat weighs on stocks ({j})"})
+        # titular después del corte de las 17:30 de NY: cuenta para la sesión siguiente
+        self.news.append({"id": nid + 1, "created_at": f"{self.days[-1]}T23:30:00Z", "symbols": [self.syms[4]],
+                          "source": "benzinga", "headline": "late headline"})
+
+    def _get(self, url, params=None):
+        assert url.endswith("/v1beta1/news"), url
+        lo, hi = params["start"].replace("Z", ""), params["end"].replace("Z", "")
+        return {"news": [n for n in self.news if lo <= n["created_at"].replace("Z", "") <= hi], "next_page_token": None}
 
     def calendar(self, start, end):
         out, d = [], start
@@ -91,6 +115,13 @@ def test_end_to_end():
     assert len(sw["picks"]) == 10 and sum(1 for p in sw["picks"] if not p["sp500"]) <= 3
     assert all(p["sell_session"] == "2026-10-28" for p in sw["picks"])
     assert "Swing 5 días" in sent[0]
+    nw = out["news"]
+    assert "error" not in nw, nw
+    assert nw["day"]["d"] == "2026-10-21" and nw["fetched"] >= 20
+    assert nw["day"]["headlines"]["movers"] and nw["day"]["headlines"]["macro"]
+    assert nw["trends"]["themes"][0]["theme"] == "Aranceles y comercio", nw["trends"]["themes"]
+    assert "Noticias del día" in sent[0] and "Temas en aumento" in sent[0]
+    assert all(r["d"] <= "2026-10-21" for r in st.select("news_daily")), "el titular tardío no cuenta para hoy"
     # mismo día otra vez: no duplica
     assert daily.run(fa, st, now_et=now, send=sent.append) is None
     # rehacer a la fuerza no deja restos de la lista anterior
@@ -111,6 +142,7 @@ def test_end_to_end():
     assert not set(first) & {p["symbol"] for p in sw2["picks"]}, "no compra las que reportan durante los 5 días"
     assert len(sw2["picks"]) == 10 and sw2["earn_skipped"] and all("10-27" in x for x in sw2["earn_skipped"])
     assert "Fuera por reporte" in sent[-1]
+    assert out2["news"]["fetched"] == 1, "el día siguiente sólo baja la sesión nueva"
     y = out2["yesterday"]
     assert y and y["session"] == "2026-10-22"
     assert y["model_ret"] is not None and math.isfinite(y["model_ret"])
@@ -150,16 +182,18 @@ def test_end_to_end():
             {"update_id": 6, "message": {"chat": {"id": 42}, "text": "/posiciones@qxbot"}},
             {"update_id": 7, "message": {"chat": {"id": 99}, "text": "/lista"}},
             {"update_id": 8, "message": {"chat": {"id": 42}, "text": "hola"}},
-            {"update_id": 9, "message": {"chat": {"id": 42}, "text": "/resultados"}}]
+            {"update_id": 9, "message": {"chat": {"id": 42}, "text": "/resultados"}},
+            {"update_id": 10, "message": {"chat": {"id": 42}, "text": "/noticias"}}]
     seen = []
     def get(token, offset=None):
         seen.append(offset); return [] if offset else msgs
     out = []
-    assert bot.run(st, fa3, token="t", chat=42, send=out.append, get=get, today=dt.date(2026, 10, 23)) == 4
-    assert seen == [None, 10], "confirma los mensajes leídos"
+    assert bot.run(st, fa3, token="t", chat=42, send=out.append, get=get, today=dt.date(2026, 10, 23)) == 5
+    assert seen == [None, 11], "confirma los mensajes leídos"
     assert "Lista swing · señal 2026-10-22" in out[0]
     assert "Señal 2026-10-21" in out[1] and "Señal 2026-10-22" in out[1], out[1]
     assert "Comandos de QX" in out[2] and "Swing 5 días" in out[3]
+    assert "Noticias del día · 2026-10-22" in out[4] and "Temas en aumento" in out[4], out[4]
 
 
 def test_earnings_parse():

@@ -51,9 +51,13 @@ En **Actions → QX diario → Run workflow**. Si todo está bien, te llega el m
 
 El workflow **QX alertas** revisa cada 15 minutos con el mercado abierto y te avisa por Telegram si una acción de la lista de hoy abrió arriba de «No comprar arriba de», si una posición abierta cae más de 2 ATR desde la compra, y en la última hora qué lista se vende al cierre. Cada aviso llega una sola vez al día.
 
+## Noticias
+
+Cada tarde la rutina lee los titulares del día (Alpaca/Benzinga, gratis), los califica con un léxico financiero y manda la sección **📰 Noticias del día**: cómo cerró el SPY, la reacción del mercado a noticias buenas y malas, titulares macro, las acciones que más se movieron con noticia, los temas que vienen creciendo (5 sesiones contra las 20 anteriores) y las acciones con atención inusual. Se guarda en `news_market` y `news_daily`. Si falla, el resto de la rutina sigue. `news_research.py` mide con 3 años de historia si las noticias mejoran el swing antes de meterlas al modelo.
+
 ## Comandos del bot
 
-El workflow **QX bot** escucha tus mensajes de 7am a 10pm (hora de México) y contesta en segundos: `/lista` (lista swing más reciente), `/posiciones` (listas abiertas, cuánto van y cuándo se venden), `/resultados` (acumulado real contra SPY) y `/ayuda`. Sólo le contesta a tu chat.
+El workflow **QX bot** escucha tus mensajes de 7am a 10pm (hora de México) y contesta en segundos: `/lista` (lista swing más reciente), `/posiciones` (listas abiertas, cuánto van y cuándo se venden), `/resultados` (acumulado real contra SPY), `/noticias` (noticias del último cierre) y `/ayuda`. Sólo le contesta a tu chat.
 
 ## Correr en tu computadora
 

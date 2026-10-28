@@ -21,7 +21,7 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
-from qx import config as C, earnings as EA, engine as E, notify, swing as SW
+from qx import config as C, earnings as EA, engine as E, news as NW, notify, swing as SW
 from qx.data_alpaca import Alpaca, last_completed_session
 from qx.sp500 import SP500, INDEXES
 
@@ -252,12 +252,20 @@ def run(alpaca, store, now_et=None, send=notify.send, force=False):
     sessions = [r["date"] for r in cal]
     sw_res = run_swing(panel, universe, store, last, sessions)
 
+    # --- noticias: nunca deben tumbar la rutina ---
+    try:
+        nw = NW.daily(alpaca, panel, last, sessions, store, universe)
+    except Exception as e:                                # noqa: BLE001
+        traceback.print_exc()
+        nw = {"error": str(e)[:160]}
 
     cum = cumulative(store.select("daily_results", order="signal_date.asc"))
-    msg = notify.swing_message(sw_res, f["for_session"]) + "\n\n" + notify.daily_message(f, picks, y, cum)
+    msg = (notify.swing_message(sw_res, f["for_session"]) + "\n\n"
+           + notify.news_message(nw, [p["symbol"] for p in sw_res.get("picks", [])]) + "\n\n"
+           + notify.daily_message(f, picks, y, cum))
     send(msg)
     store.log_run("daily", "ok", {"signal": last, "universe": f["universe"], "picks": [p["symbol"] for p in picks]})
-    return {"forecast": f, "picks": picks, "yesterday": y, "cum": cum, "message": msg, "swing": sw_res}
+    return {"forecast": f, "picks": picks, "yesterday": y, "cum": cum, "message": msg, "swing": sw_res, "news": nw}
 
 
 def check():

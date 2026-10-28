@@ -82,3 +82,39 @@ def swing_message(sw: dict, for_session: str) -> str:
         L.append(f"ℹ️ Filtro de reportes: {sw['earn_note']}.")
     L.append("En prueba en paralelo durante 4 semanas.")
     return "\n".join(L)
+
+
+def news_message(nw: dict, picks=()) -> str:
+    """Sección de noticias: qué pasó hoy, cómo reaccionó el mercado y qué temas vienen creciendo."""
+    if not nw or nw.get("error"):
+        return f"⚠️ <b>Noticias:</b> no se pudieron leer hoy ({(nw or {}).get('error', 'sin datos')})."
+    day, tr = nw.get("day") or {}, nw.get("trends") or {}
+    h = day.get("headlines") or {}
+    L = [f"<b>📰 Noticias del día · {day.get('d', '')}</b>",
+         f"SPY {pct(day.get('spy_ret'))} · {day.get('n', 0):,} titulares · tono {day.get('tone') or 0:+.2f} (−1 a +1)"]
+    rc = h.get("react") or {}
+    if rc.get("pos") is not None and rc.get("neg") is not None:
+        L.append(f"Reacción: con noticia buena {pct(rc['pos'])} · con noticia mala {pct(rc['neg'])} (mediana)")
+    if h.get("macro"):
+        L.append("<b>Macro:</b>")
+        L += [f"• {esc(x)}" for x in h["macro"][:3]]
+    if h.get("movers"):
+        L.append("<b>Lo que movió acciones:</b>")
+        L += [f"• {m['s']} {pct(m['ret'], 1)}: {esc(m['h'])}" for m in h["movers"][:5]]
+    if tr.get("themes"):
+        up = [t for t in tr["themes"] if t["ratio"] >= 1.3][:4]
+        if up:
+            L.append("<b>Temas en aumento (5 días vs 20):</b> " + ", ".join(f"{t['theme']} ×{t['ratio']:.1f}" for t in up))
+    if tr.get("attention"):
+        L.append("<b>Atención inusual:</b> " + ", ".join(f"{a['s']} ×{a['x']:.0f}" for a in tr["attention"][:6]))
+    att = {a["s"]: a for a in tr.get("attention", [])}
+    flag = [f"{s} (tono {att[s]['tone']:+.1f})" for s in picks if s in att]
+    if flag:
+        L.append("<b>Tus compras con mucha noticia:</b> " + ", ".join(flag))
+    if not tr.get("full"):
+        L.append("ℹ️ Las tendencias usan menos de 20 sesiones de historia; se completan solas en unos días.")
+    return "\n".join(L)
+
+
+def esc(s: str) -> str:
+    return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
