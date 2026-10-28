@@ -31,8 +31,8 @@ def probe():
         print("Alpha Vantage: sin llave")
 
 
-def today():
-    """Prueba en seco del resumen diario con datos reales (base local, no manda Telegram)."""
+def today(save=False):
+    """Resumen diario con datos reales sin mandar Telegram. save: lo guarda en Supabase (llena las tablas de noticias)."""
     import time
     from qx import engine as E, notify
     from qx.data_alpaca import last_completed_session
@@ -50,7 +50,12 @@ def today():
             r[k] = r[k][:n]
     panel = E.Panel.from_bars({s: r for s, r in bars.items() if r["t"]})
     t0 = time.time()
-    nw = N.daily(a, panel, last, [r["date"] for r in cal], LocalStore(), sorted(SP500))
+    if save:
+        from qx.store import SupabaseStore
+        st = SupabaseStore()
+    else:
+        st = LocalStore()
+    nw = N.daily(a, panel, last, [r["date"] for r in cal], st, sorted(SP500))
     log(f"{nw['fetched']} sesiones bajadas en {time.time() - t0:.0f} s")
     print(notify.news_message(nw))
 
@@ -184,7 +189,7 @@ def log(msg):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("mode", choices=["probe", "research", "today"])
+    ap.add_argument("mode", choices=["probe", "research", "today", "save"])
     ap.add_argument("--years", type=float, default=3)
     a = ap.parse_args()
-    {"probe": probe, "today": today}.get(a.mode, lambda: research(a.years))()
+    {"probe": probe, "today": today, "save": lambda: today(True)}.get(a.mode, lambda: research(a.years))()
