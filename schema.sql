@@ -139,3 +139,22 @@ create table if not exists alerts (
   primary key (day, symbol, kind)
 );
 alter table alerts enable row level security;
+
+-- noticias (titulares de Alpaca/Benzinga): conteo y tono por acción y sesión, y resumen del mercado
+create table if not exists news_daily (
+  d      date not null,
+  symbol text not null,
+  n      int not null,
+  tone   double precision,          -- -1 a 1, promedio de los titulares
+  primary key (d, symbol)
+);
+create table if not exists news_market (
+  d         date primary key,
+  n         int,
+  tone      double precision,
+  spy_ret   double precision,       -- SPY ese día, cierre a cierre
+  headlines jsonb,                  -- titulares más importantes
+  themes    jsonb                   -- temas y acciones con atención en aumento
+);
+alter table news_daily  enable row level security;
+alter table news_market enable row level security;

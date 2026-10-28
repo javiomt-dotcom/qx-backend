@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "probe = probar fuentes"
+        description: "probe = probar fuentes · research = bajar noticias y medir si mejoran el swing"
         default: "probe"
 
 jobs:
@@ -22,4 +22,6 @@ jobs:
           ALPACA_KEY_ID: ${{ secrets.ALPACA_KEY_ID || secrets.ALPACA_KEY }}
           ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY || secrets.ALPACA_SECRETO }}
           ALPHAVANTAGE_KEY: ${{ secrets.ALPHAVANTAGE_KEY || secrets.ALPHA_VANTAGE_KEY }}
-      - run: cat news.md >> "$GITHUB_STEP_SUMMARY"
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      - run: grep -v '^\[' news.md >> "$GITHUB_STEP_SUMMARY"

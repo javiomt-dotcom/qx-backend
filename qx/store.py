@@ -18,8 +18,9 @@ PK = {
     "swing_picks": ["signal_date", "symbol"], "swing_results": ["session"],
     "earnings": ["symbol", "report_date"],
     "alerts": ["day", "symbol", "kind"],
+    "news_daily": ["d", "symbol"], "news_market": ["d"],
 }
-JSON_COLS = {"meta", "reasons", "detail"}
+JSON_COLS = {"meta", "reasons", "detail", "headlines", "themes"}
 
 
 class SupabaseStore:
@@ -81,6 +82,8 @@ class LocalStore:
             "swing_results": "session, ret, spy_cc, cohorts",
             "earnings": "symbol, report_date, time",
             "alerts": "day, symbol, kind, detail",
+            "news_daily": "d, symbol, n, tone",
+            "news_market": "d, n, tone, spy_ret, headlines, themes",
         }
         for t, c in cols.items():
             pk = f", primary key ({', '.join(PK[t])})" if t in PK else ""
