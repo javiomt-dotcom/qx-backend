@@ -37,6 +37,10 @@ class SupabaseStore:
                             params={"on_conflict": ",".join(PK[table])}, data=json.dumps(rows[i:i + batch]), timeout=120)
             r.raise_for_status()
 
+    def delete(self, table, filters):
+        r = self.s.delete(f"{self.url}/{table}", headers={**self.h, "Prefer": "return=minimal"}, params=filters, timeout=60)
+        r.raise_for_status()
+
     def select(self, table, filters=None, order=None, limit=None):
         params = dict(filters or {})
         params["select"] = "*"
@@ -90,6 +94,11 @@ class LocalStore:
             sql = f"insert into {table} ({', '.join(keys)}) values ({', '.join('?' * len(keys))})"
             sql += f" on conflict ({', '.join(PK[table])}) do update set {upd}" if upd else " on conflict do nothing"
             self.db.execute(sql, [r[k] for k in keys])
+        self.db.commit()
+
+    def delete(self, table, filters):
+        where = [f"{k} = ?" for k in filters]
+        self.db.execute(f"delete from {table} where {' and '.join(where)}", [v.split(".", 1)[1] for v in filters.values()])
         self.db.commit()
 
     def select(self, table, filters=None, order=None, limit=None):

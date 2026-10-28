@@ -93,6 +93,10 @@ def test_end_to_end():
     assert "Swing 5 días" in sent[0]
     # mismo día otra vez: no duplica
     assert daily.run(fa, st, now_et=now, send=sent.append) is None
+    # rehacer a la fuerza no deja restos de la lista anterior
+    st.upsert("swing_picks", [{**sw["picks"][0], "symbol": "VIEJA"}])
+    daily.run(fa, st, now_et=now, send=sent.append, force=True)
+    assert len(st.select("swing_picks", {"signal_date": "eq.2026-10-21"})) == 10
 
     # día siguiente: califica la lista anterior y genera otra
     fa2 = FakeAlpaca(dt.date(2026, 10, 22))

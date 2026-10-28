@@ -128,6 +128,7 @@ def run_swing(panel, universe, store, last, sessions):
             pl = SW.plan(panel, i, x)
             rows.append({"signal_date": last, "rank": k, "symbol": x["s"], "score": x["score"], "sp500": x["sp"],
                          "reasons": x["reasons"], "sell_session": sell, **pl})
+        store.delete("swing_picks", {"signal_date": f"eq.{last}"})   # al rehacer la lista no quedan restos de la anterior
         store.upsert("swing_picks", rows)
         out["picks"] = rows
         # las que se venden al cierre de la próxima sesión: compradas con la señal de hace 4 sesiones
@@ -244,6 +245,7 @@ def run(alpaca, store, now_et=None, send=notify.send, force=False):
         picks.append({"signal_date": last, "rank": k, "symbol": x["s"], "p_raw": x["p_raw"], "p_cal": x["p_cal"],
                       "sp500": x["s"] in SP500, "reasons": x["reasons"], **pl})
     store.upsert("forecasts", [f])
+    store.delete("picks", {"signal_date": f"eq.{last}"})
     store.upsert("picks", picks)
 
     # --- swing de 5 días (en paralelo) ---
