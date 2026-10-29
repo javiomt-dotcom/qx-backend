@@ -62,7 +62,7 @@ section[hidden]{display:none}
 <body>
 <div id="auth" class="login" hidden>
   <div class="brand" style="font-size:34px;margin-bottom:6px">QX</div>
-  <p class="sub">Tu lista swing, posiciones, resultados y noticias. Solo tu cuenta puede ver los datos.</p>
+  <p class="sub">Lista swing, posiciones, resultados y noticias. Solo las cuentas autorizadas pueden ver los datos.</p>
   <label for="em" class="mut">Correo</label>
   <input id="em" type="email" autocomplete="username" inputmode="email" autocapitalize="off">
   <label for="pw" class="mut">Contraseña</label>
@@ -138,7 +138,7 @@ async function load(){
   $("when").textContent = "cargando…";
   const {data, error} = await sb.rpc("qx_app");
   if (error){
-    if (/no autorizado/.test(error.message)){ await sb.auth.signOut(); show("auth"); $("aerr").textContent = "Esta cuenta no tiene acceso a QX."; return; }
+    if (/no autorizado/.test(error.message)){ await sb.auth.signOut(); show("auth"); $("aerr").textContent = "Tu cuenta ya existe, pero todavía no tiene acceso. Pídele a Javier que te autorice y vuelve a entrar."; return; }
     $("when").textContent = "sin conexión"; $("t-hoy").innerHTML = `<div class="card"><p class="empty">No pude leer tus datos (${esc(error.message)}). Toca Actualizar.</p></div>`; return;
   }
   D = data; render();
