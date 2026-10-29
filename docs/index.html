@@ -110,7 +110,20 @@ const cls = (x) => x==null || !isFinite(x) ? "mut" : x>0 ? "up" : x<0 ? "down" :
 const money = (x) => x==null || !isFinite(x) ? "—" : "$" + x.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
 const day = (d) => d ? new Date(d+"T12:00:00Z").toLocaleDateString("es-MX",{weekday:"short",day:"numeric",month:"short",timeZone:"UTC"}) : "—";
 const qty = (sh, px) => sh > 0 ? `${sh} acc.` : px ? `${(PER/px).toFixed(3)} fracc.` : "—";
-let D = null;
+let D = null, Q = {}, QAT = null, QERR = "", qTimer = null;
+const ny = () => new Date(new Date().toLocaleString("en-US",{timeZone:"America/New_York"}));
+function marketOpen(){ const t = ny(), m = t.getHours()*60 + t.getMinutes(), w = t.getDay(); return w>0 && w<6 && m >= 9*60+30 && m < 16*60; }
+async function quotes(){
+  if (!D || $("app").hidden || document.hidden || !marketOpen()) return;
+  const syms = [...new Set([...(((D.swing||{}).picks)||[]).map(p=>p.symbol), ...(D.open||[]).map(p=>p.symbol), "SPY"])];
+  const {data, error} = await sb.functions.invoke("quotes", {body:{symbols:syms}});
+  if (error){
+    let code = ""; try{ code = (await error.context.json()).error; }catch(e){}
+    QERR = code==="faltan_llaves" ? "Precios en vivo: faltan tus llaves de Alpaca en Supabase." : "Precios en vivo sin conexión.";
+  } else { Q = data.quotes || {}; QAT = new Date(); QERR = ""; }
+  render();
+}
+function liveLoop(){ clearInterval(qTimer); quotes(); qTimer = setInterval(quotes, 15000); }
 
 function show(which){ $("auth").hidden = which!=="auth"; $("app").hidden = which!=="app"; $("nav").hidden = which!=="app"; }
 function tab(t){
@@ -134,7 +147,10 @@ async function load(){
 
 function render(){
   const s = D.spy_last || {};
-  $("when").innerHTML = `Cierre ${day(s.d)}<br>${D.run ? (D.run.status==="ok"?"rutina ok":"rutina con error") : ""}`;
+  const sq = Q.SPY;
+  $("when").innerHTML = QAT && marketOpen()
+    ? `<span class="up">● en vivo</span> ${QAT.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"})}<br>SPY <span class="${cls(sq&&sq.chg)}">${pct(sq&&sq.chg)}</span>`
+    : `Cierre ${day(s.d)}<br>${QERR ? '<span class="down">'+esc(QERR)+'</span>' : D.run ? (D.run.status==="ok"?"rutina ok":"rutina con error") : ""}`;
   renderHoy(); renderPos(); renderRes(); renderNews();
 }
 
@@ -142,8 +158,9 @@ function renderHoy(){
   const sw = D.swing || {}, picks = sw.picks || [];
   const sells = (D.open||[]).filter(p => p.sell_session === nextOrToday());
   let h = `<div class="card"><h2>Comprar en la apertura</h2><p class="sub">Lista swing con el cierre del ${day(sw.signal_date)} · ${money(PER)} por acción · mantener 5 sesiones</p>`;
-  h += picks.length ? picks.map(p=>`<div class="row"><div><span class="sym">${esc(p.symbol)}</span>${p.sp500?"":'<span class="chip">fuera S&amp;P</span>'}<div class="name">${esc(p.name||"")}</div></div>
-     <div class="r"><div class="big">${money(p.max_entry)}</div><div class="name">no pagar más · ${qty(p.shares, p.close)}</div></div></div>`).join("")
+  h += picks.length ? picks.map(p=>{ const q = Q[p.symbol], live = q && q.open && marketOpen(), over = live && q.open > p.max_entry, r = live ? q.last/q.open - 1 : null;
+     return `<div class="row"><div><span class="sym">${esc(p.symbol)}</span>${p.sp500?"":'<span class="chip">fuera S&amp;P</span>'}${over?'<span class="chip warn">abrió arriba: no comprar</span>':""}<div class="name">${live ? `abrió ${money(q.open)} · ahora ${money(q.last)}` : esc(p.name||"")}</div></div>
+     <div class="r">${live && !over ? `<div class="big ${cls(r)}">${pct(r)}</div><div class="name">desde la apertura</div>` : `<div class="big">${money(p.max_entry)}</div><div class="name">no pagar más · ${qty(p.shares, p.close)}</div>`}</div></div>`; }).join("")
      : `<p class="empty">Todavía no hay lista.</p>`;
   h += `<p class="note">Si abre arriba de «no pagar más», sáltala. Venta: ${day(picks[0] && picks[0].sell_session)} al cierre.</p></div>`;
   if (sells.length){
@@ -160,7 +177,8 @@ function nextOrToday(){
   const last = (D.spy_last||{}).d || "";
   return opens.find(d => d > last) || "";
 }
-const ret = (p) => p.entry && p.last_c && p.last_d >= p.entry_d ? p.last_c/p.entry - 1 : null;
+const nowPx = (p) => { const q = Q[p.symbol]; return q && q.last && marketOpen() ? q.last : p.last_c; };
+const ret = (p) => { const px = nowPx(p); return p.entry && px && p.last_d >= p.entry_d ? px/p.entry - 1 : null; };
 
 function renderPos(){
   const op = (D.open||[]);
@@ -173,11 +191,11 @@ function renderPos(){
     all = all.concat(rs);
     h += `<div class="card"><h2>Señal ${day(sig)}</h2><p class="sub">Compradas ${day(ps[0].entry_d)} · se venden ${day(ps[0].sell_session)} · promedio <span class="${cls(avg)}">${pct(avg)}</span></p>`
       + ps.map(p=>{ const skip = p.entry && p.entry > p.max_entry*1.0000001, r = ret(p);
-          return `<div class="row"><div><span class="sym">${esc(p.symbol)}</span>${skip?'<span class="chip warn">no comprada</span>':""}<div class="name">entrada ${money(p.entry)} · hoy ${money(p.last_c)}</div></div><div class="big ${skip?"mut":cls(r)}">${skip?"—":pct(r)}</div></div>`; }).join("")
+          return `<div class="row"><div><span class="sym">${esc(p.symbol)}</span>${skip?'<span class="chip warn">no comprada</span>':""}<div class="name">entrada ${money(p.entry)} · ${Q[p.symbol]&&marketOpen()?"ahora":"cierre"} ${money(nowPx(p))}</div></div><div class="big ${skip?"mut":cls(r)}">${skip?"—":pct(r)}</div></div>`; }).join("")
       + `</div>`;
   });
   const tot = all.length ? all.reduce((a,b)=>a+b,0)/all.length : null;
-  $("t-pos").innerHTML = `<div class="card"><h2>Posiciones abiertas</h2><div class="stats"><div class="stat"><div class="k">Acciones</div><div class="v">${all.length}</div></div><div class="stat"><div class="k">Promedio</div><div class="v ${cls(tot)}">${pct(tot)}</div></div></div><p class="note">Precio de entrada = apertura del día de compra; «hoy» = último cierre guardado.</p></div>` + h;
+  $("t-pos").innerHTML = `<div class="card"><h2>Posiciones abiertas</h2><div class="stats"><div class="stat"><div class="k">Acciones</div><div class="v">${all.length}</div></div><div class="stat"><div class="k">Promedio</div><div class="v ${cls(tot)}">${pct(tot)}</div></div></div><p class="note">Entrada = apertura del día de compra. Con el mercado abierto el precio se actualiza cada 15 segundos (bolsa IEX); fuera de horario es el último cierre.</p></div>` + h;
 }
 
 function renderRes(){
@@ -231,7 +249,7 @@ async function auth(kind){
 }
 $("bIn").onclick = () => auth("in"); $("bUp").onclick = () => auth("up");
 $("pw").addEventListener("keydown", e => { if (e.key==="Enter") auth("in"); });
-$("bRef").onclick = load;
+$("bRef").onclick = () => load().then(quotes);
 $("bOut").onclick = async () => { await sb.auth.signOut(); try{ localStorage.removeItem("qx_cache"); }catch(e){} show("auth"); };
 
 async function start(){
@@ -239,9 +257,10 @@ async function start(){
   let t = "hoy"; try{ t = localStorage.getItem("qx_tab") || "hoy"; }catch(e){}
   tab(t);
   try{ const c = JSON.parse(localStorage.getItem("qx_cache")||"null"); if (c){ D = c; render(); } }catch(e){}
-  load();
+  await load();
+  liveLoop();
 }
-document.addEventListener("visibilitychange", () => { if (!document.hidden && !$("app").hidden) load(); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden && !$("app").hidden) load().then(quotes); });
 
 (async () => {
   const {data} = await sb.auth.getSession();
