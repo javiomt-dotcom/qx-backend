@@ -89,6 +89,14 @@ section[hidden]{display:none}
 .btn{border:1px solid var(--rule);background:var(--panel-2);border-radius:3px;padding:8px 14px;font:600 13px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--fg)}
 .btn.pri{background:var(--amber);border-color:var(--amber);color:#111}
 
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 8px;margin:6px 0 4px}
+.form label{display:block;font-family:var(--display);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.form input{width:100%;font-family:var(--mono);font-size:16px;color:var(--fg);background:var(--ink);border:1px solid var(--rule);border-radius:3px;padding:8px;margin-top:3px;min-width:0}
+.form input::placeholder{color:var(--dim)}
+.form .full{grid-column:1/-1}
+.x{background:none;border:1px solid var(--rule);color:var(--muted);border-radius:3px;width:26px;height:24px;padding:0;line-height:1}
+details.add summary{cursor:pointer;list-style:none;font:600 13px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--amber);padding:6px 0}
+details.add summary::-webkit-details-marker{display:none}
 .login{max-width:400px;margin:14vh auto 0}
 .login .p{margin-top:14px}
 .login label{display:block;font-family:var(--display);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:8px}
@@ -156,21 +164,30 @@ const day = (d) => d ? new Date(d+"T12:00:00Z").toLocaleDateString("es-MX",{week
 const dd = (d) => d ? new Date(d+"T12:00:00Z").toLocaleDateString("es-MX",{day:"2-digit",month:"short",timeZone:"UTC"}) : "—";
 const qty = (sh, p) => sh > 0 ? String(sh) : p ? (PER/p).toFixed(3) : "—";
 const panel = (title, small, body) => `<div class="p"><div class="ph"><h2>${title}</h2><small>${small||""}</small></div><div class="pb">${body}</div></div>`;
-let D = null, Q = {}, QAT = null, QERR = "", qTimer = null;
+let D = null, Q = {}, QAT = null, QERR = "", qTimer = null, MP = [], OP = {}, MQ = {}, MERR = "";
 
 const ny = () => new Date(new Date().toLocaleString("en-US",{timeZone:"America/New_York"}));
 function marketOpen(){ const t = ny(), m = t.getHours()*60 + t.getMinutes(), w = t.getDay(); return w>0 && w<6 && m >= 9*60+30 && m < 16*60; }
 const live = () => QAT && marketOpen();
-async function quotes(){
-  if (!D || $("app").hidden || document.hidden || !marketOpen()) return;
-  const syms = [...new Set([...(((D.swing||{}).picks)||[]).map(p=>p.symbol), ...(D.open||[]).map(p=>p.symbol), "SPY", "QQQ", "IWM"])];
-  const {data, error} = await sb.functions.invoke("quotes", {body:{symbols:syms}});
+async function quotes(force){
+  if (!D || $("app").hidden || document.hidden) return;
+  const open = marketOpen();
+  if (!open && !(force && MP.length)) return;
+  const mine = MP.map(p=>p.symbol);
+  const syms = [...new Set([...(open ? [...(((D.swing||{}).picks)||[]).map(p=>p.symbol), ...(D.open||[]).map(p=>p.symbol), "SPY", "QQQ", "IWM"] : []), ...mine])];
+    const opens = MP.filter(p => p.price==null && OP[p.symbol+"|"+p.buy_date]==null && p.buy_date < todayNY()).map(p=>({s:p.symbol, d:p.buy_date}));
+  const {data, error} = await sb.functions.invoke("quotes", {body:{symbols:syms, opens}});
   if (error){
     let code = ""; try{ code = (await error.context.json()).error; }catch(e){}
-    QERR = code==="faltan_llaves" ? "Faltan las llaves de Alpaca en Supabase" : "Precios en vivo sin conexión";
-  } else { Q = data.quotes || {}; QAT = new Date(); QERR = ""; }
+    const msg = code==="faltan_llaves" ? "Faltan las llaves de Alpaca en Supabase" : "Precios en vivo sin conexión";
+    if (open) QERR = msg; MERR = msg;
+  } else {
+    MQ = Object.assign({}, MQ, data.quotes || {}); Object.assign(OP, data.opens || {}); MERR = "";
+    if (open){ Q = data.quotes || {}; QAT = new Date(); QERR = ""; }
+  }
   render();
 }
+const todayNY = () => new Date().toLocaleDateString("en-CA",{timeZone:"America/New_York"});
 function liveLoop(){ clearInterval(qTimer); quotes(); qTimer = setInterval(quotes, 15000); }
 
 function show(which){ $("auth").hidden = which!=="auth"; $("app").hidden = which!=="app"; $("nav").hidden = which!=="app"; }
@@ -188,7 +205,10 @@ async function load(){
     if (/no autorizado/.test(error.message)){ await sb.auth.signOut(); show("auth"); $("aerr").textContent = "Tu cuenta ya existe, pero todavía no tiene acceso. Pídele a Javier que te autorice y vuelve a entrar."; return; }
     QERR = "Sin conexión con la base de datos"; if (D) render(); else $("t-hoy").innerHTML = panel("Sin conexión", "", `<p class="empty">No pude leer los datos (${esc(error.message)}). Toca Actualizar.</p>`); return;
   }
-  D = data; render();
+  D = data;
+  const mp = await sb.from("user_positions").select("*").order("buy_date", {ascending:false}).order("id", {ascending:false});
+  if (!mp.error) MP = mp.data || [];
+  render();
   try{ localStorage.setItem("qx_cache", JSON.stringify(D)); }catch(e){}
 }
 
@@ -242,9 +262,74 @@ function renderHoy(){
 }
 const KIND = {no_buy:"abrió arriba del límite", drop:"cayó más de 2 ATR", sell:"vender al cierre"};
 
+/* ---------- mis posiciones (cada usuario las suyas) ---------- */
+function myEntry(p){
+  if (p.price != null) return +p.price;
+  if (p.buy_date === todayNY()){ const q = MQ[p.symbol]; return q && q.day === p.buy_date ? q.open : null; }
+  return OP[p.symbol+"|"+p.buy_date] ?? null;
+}
+function myNow(p){ const q = MQ[p.symbol]; if (!q) return null; return marketOpen() ? q.last : (q.close ?? q.last); }
+function renderMine(){
+  const rows = MP.map(p=>{ const e = myEntry(p), n = myNow(p), sh = +p.shares;
+    return {p, e, n, sh, cost: e!=null ? e*sh : null, val: n!=null ? n*sh : null, r: e && n ? n/e - 1 : null}; });
+  const ok = rows.filter(x=>x.cost!=null && x.val!=null), inv = ok.reduce((a,x)=>a+x.cost,0), val = ok.reduce((a,x)=>a+x.val,0);
+  const pl = val - inv, rr = inv ? pl/inv : null;
+  const stat = (k,v,cl) => `<div class="kpi"><div class="k">${k}</div><div class="v ${cl||""}">${v}</div></div>`;
+  const usd = (x) => x==null || !isFinite(x) ? "—" : (x<0?"−$":"$") + Math.abs(x).toLocaleString("en-US",{maximumFractionDigits:0});
+  const table = rows.length ? `<table><thead><tr><th class="l">Símbolo · acc.</th><th>Entrada / ${marketOpen()?"ahora":"cierre"}</th><th>Va</th><th></th></tr></thead><tbody>`
+    + rows.map(x=>`<tr><td class="l"><span class="sym">${esc(x.p.symbol)}</span> <span class="mut">× ${(+x.sh).toLocaleString("en-US",{maximumFractionDigits:4})}</span><span class="sub2">${dd(x.p.buy_date)}${x.p.price==null?" · apertura":""}${x.p.note?" · "+esc(x.p.note):""}</span></td>
+        <td>${x.e!=null?px(x.e):'<span class="mut">pend.</span>'}<span class="sub2" style="margin-left:auto;color:var(--fg)">${px(x.n)}</span></td>
+        <td class="${cls(x.r)}">${pct(x.r)}<span class="sub2 ${cls(x.val-x.cost)}" style="margin-left:auto">${x.cost!=null&&x.val!=null?usd(x.val-x.cost):"—"}</span></td>
+        <td><button class="x" data-del="${x.p.id}" aria-label="Borrar ${esc(x.p.symbol)}">×</button></td></tr>`).join("") + `</tbody></table>`
+    : `<p class="empty">Todavía no has agregado posiciones. Usa «Agregar posición».</p>`;
+  return panel("Mis posiciones", marketOpen() ? "en vivo" : "al último cierre",
+    (rows.length ? `<div class="kpis" style="margin:6px 0 8px">${stat("Invertido", usd(inv))}${stat("Valor", usd(val))}${stat("Ganancia", usd(pl), cls(pl))}${stat("Rend.", pct(rr), cls(rr))}</div>` : "")
+    + table
+    + `<details class="add" ${rows.length?"":"open"}><summary>+ Agregar posición</summary>
+        <div class="form">
+          <div><label for="fS">Símbolo</label><input id="fS" placeholder="AAPL" autocapitalize="characters" autocomplete="off"></div>
+          <div><label for="fD">Fecha de compra</label><input id="fD" type="date" value="${todayNY()}" max="${todayNY()}"></div>
+          <div><label for="fN">Acciones</label><input id="fN" inputmode="decimal" placeholder="10"></div>
+          <div><label for="fP">Precio (opcional)</label><input id="fP" inputmode="decimal" placeholder="apertura"></div>
+          <div class="full"><label for="fT">Nota (opcional)</label><input id="fT" maxlength="200" placeholder="p. ej. lista swing"></div>
+        </div>
+        <div class="err" id="fErr"></div>
+        <button class="btn pri" id="fAdd" style="width:100%">Guardar posición</button>
+      </details>
+      <p class="note">Si dejas el precio vacío se usa la apertura de ese día. ${MERR ? '<span class="down">'+esc(MERR)+'</span> ' : ""}Solo tú ves tus posiciones.</p>`);
+}
+async function addMine(){
+  const sym = $("fS").value.trim().toUpperCase(), d = $("fD").value, n = parseFloat(($("fN").value||"").replace(",", ".")),
+        pr = $("fP").value.trim() ? parseFloat($("fP").value.replace(",", ".")) : null, note = $("fT").value.trim() || null;
+  const err = (m) => { $("fErr").textContent = m; };
+  if (!/^[A-Z][A-Z0-9.\-]{0,9}$/.test(sym)) return err("Escribe un símbolo válido, por ejemplo AAPL.");
+  if (!d || d > todayNY()) return err("Elige la fecha de compra (no puede ser futura).");
+  if (!(n > 0)) return err("Escribe cuántas acciones compraste.");
+  if (pr != null && !(pr > 0)) return err("El precio debe ser mayor a 0, o déjalo vacío.");
+  $("fAdd").disabled = true;
+  const r = await sb.from("user_positions").insert({symbol:sym, buy_date:d, shares:n, price:pr, note}).select().single();
+  $("fAdd").disabled = false;
+  if (r.error) return err("No se pudo guardar: " + r.error.message);
+  MP.unshift(r.data); MP.sort((a,b)=> a.buy_date < b.buy_date ? 1 : a.buy_date > b.buy_date ? -1 : b.id - a.id);
+  render(); quotes(true);
+}
+async function delMine(id){
+  const p = MP.find(x=>x.id==id); if (!p || !confirm(`¿Borrar ${p.symbol} del ${dd(p.buy_date)}?`)) return;
+  const r = await sb.from("user_positions").delete().eq("id", id);
+  if (r.error){ alert("No se pudo borrar: " + r.error.message); return; }
+  MP = MP.filter(x=>x.id!=id); render();
+}
+document.addEventListener("click", (e) => {
+  const del = e.target.closest("[data-del]"); if (del) delMine(del.dataset.del);
+  if (e.target.id === "fAdd") addMine();
+});
+
 function renderPos(){
-  const op = D.open || [];
-  if (!op.length){ $("t-pos").innerHTML = panel("Posiciones abiertas", "", `<p class="empty">No hay listas abiertas.</p>`); return; }
+  const op = D.open || [], mine = renderMine();
+  // no redibujar mientras el usuario escribe en el formulario
+  const ae = document.activeElement; if (ae && ae.closest && ae.closest(".form")) return;
+  const wasOpen = document.querySelector("details.add") ? document.querySelector("details.add").open : null;
+  if (!op.length){ $("t-pos").innerHTML = mine + panel("Listas del modelo", "", `<p class="empty">No hay listas abiertas.</p>`); keepOpen(wasOpen); return; }
   const by = {}; op.forEach(p => (by[p.signal_date] = by[p.signal_date] || []).push(p));
   let body = "", summary = "";
   Object.keys(by).sort().reverse().forEach(sig=>{
@@ -254,12 +339,14 @@ function renderPos(){
       + ps.map(p=>{ const skip = p.entry && !bought(p), r = ret(p);
           return `<tr class="${skip?"off":""}"><td class="l"><span class="sym">${esc(p.symbol)}</span>${skip?'<span class="chip neg">no comprada</span>':""}</td><td>${px(p.entry)}</td><td>${px(nowPx(p))}</td><td class="${skip?"mut":cls(r)}">${skip?"—":pct(r)}</td><td>${skip?"—":qty(p.shares, p.entry)}</td></tr>`; }).join("");
   });
-  $("t-pos").innerHTML =
-    panel("Listas abiertas", live() ? "en vivo" : "al último cierre",
+  $("t-pos").innerHTML = mine +
+    panel("Listas del modelo", live() ? "en vivo" : "al último cierre",
       `<div class="scroll"><table><thead><tr><th class="l">Señal</th><th class="l">Compra</th><th>Acc.</th><th>Va</th><th class="l">Venta</th></tr></thead><tbody>${summary}</tbody></table></div>`)
-  + panel("Detalle por acción", "", `<div class="scroll"><table><thead><tr><th class="l">Símbolo</th><th>Entrada</th><th>${live()?"Ahora":"Cierre"}</th><th>Va</th><th>Acc.</th></tr></thead><tbody>${body}</tbody></table></div>
+  + panel("Detalle del modelo", "", `<div class="scroll"><table><thead><tr><th class="l">Símbolo</th><th>Entrada</th><th>${live()?"Ahora":"Cierre"}</th><th>Va</th><th>Acc.</th></tr></thead><tbody>${body}</tbody></table></div>
       <p class="note">Entrada = apertura del día de compra. Con el mercado abierto el precio se actualiza cada 15 s (bolsa IEX); fuera de horario es el último cierre.</p>`);
+  keepOpen(wasOpen);
 }
+function keepOpen(v){ const d = document.querySelector("details.add"); if (d && v != null) d.open = v; }
 
 function renderRes(){
   const r = D.swing_res || [], d1 = (D.day1 && D.day1.res) || [], c = cum(r, "ret", "spy_cc"), c1 = cum(d1, "model_ret", "spy_oc");
@@ -313,7 +400,7 @@ async function auth(kind){
 }
 $("bIn").onclick = () => auth("in"); $("bUp").onclick = () => auth("up");
 $("pw").addEventListener("keydown", e => { if (e.key==="Enter") auth("in"); });
-$("bRef").onclick = () => load().then(quotes);
+$("bRef").onclick = () => load().then(() => quotes(true));
 $("bOut").onclick = async () => { clearInterval(qTimer); await sb.auth.signOut(); try{ localStorage.removeItem("qx_cache"); }catch(e){} show("auth"); };
 
 async function start(){
@@ -322,7 +409,7 @@ async function start(){
   tab(t);
   try{ const c = JSON.parse(localStorage.getItem("qx_cache")||"null"); if (c){ D = c; render(); } }catch(e){}
   await load();
-  liveLoop();
+  liveLoop(); quotes(true);
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden && !$("app").hidden) load().then(quotes); });
 
