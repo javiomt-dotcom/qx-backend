@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>QX</title>
+<meta name="description" content="QX: lista swing, posiciones, resultados y noticias">
+<meta name="theme-color" content="#0b0f14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="QX">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{--bg:#0b0f14;--panel:#121820;--panel2:#18202b;--rule:#243040;--ink:#e6edf3;--muted:#8b98a8;--up:#3fd29a;--down:#ff6b78;--amber:#f2b441;--accent:#5aa9ff;
+  --safe-b:env(safe-area-inset-bottom,0px);--safe-t:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif}
+body{min-height:100vh;padding:calc(var(--safe-t) + 8px) 16px calc(var(--safe-b) + 84px)}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:4px 0 12px}
+.brand{font:700 22px/1 "SF Mono",ui-monospace,Menlo,monospace;letter-spacing:.06em;color:var(--amber)}
+.when{font-size:12px;color:var(--muted);text-align:right}
+button{font:inherit;color:inherit}
+.btn{border:1px solid var(--rule);background:var(--panel2);border-radius:10px;padding:10px 14px}
+.btn.pri{background:var(--amber);border-color:var(--amber);color:#111;font-weight:600}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:14px;margin-bottom:12px}
+.card h2{margin:0 0 8px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--amber);font-weight:600}
+.sub{color:var(--muted);font-size:13px;margin:-2px 0 10px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--rule)}
+.row:first-of-type{border-top:0}
+.sym{font:600 16px "SF Mono",ui-monospace,Menlo,monospace}
+.name{color:var(--muted);font-size:12px;max-width:52vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r{text-align:right}.big{font:600 16px "SF Mono",ui-monospace,Menlo,monospace}
+.up{color:var(--up)}.down{color:var(--down)}.mut{color:var(--muted)}.amb{color:var(--amber)}
+.chip{display:inline-block;font-size:11px;border:1px solid var(--rule);border-radius:6px;padding:1px 6px;color:var(--muted);margin-left:6px;vertical-align:2px}
+.chip.warn{border-color:#6b3238;color:var(--down)}.chip.ok{border-color:#215f4c;color:var(--up)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{background:var(--panel2);border-radius:10px;padding:10px}
+.stat .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.stat .v{font:600 18px "SF Mono",ui-monospace,Menlo,monospace;margin-top:2px}
+.list div{padding:8px 0;border-top:1px solid var(--rule);font-size:14px}
+.list div:first-child{border-top:0}
+.thb{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) 44px;gap:8px;align-items:center;font-size:13px;padding:5px 0}
+.bar{height:8px;background:var(--rule);border-radius:4px;overflow:hidden}.bar i{display:block;height:100%;background:var(--amber)}.bar i.cool{background:var(--muted)}
+nav{position:fixed;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(4,1fr);background:rgba(11,15,20,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--rule);padding:6px 4px calc(var(--safe-b) + 6px)}
+nav button{background:none;border:0;padding:6px 0;font-size:11px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:3px}
+nav button svg{width:22px;height:22px}
+nav button[aria-selected="true"]{color:var(--amber)}
+section[hidden]{display:none}
+.login{max-width:420px;margin:12vh auto 0}
+.login input{width:100%;font:inherit;color:var(--ink);background:var(--panel2);border:1px solid var(--rule);border-radius:10px;padding:12px;margin:6px 0 10px}
+.err{color:var(--down);font-size:14px;min-height:20px}
+.empty{color:var(--muted);font-size:14px;padding:8px 0}
+.note{color:var(--muted);font-size:12px;margin-top:8px}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#f4f6f9;--panel:#fff;--panel2:#eef1f5;--rule:#dde3ea;--ink:#111821;--muted:#5d6b7c;--up:#0f9a63;--down:#d23345;--amber:#b7790a}
+  :root:not([data-theme="dark"]) nav{background:rgba(255,255,255,.94)}}
+:root[data-theme="dark"]{--bg:#0b0f14}
+</style>
+</head>
+<body>
+<div id="auth" class="login" hidden>
+  <div class="brand" style="font-size:34px;margin-bottom:6px">QX</div>
+  <p class="sub">Tu lista swing, posiciones, resultados y noticias. Solo tu cuenta puede ver los datos.</p>
+  <label for="em" class="mut">Correo</label>
+  <input id="em" type="email" autocomplete="username" inputmode="email" autocapitalize="off">
+  <label for="pw" class="mut">Contraseña</label>
+  <input id="pw" type="password" autocomplete="current-password">
+  <div class="err" id="aerr"></div>
+  <div style="display:flex;gap:10px">
+    <button class="btn pri" id="bIn" style="flex:1">Entrar</button>
+    <button class="btn" id="bUp" style="flex:1">Crear cuenta</button>
+  </div>
+  <p class="note">La primera vez toca «Crear cuenta», confirma el correo que te llega y regresa a entrar.</p>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <div class="brand">QX</div>
+    <div class="when" id="when">—</div>
+  </header>
+  <section id="t-hoy"></section>
+  <section id="t-pos" hidden></section>
+  <section id="t-res" hidden></section>
+  <section id="t-news" hidden></section>
+  <div style="display:flex;gap:10px;justify-content:center;margin-top:6px">
+    <button class="btn" id="bRef">Actualizar</button>
+    <button class="btn" id="bOut">Salir</button>
+  </div>
+</div>
+
+<nav id="nav" hidden role="tablist">
+  <button data-t="hoy" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h16M8 15l4-4 3 3 5-6"/></svg>Hoy</button>
+  <button data-t="pos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M8 6V4h8v2"/></svg>Posiciones</button>
+  <button data-t="res"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Resultados</button>
+  <button data-t="news"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>Noticias</button>
+</nav>
+
+<script src="vendor/supabase.js"></script>
+<script>
+const SB_URL = "https://jswqsaogomxyjtyhoucn.supabase.co";
+const SB_KEY = "sb_publishable_xx5KN3nM6KwkNn6Af_LBDw_2BtJ8XEn";   // llave pública: los datos sólo salen con tu sesión
+const CAPITAL = 10000, PER = CAPITAL / 5 / 10;
+const sb = supabase.createClient(SB_URL, SB_KEY, {auth:{persistSession:true, autoRefreshToken:true}});
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pct = (x, d=2) => x==null || !isFinite(x) ? "—" : (x>=0?"+":"") + (x*100).toFixed(d) + "%";
+const cls = (x) => x==null || !isFinite(x) ? "mut" : x>0 ? "up" : x<0 ? "down" : "mut";
+const money = (x) => x==null || !isFinite(x) ? "—" : "$" + x.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const day = (d) => d ? new Date(d+"T12:00:00Z").toLocaleDateString("es-MX",{weekday:"short",day:"numeric",month:"short",timeZone:"UTC"}) : "—";
+const qty = (sh, px) => sh > 0 ? `${sh} acc.` : px ? `${(PER/px).toFixed(3)} fracc.` : "—";
+let D = null;
+
+function show(which){ $("auth").hidden = which!=="auth"; $("app").hidden = which!=="app"; $("nav").hidden = which!=="app"; }
+function tab(t){
+  document.querySelectorAll("nav button").forEach(b=>b.setAttribute("aria-selected", b.dataset.t===t));
+  ["hoy","pos","res","news"].forEach(k=>$("t-"+k).hidden = k!==t);
+  try{ localStorage.setItem("qx_tab", t); }catch(e){}
+  scrollTo(0,0);
+}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>tab(b.dataset.t));
+
+async function load(){
+  $("when").textContent = "cargando…";
+  const {data, error} = await sb.rpc("qx_app");
+  if (error){
+    if (/no autorizado/.test(error.message)){ await sb.auth.signOut(); show("auth"); $("aerr").textContent = "Esta cuenta no tiene acceso a QX."; return; }
+    $("when").textContent = "sin conexión"; $("t-hoy").innerHTML = `<div class="card"><p class="empty">No pude leer tus datos (${esc(error.message)}). Toca Actualizar.</p></div>`; return;
+  }
+  D = data; render();
+  try{ localStorage.setItem("qx_cache", JSON.stringify(D)); }catch(e){}
+}
+
+function render(){
+  const s = D.spy_last || {};
+  $("when").innerHTML = `Cierre ${day(s.d)}<br>${D.run ? (D.run.status==="ok"?"rutina ok":"rutina con error") : ""}`;
+  renderHoy(); renderPos(); renderRes(); renderNews();
+}
+
+function renderHoy(){
+  const sw = D.swing || {}, picks = sw.picks || [];
+  const sells = (D.open||[]).filter(p => p.sell_session === nextOrToday());
+  let h = `<div class="card"><h2>Comprar en la apertura</h2><p class="sub">Lista swing con el cierre del ${day(sw.signal_date)} · ${money(PER)} por acción · mantener 5 sesiones</p>`;
+  h += picks.length ? picks.map(p=>`<div class="row"><div><span class="sym">${esc(p.symbol)}</span>${p.sp500?"":'<span class="chip">fuera S&amp;P</span>'}<div class="name">${esc(p.name||"")}</div></div>
+     <div class="r"><div class="big">${money(p.max_entry)}</div><div class="name">no pagar más · ${qty(p.shares, p.close)}</div></div></div>`).join("")
+     : `<p class="empty">Todavía no hay lista.</p>`;
+  h += `<p class="note">Si abre arriba de «no pagar más», sáltala. Venta: ${day(picks[0] && picks[0].sell_session)} al cierre.</p></div>`;
+  if (sells.length){
+    h += `<div class="card"><h2>Vender al cierre del ${day(nextOrToday())}</h2>` + sells.map(p=>`<div class="row"><span class="sym">${esc(p.symbol)}</span><span class="${cls(ret(p))}">${pct(ret(p))}</span></div>`).join("") + `</div>`;
+  }
+  const al = (D.alerts||[]).slice(0,5);
+  if (al.length) h += `<div class="card"><h2>Alertas recientes</h2><div class="list">${al.map(a=>`<div><span class="sym">${esc(a.symbol)}</span> <span class="mut">${esc(KIND[a.kind]||a.kind)} · ${day(a.day)}</span></div>`).join("")}</div></div>`;
+  $("t-hoy").innerHTML = h;
+}
+const KIND = {no_buy:"abrió arriba del límite", drop:"cayó más de 2 ATR", sell:"vender al cierre"};
+function nextOrToday(){
+  // la sesión que sigue al último cierre guardado
+  const opens = (D.open||[]).map(p=>p.sell_session).sort();
+  const last = (D.spy_last||{}).d || "";
+  return opens.find(d => d > last) || "";
+}
+const ret = (p) => p.entry && p.last_c && p.last_d >= p.entry_d ? p.last_c/p.entry - 1 : null;
+
+function renderPos(){
+  const op = (D.open||[]);
+  if (!op.length){ $("t-pos").innerHTML = `<div class="card"><h2>Posiciones abiertas</h2><p class="empty">No hay listas abiertas.</p></div>`; return; }
+  const by = {}; op.forEach(p => (by[p.signal_date] = by[p.signal_date] || []).push(p));
+  let all = [], h = "";
+  Object.keys(by).sort().reverse().forEach(sig=>{
+    const ps = by[sig], bought = ps.filter(p=>p.entry && p.entry <= p.max_entry*1.0000001);
+    const rs = bought.map(ret).filter(x=>x!=null), avg = rs.length ? rs.reduce((a,b)=>a+b,0)/rs.length : null;
+    all = all.concat(rs);
+    h += `<div class="card"><h2>Señal ${day(sig)}</h2><p class="sub">Compradas ${day(ps[0].entry_d)} · se venden ${day(ps[0].sell_session)} · promedio <span class="${cls(avg)}">${pct(avg)}</span></p>`
+      + ps.map(p=>{ const skip = p.entry && p.entry > p.max_entry*1.0000001, r = ret(p);
+          return `<div class="row"><div><span class="sym">${esc(p.symbol)}</span>${skip?'<span class="chip warn">no comprada</span>':""}<div class="name">entrada ${money(p.entry)} · hoy ${money(p.last_c)}</div></div><div class="big ${skip?"mut":cls(r)}">${skip?"—":pct(r)}</div></div>`; }).join("")
+      + `</div>`;
+  });
+  const tot = all.length ? all.reduce((a,b)=>a+b,0)/all.length : null;
+  $("t-pos").innerHTML = `<div class="card"><h2>Posiciones abiertas</h2><div class="stats"><div class="stat"><div class="k">Acciones</div><div class="v">${all.length}</div></div><div class="stat"><div class="k">Promedio</div><div class="v ${cls(tot)}">${pct(tot)}</div></div></div><p class="note">Precio de entrada = apertura del día de compra; «hoy» = último cierre guardado.</p></div>` + h;
+}
+
+function renderRes(){
+  const r = (D.swing_res||[]), d1 = (D.day1 && D.day1.res) || [];
+  let m=1, sp=1, beat=0; r.forEach(x=>{ m*=1+(x.ret||0); sp*=1+(x.spy_cc||0); if((x.ret||0)>(x.spy_cc||0)) beat++; });
+  let h = `<div class="card"><h2>Swing 5 días · real</h2><div class="stats">
+    <div class="stat"><div class="k">Swing</div><div class="v ${cls(m-1)}">${r.length?pct(m-1,1):"—"}</div></div>
+    <div class="stat"><div class="k">SPY</div><div class="v ${cls(sp-1)}">${r.length?pct(sp-1,1):"—"}</div></div>
+    <div class="stat"><div class="k">Sesiones</div><div class="v">${r.length}</div></div>
+    <div class="stat"><div class="k">Le ganó al SPY</div><div class="v">${r.length?beat+" de "+r.length:"—"}</div></div></div>`;
+  h += r.map(x=>`<div class="row"><span>${day(x.session)}</span><span class="${cls(x.ret)}">${pct(x.ret)}</span><span class="mut">SPY ${pct(x.spy_cc)}</span></div>`).join("") + `</div>`;
+  let m1=1, s1=1; d1.forEach(x=>{ m1*=1+(x.model_ret||0); s1*=1+(x.spy_oc||0); });
+  h += `<div class="card"><h2>Modelo de 1 día · comparación</h2><p class="sub">${d1.length} sesiones · modelo <span class="${cls(m1-1)}">${pct(m1-1,1)}</span> vs SPY <span class="${cls(s1-1)}">${pct(s1-1,1)}</span></p>`
+    + d1.map(x=>`<div class="row"><span>${day(x.session)}</span><span class="${cls(x.model_ret)}">${pct(x.model_ret)}</span><span class="mut">SPY ${pct(x.spy_oc)}</span></div>`).join("") + `</div>`;
+  $("t-res").innerHTML = h;
+}
+
+function renderNews(){
+  const N = D.news || {}, d = N.day;
+  if (!d){ $("t-news").innerHTML = `<div class="card"><p class="empty">Todavía no hay noticias guardadas.</p></div>`; return; }
+  const hd = d.headlines || {}, rc = hd.react || {};
+  let h = `<div class="card"><h2>Noticias del día</h2><p class="sub">${day(d.d)} · ${Number(d.n||0).toLocaleString("en-US")} titulares</p><div class="stats">
+    <div class="stat"><div class="k">SPY</div><div class="v ${cls(d.spy_ret)}">${pct(d.spy_ret)}</div></div>
+    <div class="stat"><div class="k">Tono</div><div class="v ${cls(d.tone)}">${(d.tone>=0?"+":"")+(+d.tone||0).toFixed(2)}</div></div>
+    <div class="stat"><div class="k">Noticia buena</div><div class="v ${cls(rc.pos)}">${pct(rc.pos,1)}</div></div>
+    <div class="stat"><div class="k">Noticia mala</div><div class="v ${cls(rc.neg)}">${pct(rc.neg,1)}</div></div></div></div>`;
+  if ((hd.macro||[]).length) h += `<div class="card"><h2>Macro</h2><div class="list">${hd.macro.map(x=>`<div>${esc(x)}</div>`).join("")}</div></div>`;
+  if ((hd.movers||[]).length) h += `<div class="card"><h2>Lo que movió acciones</h2><div class="list">${hd.movers.map(m=>`<div><span class="sym">${esc(m.s)}</span> <span class="${cls(m.ret)}">${pct(m.ret,1)}</span><br><span class="mut">${esc(m.h)}</span></div>`).join("")}</div></div>`;
+  const hist = N.hist || [], rec = hist.filter(x=>x.k<=5), pri = hist.filter(x=>x.k>5);
+  const tot = (xs)=>xs.reduce((a,x)=>a+(x.n||0),0), nr = tot(rec), np = tot(pri);
+  const sum = (xs,t)=>xs.reduce((a,x)=>a+((x.themes||{})[t]||0),0);
+  const th = Object.keys(d.themes||{}).map(t=>{ const r=sum(rec,t), sr=nr?r/nr:0, sp=np?sum(pri,t)/np:0; return {t, r, ratio:(sr+1e-4)/(sp+1e-4)}; })
+    .filter(x=>x.r>=5).sort((a,b)=>b.ratio-a.ratio).slice(0,8);
+  const mx = Math.max(2, ...th.map(x=>x.ratio));
+  if (th.length && np) h += `<div class="card"><h2>Temas en aumento</h2><p class="sub">5 sesiones contra las ${pri.length} anteriores</p>${th.map(x=>`<div class="thb"><span>${esc(x.t)}</span><div class="bar"><i class="${x.ratio<1.3?"cool":""}" style="width:${Math.min(100,x.ratio/mx*100).toFixed(0)}%"></i></div><span class="${x.ratio>=1.3?"amb":"mut"}">×${x.ratio.toFixed(1)}</span></div>`).join("")}</div>`;
+  const mine = new Set(((D.swing||{}).picks||[]).map(p=>p.symbol));
+  if ((N.att||[]).length) h += `<div class="card"><h2>Atención inusual</h2>${N.att.map(a=>`<div class="row"><div><span class="sym">${esc(a.s)}</span>${mine.has(a.s)?'<span class="chip ok">en tu lista</span>':""}<div class="name">${a.n5} notas en 5 días · tono ${(a.tone>=0?"+":"")+(+a.tone).toFixed(2)}</div></div><div class="big amb">×${(+a.x).toFixed(0)}</div></div>`).join("")}</div>`;
+  h += `<p class="note">Las noticias son contexto: la prueba de 3 años mostró que no mejoran las predicciones del swing.</p>`;
+  $("t-news").innerHTML = h;
+}
+
+async function auth(kind){
+  const email = $("em").value.trim(), password = $("pw").value;
+  $("aerr").textContent = "";
+  if (!email || password.length < 8){ $("aerr").textContent = "Escribe tu correo y una contraseña de al menos 8 caracteres."; return; }
+  const r = kind==="in" ? await sb.auth.signInWithPassword({email, password})
+                        : await sb.auth.signUp({email, password, options:{emailRedirectTo: location.origin + location.pathname}});
+  if (r.error){ $("aerr").textContent = /confirm/i.test(r.error.message) ? "Confirma tu correo primero (revisa tu bandeja y spam)." : /Invalid login/i.test(r.error.message) ? "Correo o contraseña incorrectos." : r.error.message; return; }
+  if (kind==="up" && !r.data.session){ $("aerr").style.color="var(--up)"; $("aerr").textContent = "Listo. Te mandé un correo: toca el enlace para confirmar y luego regresa aquí a Entrar."; return; }
+  start();
+}
+$("bIn").onclick = () => auth("in"); $("bUp").onclick = () => auth("up");
+$("pw").addEventListener("keydown", e => { if (e.key==="Enter") auth("in"); });
+$("bRef").onclick = load;
+$("bOut").onclick = async () => { await sb.auth.signOut(); try{ localStorage.removeItem("qx_cache"); }catch(e){} show("auth"); };
+
+async function start(){
+  show("app");
+  let t = "hoy"; try{ t = localStorage.getItem("qx_tab") || "hoy"; }catch(e){}
+  tab(t);
+  try{ const c = JSON.parse(localStorage.getItem("qx_cache")||"null"); if (c){ D = c; render(); } }catch(e){}
+  load();
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden && !$("app").hidden) load(); });
+
+(async () => {
+  const {data} = await sb.auth.getSession();
+  data.session ? start() : show("auth");
+})();
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
