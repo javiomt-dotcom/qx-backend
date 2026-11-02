@@ -164,19 +164,24 @@ const day = (d) => d ? new Date(d+"T12:00:00Z").toLocaleDateString("es-MX",{week
 const dd = (d) => d ? new Date(d+"T12:00:00Z").toLocaleDateString("es-MX",{day:"2-digit",month:"short",timeZone:"UTC"}) : "—";
 const qty = (sh, p) => sh > 0 ? String(sh) : p ? (PER/p).toFixed(3) : "—";
 const panel = (title, small, body) => `<div class="p"><div class="ph"><h2>${title}</h2><small>${small||""}</small></div><div class="pb">${body}</div></div>`;
-let D = null, Q = {}, QAT = null, QERR = "", qTimer = null, MP = [], OP = {}, MQ = {}, MERR = "";
+let D = null, Q = {}, QAT = null, QERR = "", qTimer = null, qBusy = false, MP = [], OP = {}, MQ = {}, MERR = "";
 
 const ny = () => new Date(new Date().toLocaleString("en-US",{timeZone:"America/New_York"}));
 function marketOpen(){ const t = ny(), m = t.getHours()*60 + t.getMinutes(), w = t.getDay(); return w>0 && w<6 && m >= 9*60+30 && m < 16*60; }
 const live = () => QAT && marketOpen();
+const POLL_MS = 5000;   // cada 5 s con el mercado abierto (antes 15 s)
 async function quotes(force){
-  if (!D || $("app").hidden || document.hidden) return;
+  if (!D || $("app").hidden || document.hidden || qBusy) return;
   const open = marketOpen();
   if (!open && !(force && MP.length)) return;
   const mine = MP.map(p=>p.symbol);
   const syms = [...new Set([...(open ? [...(((D.swing||{}).picks)||[]).map(p=>p.symbol), ...(D.open||[]).map(p=>p.symbol), "SPY", "QQQ", "IWM"] : []), ...mine])];
     const opens = MP.filter(p => p.price==null && OP[p.symbol+"|"+p.buy_date]==null && p.buy_date < todayNY()).map(p=>({s:p.symbol, d:p.buy_date}));
-  const {data, error} = await sb.functions.invoke("quotes", {body:{symbols:syms, opens}});
+  qBusy = true;
+  let data, error;
+  try { ({data, error} = await sb.functions.invoke("quotes", {body:{symbols:syms, opens}})); }
+  catch(e){ error = e; }
+  finally { qBusy = false; }
   if (error){
     let code = ""; try{ code = (await error.context.json()).error; }catch(e){}
     const msg = code==="faltan_llaves" ? "Faltan las llaves de Alpaca en Supabase" : "Precios en vivo sin conexión";
@@ -188,7 +193,7 @@ async function quotes(force){
   render();
 }
 const todayNY = () => new Date().toLocaleDateString("en-CA",{timeZone:"America/New_York"});
-function liveLoop(){ clearInterval(qTimer); quotes(); qTimer = setInterval(quotes, 15000); }
+function liveLoop(){ clearInterval(qTimer); quotes(); qTimer = setInterval(quotes, POLL_MS); }
 
 function show(which){ $("auth").hidden = which!=="auth"; $("app").hidden = which!=="app"; $("nav").hidden = which!=="app"; }
 function tab(t){
@@ -226,7 +231,7 @@ function render(){ renderTop(); renderHoy(); renderPos(); renderRes(); renderNew
 function renderTop(){
   const s = D.spy_last || {}, pill = $("pill");
   pill.className = "pill " + (live() ? "on" : QERR ? "off" : "");
-  pill.lastElementChild.textContent = live() ? "En vivo " + QAT.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"}) : QERR || ("Cierre " + dd(s.d));
+  pill.lastElementChild.textContent = live() ? "En vivo " + QAT.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",second:"2-digit"}) : QERR || ("Cierre " + dd(s.d));
   const idx = ["SPY","QQQ","IWM"].map(k=>{ const q = Q[k]; return live() && q ? `<span><b>${k}</b>${px(q.last)} <span class="${cls(q.chg)}">${pct(q.chg)}</span></span>` : ""; }).join("");
   $("strip").innerHTML = idx || `<span><b>SPY</b>${px(s.c)} <span class="mut">cierre ${day(s.d)}</span></span><span class="mut">${D.run ? (D.run.status==="ok" ? "rutina ok" : "rutina con error") : ""}</span>`;
   const c = cum(D.swing_res||[], "ret", "spy_cc"), rs = (D.open||[]).map(ret).filter(x=>x!=null), avg = mean(rs);
@@ -343,7 +348,7 @@ function renderPos(){
     panel("Listas del modelo", live() ? "en vivo" : "al último cierre",
       `<div class="scroll"><table><thead><tr><th class="l">Señal</th><th class="l">Compra</th><th>Acc.</th><th>Va</th><th class="l">Venta</th></tr></thead><tbody>${summary}</tbody></table></div>`)
   + panel("Detalle del modelo", "", `<div class="scroll"><table><thead><tr><th class="l">Símbolo</th><th>Entrada</th><th>${live()?"Ahora":"Cierre"}</th><th>Va</th><th>Acc.</th></tr></thead><tbody>${body}</tbody></table></div>
-      <p class="note">Entrada = apertura del día de compra. Con el mercado abierto el precio se actualiza cada 15 s (bolsa IEX); fuera de horario es el último cierre.</p>`);
+      <p class="note">Entrada = apertura del día de compra. Con el mercado abierto el precio se actualiza cada 5 s (bolsa IEX; si no hubo operación reciente usa el punto medio entre compra y venta); fuera de horario es el último cierre.</p>`);
   keepOpen(wasOpen);
 }
 function keepOpen(v){ const d = document.querySelector("details.add"); if (d && v != null) d.open = v; }
