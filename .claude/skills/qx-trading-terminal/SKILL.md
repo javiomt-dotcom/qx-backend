@@ -72,7 +72,7 @@ Los workflows aceptan los nombres de Javier o los estándar: `ALPACA_KEY` (o `AL
 
 **Swing de 5 días** (`qx/swing.py`, el que se usa): cada día compra 10 acciones en la apertura con 1/5 del capital y vende al cierre de la quinta sesión. **No usa stop ni objetivo**: `plan()` sólo calcula el límite "No comprar arriba de" (cierre + 1 ATR) y las acciones (`QX_CAPITAL / 5 / 10` por posición, $200 con el capital default de $10,000, así que una acción de más de $200 queda en 0 acciones). La caída de 2 ATR es sólo una alerta, no una venta. Puntaje = modelo ridge de retorno a 5 días ajustado por volatilidad + tendencia (z de distancia a la media de 50d). Filtros: ATR ≤ 8% del precio, sin saltos > 40%, máximo 3 fuera del S&P, sin acciones que reporten resultados durante los 5 días.
 
-**Calificación real del swing** (`score_session()`): promedia todas las acciones de cada lista, aunque hayan abierto arriba de "No comprar arriba de", así que puede no coincidir con lo que realmente se habría comprado.
+**Calificación real del swing** (`score_session()`): promedia las acciones de cada lista; si una abrió arriba de su "No comprar arriba de" el día de compra, no se compró y cuenta como efectivo (0%) los 5 días (desde 2026-11-02; los resultados guardados antes no se recalcularon).
 
 **Alertas intradía:** acción de la lista que abre arriba de "No comprar arriba de", posición que cae más de 2 ATR desde la compra, y en la última hora qué lista se vende al cierre. Cada aviso una sola vez al día.
 

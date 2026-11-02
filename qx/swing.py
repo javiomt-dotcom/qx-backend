@@ -90,11 +90,14 @@ def plan(p: E.Panel, i: int, pick: dict):
     return {"close": c, "atr": a, "max_entry": c + C.GAP_ATR * a, "shares": int(per // c) if c > 0 else 0}
 
 
-def score_session(p: E.Panel, session: str, cohorts: dict[str, list[str]], sessions: list[str]):
+def score_session(p: E.Panel, session: str, cohorts: dict[str, list[str]], sessions: list[str],
+                  limits: dict[str, dict[str, float]] | None = None):
     """Retorno real del portafolio swing en `session`.
 
     cohorts: {signal_date: [símbolos]} de las listas guardadas. La lista con señal en la sesión k
-    compra en la apertura de k+1 y vende al cierre de k+5; cada cohorte pesa 1/HOLD."""
+    compra en la apertura de k+1 y vende al cierre de k+5; cada cohorte pesa 1/HOLD.
+    limits: {signal_date: {símbolo: max_entry}}. Si una acción abrió arriba de su "No comprar arriba
+    de" el día de compra, no se compró: cuenta como efectivo (0%) los 5 días."""
     if session not in p.dates or session not in sessions:
         return None
     j = p.dates.index(session)
@@ -109,10 +112,17 @@ def score_session(p: E.Panel, session: str, cohorts: dict[str, list[str]], sessi
         if not syms:
             continue
         active += 1
+        lim = (limits or {}).get(sig, {})
+        ent = sessions[pos - step + 1]
+        je = p.dates.index(ent) if ent in p.dates else None
         rs = []
         for s in syms:
             r = idx.get(s)
             if r is None:
+                continue
+            mx = lim.get(s)
+            if mx is not None and je is not None and np.isfinite(p.o[r, je]) and p.o[r, je] > mx:
+                rs.append(0.0)          # no se compró: efectivo
                 continue
             with np.errstate(invalid="ignore", divide="ignore"):
                 x = p.c[r, j] / p.o[r, j] - 1 - COST if step == 1 else p.c[r, j] / p.c[r, j - 1] - 1

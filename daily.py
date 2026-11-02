@@ -96,14 +96,16 @@ def run_swing(panel, universe, store, last, sessions):
     try:
         # calificar sesiones cerradas que todavía no tienen resultado
         prev = store.select("swing_picks", {"signal_date": f"gte.{sessions[0]}"})
-        cohorts = {}
+        cohorts, limits = {}, {}
         for r in prev:
             cohorts.setdefault(str(r["signal_date"]), []).append(r["symbol"])
+            if r.get("max_entry") is not None:
+                limits.setdefault(str(r["signal_date"]), {})[r["symbol"]] = float(r["max_entry"])
         done = {str(r["session"]) for r in store.select("swing_results")}
         if cohorts:
             first = min(cohorts)
             todo = [d for d in sessions if first < d <= last and d not in done]
-            res = [x for x in (SW.score_session(panel, d, cohorts, sessions) for d in todo) if x]
+            res = [x for x in (SW.score_session(panel, d, cohorts, sessions, limits) for d in todo) if x]
             if res:
                 store.upsert("swing_results", res)
                 out["yesterday"] = res[-1]
