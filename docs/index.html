@@ -348,7 +348,7 @@ function renderPos(){
     panel("Listas del modelo", live() ? "en vivo" : "al último cierre",
       `<div class="scroll"><table><thead><tr><th class="l">Señal</th><th class="l">Compra</th><th>Acc.</th><th>Va</th><th class="l">Venta</th></tr></thead><tbody>${summary}</tbody></table></div>`)
   + panel("Detalle del modelo", "", `<div class="scroll"><table><thead><tr><th class="l">Símbolo</th><th>Entrada</th><th>${live()?"Ahora":"Cierre"}</th><th>Va</th><th>Acc.</th></tr></thead><tbody>${body}</tbody></table></div>
-      <p class="note">Entrada = apertura del día de compra. Con el mercado abierto el precio se actualiza cada 5 s (bolsa IEX; si no hubo operación reciente usa el punto medio entre compra y venta); fuera de horario es el último cierre.</p>`);
+      <p class="note">Entrada = apertura del día de compra. Con el mercado abierto el precio se actualiza cada 5 s con el precio más reciente entre IEX y Finnhub; fuera de horario es el último cierre.</p>`);
   keepOpen(wasOpen);
 }
 function keepOpen(v){ const d = document.querySelector("details.add"); if (d && v != null) d.open = v; }
