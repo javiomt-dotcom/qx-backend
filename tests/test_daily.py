@@ -234,5 +234,19 @@ def test_session_cutoff():
     assert last_completed_session(cal, dt.datetime(2026, 10, 21, 16, 25, tzinfo=NY)) == "2026-10-21"
 
 
+def test_swing_score_skips_gap():
+    from qx import swing as SW
+    dates = ["2026-10-20", "2026-10-21", "2026-10-22"]
+    o = np.array([[100, 100, 110.0], [50, 50, 50], [400, 400, 400]])      # AAA abre en 110 el día de compra
+    c = np.array([[100, 100, 121.0], [50, 50, 55], [400, 400, 404]])
+    p = E.Panel(dates, ["AAA", "BBB", "SPY"], o, c, c, c, np.ones_like(c))
+    coh = {"2026-10-21": ["AAA", "BBB"]}
+    full = SW.score_session(p, "2026-10-22", coh, dates)
+    assert abs(full["ret"] - ((0.10 - SW.COST) + (0.10 - SW.COST)) / 2 / SW.HOLD) < 1e-9
+    lim = {"2026-10-21": {"AAA": 105.0, "BBB": 60.0}}                      # AAA abrió arriba de su límite
+    got = SW.score_session(p, "2026-10-22", coh, dates, lim)
+    assert abs(got["ret"] - (0.0 + (0.10 - SW.COST)) / 2 / SW.HOLD) < 1e-9, got
+
+
 if __name__ == "__main__":
-    test_trade_rules(); test_earnings_parse(); test_session_cutoff(); test_end_to_end(); print("ok")
+    test_trade_rules(); test_earnings_parse(); test_session_cutoff(); test_swing_score_skips_gap(); test_end_to_end(); print("ok")
