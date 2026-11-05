@@ -198,10 +198,16 @@ def walk_forward(S, ndays):
         sc = {"ridge_5": f5, "trend": X[:, 10], "mix": (f5 - f5.mean()) / (f5.std() or 1) + X[:, 10]}
         for name, model, big_only in VARIANTS:
             pk = select(sc[model], ii, S, big_only)
-            # retorno de la cohorte por día, sin costo; una acción que deja de tener precio sale del promedio
-            path = np.nan_to_num(np.nanmean(S["g"][pk], axis=0)) if pk else np.zeros(HOLD)
+            # comprar y mantener: cada acción arranca con el mismo dinero y no se rebalancea dentro de la cohorte.
+            # Un día sin precio cuenta como 0% (la posición queda congelada en su último valor).
+            if pk:
+                G = np.cumprod(1 + np.nan_to_num(S["g"][pk].astype(float)), axis=1)
+                V = np.concatenate([[1.0], G.mean(axis=0)])
+                path = V[1:] / V[:-1] - 1
+            else:
+                G, path = np.zeros((0, HOLD)), np.zeros(HOLD)
             res[name].append({"t": t, "path": path, "big": int(S["big"][pk].sum()) if pk else 0,
-                              "picks": [(int(S["row"][j]), float(np.nansum(S["g"][j]))) for j in pk]})
+                              "picks": [(int(S["row"][j]), float(G[k, -1] - 1)) for k, j in enumerate(pk)]})
     return res
 
 
