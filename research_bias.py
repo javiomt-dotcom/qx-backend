@@ -111,6 +111,7 @@ def load(years):
         log(f"  {min(k + 500, len(cands))}/{len(cands)} revisadas, {len(bars)} guardadas")
     p = E.Panel.from_bars(bars)
     n_inactive = sum(1 for s in p.syms if st.get(s) == "inactive")
+    load.inactive = {s for s in p.syms if st.get(s) == "inactive"}
     log(f"panel: {len(p.syms)} símbolos ({n_inactive} deslistados) × {len(p.dates)} sesiones ({p.dates[0]} a {p.dates[-1]})")
     return p, today_uni, n_inactive
 
@@ -123,7 +124,7 @@ def build(p, universe, mode):
     spy = idx["SPY"]
     rows_all = np.array(sorted(idx[s] for s in universe if s in idx))
     is_sp = np.array([p.syms[r] in SP500 for r in rows_all])
-    S = {k: [] for k in ("X", "day", "big", "atrp", "r1", "cc", "g")}
+    S = {k: [] for k in ("X", "day", "row", "big", "atrp", "r1", "cc", "g")}
     days, spy_cc = [], []
     for i in range(55, len(p.dates) - HOLD):
         F = E.raw_features(p, i, spy)[rows_all]
@@ -150,7 +151,7 @@ def build(p, universe, mode):
         days.append(i)
         spy_cc.append(p.c[spy, i + 1] / p.c[spy, i] - 1)
         S["X"].append(E.zday(F[ok]).astype(np.float32)); S["day"].append(np.full(len(rows), d, np.int32))
-        S["big"].append(big[ok]); S["atrp"].append(a / p.c[rows, i]); S["r1"].append(F[ok][:, 0])
+        S["row"].append(rows); S["big"].append(big[ok]); S["atrp"].append(a / p.c[rows, i]); S["r1"].append(F[ok][:, 0])
         S["cc"].append(p.c[rows, i + 1] / p.c[rows, i] - 1); S["g"].append(g.astype(np.float32))
     S = {k: np.concatenate(v) for k, v in S.items()}
     log(f"[{mode}] {len(days)} sesiones, {len(S['day']):,} muestras, {len(rows_all)} símbolos posibles")
@@ -199,7 +200,8 @@ def walk_forward(S, ndays):
             pk = select(sc[model], ii, S, big_only)
             # retorno de la cohorte por día, sin costo; una acción que deja de tener precio sale del promedio
             path = np.nan_to_num(np.nanmean(S["g"][pk], axis=0)) if pk else np.zeros(HOLD)
-            res[name].append({"t": t, "path": path, "big": int(S["big"][pk].sum()) if pk else 0})
+            res[name].append({"t": t, "path": path, "big": int(S["big"][pk].sum()) if pk else 0,
+                              "picks": [(int(S["row"][j]), float(np.nansum(S["g"][j]))) for j in pk]})
     return res
 
 
@@ -272,6 +274,27 @@ def report(title, res, days, dates, spy_cc, rng):
     return out
 
 
+def diagnose(v, p, days, today_uni, inactive):
+    """¿De dónde viene la diferencia? Picks de L por grupo: en el universo de hoy, fuera de él, deslistadas."""
+    tu = set(today_uni)
+    grp = {"en el universo de hoy": [], "fuera del universo de hoy (siguen listadas)": [], "deslistadas": []}
+    allp = []
+    for x in v:
+        for r, g in x["picks"]:
+            s = p.syms[r]
+            k = "deslistadas" if s in inactive else ("en el universo de hoy" if s in tu else "fuera del universo de hoy (siguen listadas)")
+            grp[k].append(g)
+            allp.append((g, s, p.dates[days[x["t"]]]))
+    n = sum(len(x) for x in grp.values()) or 1
+    print("\nPicks de L por grupo (retorno medio a 5 días, sin costo):\n")
+    for k, g in grp.items():
+        if g:
+            print(f"- {k}: {len(g)} picks ({len(g) / n:.0%}), {np.mean(g):+.2%} promedio, {np.median(g):+.2%} mediana")
+    allp.sort()
+    print("- peores: " + ", ".join(f"{s} {d} {g:+.0%}" for g, s, d in allp[:8]))
+    print("- mejores: " + ", ".join(f"{s} {d} {g:+.0%}" for g, s, d in allp[-8:]))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--years", type=float, default=3)
@@ -279,16 +302,20 @@ def main():
     p, today_uni, n_inactive = load(a.years)
     rng = np.random.default_rng(7)
     out = {}
+    every = [s for s in p.syms if s not in INDEXES]
+    inactive = getattr(load, "inactive", set())
     for mode, title, uni in (("hoy", "Universo de hoy (como research.py)", today_uni),
-                             ("dia", "Universo de cada día (con deslistadas)", [s for s in p.syms if s not in INDEXES])):
+                             ("dia", "Universo de cada día (con deslistadas)", every),
+                             ("dia", "Universo de cada día, sin deslistadas", [s for s in every if s not in inactive])):
         S, days, spy_cc = build(p, uni, mode)
         res = walk_forward(S, len(days))
-        out[mode] = report(title, res, days, p.dates, spy_cc, rng)
+        out[title] = report(title, res, days, p.dates, spy_cc, rng)
+        diagnose(res["L. Mezcla F + I (producción)"], p, days, today_uni, inactive)
     print("\n## Comparación rápida (costo 0.10%)\n")
     print("| Versión | Acumulado hoy | Acumulado cada día | Alfa anual hoy | Alfa anual cada día | Beta cada día |")
     print("|---|---|---|---|---|---|")
     for name, *_ in VARIANTS:
-        h, d = out["hoy"][(name, COSTS[0])], out["dia"][(name, COSTS[0])]
+        h, d = out["Universo de hoy (como research.py)"][(name, COSTS[0])], out["Universo de cada día (con deslistadas)"][(name, COSTS[0])]
         print(f"| {name} | {h['cum']:+.1%} | {d['cum']:+.1%} | {h['alpha']:+.1%} | {d['alpha']:+.1%} | {d['beta']:.2f} |")
     print(f"\nNotas: el panel tiene {n_inactive} acciones deslistadas que alguna vez fueron líquidas. Si una acción deja de "
           "cotizar mientras se tiene, su último tramo se pierde (sale del promedio); en quiebras eso favorece un poco a la "
