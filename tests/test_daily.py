@@ -153,6 +153,10 @@ def test_end_to_end():
     y5 = out2["swing"]["yesterday"]
     assert out2["swing"]["error"] is None and y5 and y5["session"] == "2026-10-22" and y5["cohorts"] == 1
     assert len(st.select("swing_picks")) == 20
+    # se guardan los puntajes de todo el universo y los datos de cada corrida
+    sc = st.select("swing_scores", {"signal_date": "eq.2026-10-22"})
+    assert len(sc) > 50 and sum(1 for x in sc if x["in_list"]) == 10
+    assert {str(r["signal_date"]) for r in st.select("swing_runs")} == {"2026-10-21", "2026-10-22"}
 
     # alertas del 23 durante la sesión
     import intraday

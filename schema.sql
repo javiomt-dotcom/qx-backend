@@ -158,3 +158,39 @@ create table if not exists news_market (
 );
 alter table news_daily  enable row level security;
 alter table news_market enable row level security;
+
+-- datos para recalibrar el swing (desde nov 2026): puntaje de TODAS las acciones del universo cada día,
+-- datos de cada corrida y calidad real del puntaje cuando cierran los 5 días
+create table if not exists swing_scores (
+  signal_date  date not null,
+  symbol       text not null,
+  score        double precision,     -- puntaje final (modelo normalizado + tendencia)
+  model        double precision,     -- parte del modelo ridge, normalizada
+  trend        double precision,     -- z de la distancia a la media de 50 días
+  atrp         double precision,     -- ATR / precio
+  close        double precision,
+  dvol         double precision,     -- promedio 20 días de dólares negociados
+  sp500        boolean,
+  in_list      boolean,              -- quedó en la lista de 10
+  primary key (signal_date, symbol)
+);
+create table if not exists swing_runs (
+  signal_date  date primary key,
+  model        text not null,
+  n_train      int,
+  universe     int,
+  weights      jsonb not null default '{}'::jsonb,
+  skipped      jsonb not null default '[]'::jsonb,
+  created_at   timestamptz not null default now()
+);
+create table if not exists swing_ic (
+  signal_date  date primary key,
+  exit_session date not null,
+  n            int,
+  ic           double precision,     -- correlación de rangos entre puntaje y retorno a 5 días
+  top10_ret    double precision,     -- retorno medio del 10% con mejor puntaje
+  all_ret      double precision      -- retorno medio de todo el universo
+);
+alter table swing_scores enable row level security;
+alter table swing_runs   enable row level security;
+alter table swing_ic     enable row level security;
