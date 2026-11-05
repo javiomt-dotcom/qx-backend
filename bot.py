@@ -5,6 +5,7 @@ y dentro de cada ventana escucha con long polling, así que contesta en segundos
 /posiciones  listas abiertas, cuánto van y cuándo se venden
 /resultados  acumulado real del swing y del modelo de 1 día contra SPY
 /noticias    noticias del último cierre y temas en aumento
+/semana      reporte de la semana: swing y modelo de 1 día contra SPY
 /ayuda       esta ayuda
 
 Sólo contesta al chat de TELEGRAM_CHAT_ID.
@@ -22,7 +23,7 @@ from qx import config as C, notify, swing as SW
 from qx.notify import pct
 
 HELP = ("<b>Comandos de QX</b>\n/lista · lista swing para la próxima sesión\n/posiciones · listas abiertas y cuándo se venden\n"
-        "/resultados · acumulado real contra SPY\n/noticias · noticias del último cierre y temas en aumento\n/ayuda · esta ayuda\n\nContesto de 7am a 10pm hora de México; fuera de ese horario, al empezar el día.")
+        "/resultados · acumulado real contra SPY\n/semana · reporte de la semana contra SPY\n/noticias · noticias del último cierre y temas en aumento\n/ayuda · esta ayuda\n\nContesto de 7am a 10pm hora de México; fuera de ese horario, al empezar el día.")
 
 
 def updates(token, offset=None, session=requests, wait=0):
@@ -98,7 +99,16 @@ def cmd_noticias(store, a=None, today=None):
     return notify.news_message({"day": rows[-1], "trends": NW.trends(rows, drows, last, sessions)}, picks)
 
 
-COMMANDS = {"/lista": cmd_lista, "/posiciones": cmd_posiciones, "/resultados": cmd_resultados, "/noticias": cmd_noticias}
+def cmd_semana(store, a, today=None):
+    import weekly
+    today = today or dt.datetime.now(weekly.NY).date()
+    if today.weekday() == 6:
+        today -= dt.timedelta(days=2)
+    return weekly.build(store, a, today)["text"]
+
+
+COMMANDS = {"/lista": cmd_lista, "/posiciones": cmd_posiciones, "/resultados": cmd_resultados, "/noticias": cmd_noticias,
+            "/semana": cmd_semana}
 
 
 def run(store, a, token=None, chat=None, send=notify.send, get=updates, today=None):

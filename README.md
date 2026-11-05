@@ -55,9 +55,13 @@ El workflow **QX alertas** revisa cada 15 minutos con el mercado abierto y te av
 
 Cada tarde la rutina lee los titulares del día (Alpaca/Benzinga, gratis), los califica con un léxico financiero y manda la sección **📰 Noticias del día**: cómo cerró el SPY, la reacción del mercado a noticias buenas y malas, titulares macro, las acciones que más se movieron con noticia, los temas que vienen creciendo (5 sesiones contra las 20 anteriores) y las acciones con atención inusual. Se guarda en `news_market` y `news_daily`. Si falla, el resto de la rutina sigue. `news_research.py` mide con 3 años de historia si las noticias mejoran el swing antes de meterlas al modelo.
 
+## Reporte semanal
+
+El workflow **QX semanal** corre los viernes a las 23:45 UTC (5:45pm en México), después de la rutina diaria, y te manda por Telegram el **📊 Resumen semanal**: el swing de 5 días contra el SPY día por día, las listas que se vendieron en la semana (con la mejor y la peor acción), el acumulado real desde el arranque con cuántas semanas le ganó al SPY, y el modelo de 1 día como comparación. Si el viernes todavía no estaba el resultado del día, lo manda el respaldo del sábado a las 15:00 UTC. Nunca se manda dos veces la misma semana (salvo con `force`). También lo puedes pedir cuando quieras con `/semana`.
+
 ## Comandos del bot
 
-El workflow **QX bot** escucha tus mensajes de 7am a 10pm (hora de México) y contesta en segundos: `/lista` (lista swing más reciente), `/posiciones` (listas abiertas, cuánto van y cuándo se venden), `/resultados` (acumulado real contra SPY), `/noticias` (noticias del último cierre) y `/ayuda`. Sólo le contesta a tu chat.
+El workflow **QX bot** escucha tus mensajes de 7am a 10pm (hora de México) y contesta en segundos: `/lista` (lista swing más reciente), `/posiciones` (listas abiertas, cuánto van y cuándo se venden), `/resultados` (acumulado real contra SPY), `/noticias` (noticias del último cierre), `/semana` (reporte de la semana contra SPY) y `/ayuda`. Sólo le contesta a tu chat.
 
 ## Correr en tu computadora
 
@@ -73,6 +77,7 @@ python daily.py --force             # rehace la lista del día aunque ya exista
 - `daily.py`: la rutina completa.
 - `intraday.py`: alertas durante la sesión.
 - `bot.py`: comandos de Telegram.
+- `weekly.py`: reporte semanal contra SPY.
 - `qx/swing.py`: estrategia swing de 5 días.
 - `qx/earnings.py`: calendario de reportes de resultados.
 - `qx/engine.py`: modelo (regresión logística con calibración), backtest y reglas de entrada.

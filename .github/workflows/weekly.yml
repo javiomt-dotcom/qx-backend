@@ -1,0 +1,38 @@
+name: QX semanal
+
+on:
+  schedule:
+    # viernes 23:45 UTC (5:45pm en México): después de la rutina diaria (21:30 y 22:30 UTC).
+    # Si el resultado del viernes todavía no está, no manda nada y lo manda el respaldo del sábado 15:00 UTC (9am México).
+    - cron: "45 23 * * 5"
+    - cron: "0 15 * * 6"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Mandarlo aunque ya se haya mandado esta semana"
+        type: boolean
+        default: false
+      dry:
+        description: "Sólo mostrar el reporte en el log, sin mandarlo"
+        type: boolean
+        default: false
+
+jobs:
+  weekly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python weekly.py ${{ inputs.force && '--force' || '' }} ${{ inputs.dry && '--dry' || '' }}
+        env:
+          ALPACA_KEY_ID: ${{ secrets.ALPACA_KEY_ID || secrets.ALPACA_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY || secrets.ALPACA_SECRETO }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || secrets.BOT }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          QX_CAPITAL: ${{ vars.QX_CAPITAL || '10000' }}

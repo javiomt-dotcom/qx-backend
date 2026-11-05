@@ -248,5 +248,41 @@ def test_swing_score_skips_gap():
     assert abs(got["ret"] - (0.0 + (0.10 - SW.COST)) / 2 / SW.HOLD) < 1e-9, got
 
 
+def test_weekly_report():
+    import weekly
+    st = LocalStore()
+    sw = [("2026-10-26", 0.0001, 0.0071, 1), ("2026-10-27", -0.0020, 0.0056, 2), ("2026-10-28", 0.0080, 0.0034, 3),
+          ("2026-10-29", 0.0041, -0.0038, 4), ("2026-10-30", -0.0068, -0.0177, 5), ("2026-10-23", 0.001, 0.002, 1)]
+    st.upsert("swing_results", [{"session": d, "ret": r, "spy_cc": s, "cohorts": c} for d, r, s, c in sw])
+    st.upsert("daily_results", [{"signal_date": "2026-10-28", "session": "2026-10-29", "model_ret": 0.007, "spy_oc": 0.001},
+                                {"signal_date": "2026-10-21", "session": "2026-10-22", "model_ret": -0.026, "spy_oc": -0.003}])
+    fa = FakeAlpaca(dt.date(2026, 10, 30))
+    syms = [s for s in fa.syms if s != "SPY"][:3]
+    t = fa.data[syms[0]]["t"]
+    o = fa.data[syms[0]]["o"][t.index("2026-10-26")]
+    st.upsert("swing_picks", [{"signal_date": "2026-10-23", "rank": k + 1, "symbol": s, "score": 1.0, "close": 1.0, "atr": 1.0,
+                               "max_entry": (o * 0.5 if k == 0 else 1e9), "shares": 1, "sp500": True, "reasons": [],
+                               "sell_session": "2026-10-30"} for k, s in enumerate(syms)])
+    sent = []
+    fri = dt.datetime(2026, 10, 30, 19, 0, tzinfo=weekly.NY)
+    rep = weekly.run(st, fa, now_et=fri, send=sent.append)
+    txt = sent[0]
+    assert rep["complete"] and rep["week"] == "2026-10-26"
+    assert "Semana del 26-10 al 30-10-2026" in txt and "Vie 30-10" in txt and "le ganó al SPY" in txt, txt
+    assert "mejor que el SPY 3 de 5 días" in txt, txt
+    assert "Señal 10-23" in txt and "1 no se compraron" in txt, txt
+    assert "Acumulado real desde el 2026-10-23" in txt and "le ganó 1 de 2 semanas" in txt, txt
+    assert "Modelo 1 día" in txt and "Acumulado (2 sesiones)" in txt
+    assert weekly.run(st, fa, now_et=fri, send=sent.append) is None and len(sent) == 1, "no se repite"
+    # viernes sin el resultado del día: espera al respaldo del sábado
+    st2 = LocalStore()
+    st2.upsert("swing_results", [{"session": "2026-10-26", "ret": 0.01, "spy_cc": 0.0, "cohorts": 1}])
+    assert weekly.run(st2, fa, now_et=fri, send=sent.append) is None
+    rep2 = weekly.run(st2, fa, now_et=dt.datetime(2026, 10, 31, 9, 0, tzinfo=weekly.NY), send=sent.append)
+    assert rep2 and not rep2["complete"] and "Falta el resultado del 2026-10-30" in sent[-1]
+    import bot
+    assert "Resumen semanal" in bot.cmd_semana(st, fa, dt.date(2026, 11, 1))
+
+
 if __name__ == "__main__":
-    test_trade_rules(); test_earnings_parse(); test_session_cutoff(); test_swing_score_skips_gap(); test_end_to_end(); print("ok")
+    test_trade_rules(); test_earnings_parse(); test_session_cutoff(); test_swing_score_skips_gap(); test_weekly_report(); test_end_to_end(); print("ok")

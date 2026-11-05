@@ -30,6 +30,7 @@ Estructura:
 - `daily.py`: rutina completa después del cierre (`--local` usa SQLite, `--force` rehace la lista, `--check` revisa secretos y conexiones).
 - `intraday.py`: alertas durante la sesión.
 - `bot.py`: comandos de Telegram por long-polling.
+- `weekly.py`: reporte semanal del swing y del modelo de 1 día contra SPY (`--dry` sólo imprime, `--force` lo repite).
 - `qx/engine.py`: modelo de 1 día (logística calibrada), backtest, reglas de entrada.
 - `qx/swing.py`: estrategia swing de 5 días (versión L de la investigación).
 - `qx/earnings.py`: calendario de resultados (Alpha Vantage EARNINGS_CALENDAR).
@@ -45,6 +46,7 @@ Workflows de GitHub Actions:
 | QX diario | `daily.yml` → `daily.py` | 21:30 y 22:30 lun-vie (la segunda es respaldo; no hace nada si la lista ya existe). Entradas `force` y `check` |
 | QX alertas | `intraday.yml` → `intraday.py` | 3 trabajos largos por día (13:20, 15:50, 18:20) que revisan cada 15 min |
 | QX bot | `bot.yml` → `bot.py` | Ventanas largas 13, 16, 19, 22 y 01 UTC (≈7am a 10pm México) |
+| QX semanal | `weekly.yml` → `weekly.py` | Viernes 23:45 y respaldo sábado 15:00. Se marca en `runs` (kind `weekly`) para no repetir la semana. Entradas `force` y `dry` |
 | QX investigación | `research.yml` → `research.py` | Manual |
 | QX noticias (investigación) | `news.yml` → `news_research.py` | Manual, modos probe / research / today / save |
 
@@ -87,7 +89,7 @@ Los workflows aceptan los nombres de Javier o los estándar: `ALPACA_KEY` (o `AL
 
 ## 7. Comandos del bot
 
-`/lista` (lista swing más reciente), `/posiciones` (listas abiertas, cuánto van y cuándo se venden), `/resultados` (acumulado real contra SPY), `/noticias` (noticias del último cierre), `/ayuda`. Sólo contesta al `TELEGRAM_CHAT_ID`.
+`/lista` (lista swing más reciente), `/posiciones` (listas abiertas, cuánto van y cuándo se venden), `/resultados` (acumulado real contra SPY), `/noticias` (noticias del último cierre), `/semana` (reporte de la semana contra SPY), `/ayuda`. Sólo contesta al `TELEGRAM_CHAT_ID`.
 
 ## 8. Terminal (artifact)
 
