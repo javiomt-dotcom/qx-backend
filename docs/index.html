@@ -48,6 +48,9 @@ button,input{font:inherit;color:inherit}
 .kpi{background:var(--panel);padding:8px 8px 7px}
 .kpi .k{font-family:var(--display);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi .v{font-size:15px;font-weight:600;margin-top:1px;white-space:nowrap}
+.kpi .s{font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.paper{font-family:var(--display);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);border:1px solid var(--amber);border-radius:2px;padding:0 5px;align-self:center}
+.warn{margin-top:10px;padding:7px 10px;border:1px solid #5c4720;background:#1a1609;color:#e9cf98;font-size:11px;line-height:1.45}
 @media (max-width:360px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .p{background:var(--panel);border:1px solid var(--rule-soft);margin-top:10px;min-width:0}
@@ -126,7 +129,7 @@ details.add summary::-webkit-details-marker{display:none}
 
 <div id="app" hidden>
   <div class="top">
-    <div class="brand"><b>QX</b><span>Swing 5 días</span></div>
+    <div class="brand"><b>QX</b><span>Swing 5 días</span><span class="paper">papel</span></div>
     <span class="pill" id="pill"><i></i><span>—</span></span>
   </div>
   <div class="strip" id="strip"></div>
@@ -162,7 +165,8 @@ const px = (x) => x==null || !isFinite(x) ? "—" : x.toLocaleString("en-US",{mi
 const money = (x) => x==null || !isFinite(x) ? "—" : "$" + px(x);
 const day = (d) => d ? new Date(d+"T12:00:00Z").toLocaleDateString("es-MX",{weekday:"short",day:"numeric",month:"short",timeZone:"UTC"}) : "—";
 const dd = (d) => d ? new Date(d+"T12:00:00Z").toLocaleDateString("es-MX",{day:"2-digit",month:"short",timeZone:"UTC"}) : "—";
-const qty = (sh, p) => sh > 0 ? String(sh) : p ? (PER/p).toFixed(3) : "—";
+// monto de la posición: acciones enteras si alcanzan; si no, los $200 completos en fracción
+const amt = (sh, p) => !p ? "—" : sh > 0 ? `${money(sh*p).replace(/\.\d\d$/,"")}<span class="sub2">${sh} acc.</span>` : `${money(PER).replace(/\.\d\d$/,"")}<span class="sub2">fracción</span>`;
 const panel = (title, small, body) => `<div class="p"><div class="ph"><h2>${title}</h2><small>${small||""}</small></div><div class="pb">${body}</div></div>`;
 let D = null, Q = {}, QAT = null, QERR = "", qTimer = null, qBusy = false, MP = [], OP = {}, MQ = {}, MERR = "";
 
@@ -234,28 +238,31 @@ function renderTop(){
   pill.lastElementChild.textContent = live() ? "En vivo " + QAT.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",second:"2-digit"}) : QERR || ("Cierre " + dd(s.d));
   const idx = ["SPY","QQQ","IWM"].map(k=>{ const q = Q[k]; return live() && q ? `<span><b>${k}</b>${px(q.last)} <span class="${cls(q.chg)}">${pct(q.chg)}</span></span>` : ""; }).join("");
   $("strip").innerHTML = idx || `<span><b>SPY</b>${px(s.c)} <span class="mut">cierre ${day(s.d)}</span></span><span class="mut">${D.run ? (D.run.status==="ok" ? "rutina ok" : "rutina con error") : ""}</span>`;
-  const c = cum(D.swing_res||[], "ret", "spy_cc"), rs = (D.open||[]).map(ret).filter(x=>x!=null), avg = mean(rs);
+  const sr = D.swing_res||[], c = cum(sr, "ret", "spy_cc"), rs = (D.open||[]).map(ret).filter(x=>x!=null), avg = mean(rs);
+  const first = sr.map(x=>x.session).sort()[0], lists = new Set((D.open||[]).filter(p=>ret(p)!=null).map(p=>p.signal_date)).size;
   $("kpis").innerHTML = [
-    ["Swing real", c.n ? pct(c.m,1) : "—", cls(c.m)], ["SPY", c.n ? pct(c.s,1) : "—", cls(c.s)],
-    ["Abiertas", String(rs.length), ""], ["Van", pct(avg), cls(avg)]
-  ].map(([k,v,cl])=>`<div class="kpi"><div class="k">${k}</div><div class="v ${cl}">${v}</div></div>`).join("");
+    ["Swing real", c.n ? pct(c.m,1) : "—", cls(c.m), first ? "desde " + dd(first) : "sin datos"],
+    ["SPY", c.n ? pct(c.s,1) : "—", cls(c.s), "mismos días"],
+    ["Posiciones", String(rs.length), "", `en ${lists} ${lists===1?"lista":"listas"}`],
+    ["Promedio", pct(avg), cls(avg), "abiertas"]
+  ].map(([k,v,cl,sub])=>`<div class="kpi"><div class="k">${k}</div><div class="v ${cl}">${v}</div><div class="s">${sub}</div></div>`).join("");
 }
 
 function renderHoy(){
   const sw = D.swing || {}, picks = sw.picks || [];
   const head = live() ? `<tr><th class="rank">#</th><th class="l">Símbolo</th><th>Abrió</th><th>Límite</th><th>Ahora</th><th>Va</th></tr>`
-                      : `<tr><th class="rank">#</th><th class="l">Símbolo</th><th>Cierre</th><th>Límite</th><th>Acc.</th></tr>`;
+                      : `<tr><th class="rank">#</th><th class="l">Símbolo</th><th>Cierre</th><th>Límite</th><th>Monto</th></tr>`;
   const rows = picks.map(p=>{
     const q = Q[p.symbol];
     if (live() && q && q.open){
       const over = q.open > p.max_entry, r = q.last/q.open - 1;
       return `<tr class="${over?"off":""}"><td class="rank">${p.rank}</td><td class="l"><span class="sym">${esc(p.symbol)}</span>${over?'<span class="chip neg">no comprar</span>':""}</td><td>${px(q.open)}</td><td class="mut">${px(p.max_entry)}</td><td>${px(q.last)}</td><td class="${over?"mut":cls(r)}">${over?"—":pct(r)}</td></tr>`;
     }
-    return `<tr><td class="rank">${p.rank}</td><td class="l"><span class="sym">${esc(p.symbol)}</span>${p.sp500?"":'<span class="chip">mkt</span>'}<span class="sub2">${esc(p.name||"")}</span></td><td>${px(p.close)}</td><td class="amb">${px(p.max_entry)}</td><td>${qty(p.shares, p.close)}</td></tr>`;
+    return `<tr><td class="rank">${p.rank}</td><td class="l"><span class="sym">${esc(p.symbol)}</span>${p.sp500?"":'<span class="chip">mkt</span>'}<span class="sub2">${esc(p.name||"")}</span></td><td>${px(p.close)}</td><td class="amb">${px(p.max_entry)}</td><td>${amt(p.shares, p.close)}</td></tr>`;
   }).join("");
   let h = panel("Comprar en la apertura", `señal ${dd(sw.signal_date)} · venta ${dd(picks[0] && picks[0].sell_session)}`,
     picks.length ? `<div class="scroll"><table><thead>${head}</thead><tbody>${rows}</tbody></table></div>
-      <p class="note">${money(PER)} por acción (1/5 del capital entre 10); acciones fraccionarias si no alcanza. Si abre arriba del <span class="amb">límite</span>, no se compra. «mkt» = fuera del S&amp;P 500.</p>`
+      <p class="note">${money(PER).replace(/\.00$/,"")} por posición (1/5 del capital entre 10); si una acción cuesta más, sería una fracción. Si abre arriba del <span class="amb">límite</span>, no se compra. «mkt» = fuera del S&amp;P 500.</p>`
       : `<p class="empty">Todavía no hay lista.</p>`);
   const ns = nextSell(), sells = (D.open||[]).filter(p => p.sell_session === ns && bought(p));
   if (sells.length) h += panel("Vender al cierre", day(ns),
@@ -263,6 +270,7 @@ function renderHoy(){
     + sells.map(p=>`<tr><td class="l"><span class="sym">${esc(p.symbol)}</span></td><td>${px(p.entry)}</td><td>${px(nowPx(p))}</td><td class="${cls(ret(p))}">${pct(ret(p))}</td></tr>`).join("") + `</tbody></table>`);
   const al = (D.alerts||[]).slice(0,6);
   if (al.length) h += panel("Alertas", "últimas", `<table><tbody>${al.map(a=>`<tr><td class="l"><span class="sym">${esc(a.symbol)}</span></td><td class="l mut">${esc(KIND[a.kind]||a.kind)}</td><td class="mut">${dd(a.day)}</td></tr>`).join("")}</tbody></table>`);
+  h += `<div class="warn"><b>Experimento en papel.</b> En la prueba de 2 años sin sesgo de universo esta estrategia dio −1.4% contra +31.9% del SPY: no hay evidencia de que le gane. Úsala para seguir el experimento, no como recomendación. No es asesoría financiera.</div>`;
   $("t-hoy").innerHTML = h;
 }
 const KIND = {no_buy:"abrió arriba del límite", drop:"cayó más de 2 ATR", sell:"vender al cierre"};
@@ -342,12 +350,12 @@ function renderPos(){
     summary += `<tr><td class="l">${dd(sig)}</td><td class="l mut">${dd(ps[0].entry_d)}</td><td>${ps.filter(bought).length}</td><td class="${cls(avg)}">${pct(avg)}</td><td class="l">${dd(ps[0].sell_session)}</td></tr>`;
     body += `<tr class="grp"><td colspan="5">Señal ${day(sig)} · venta ${day(ps[0].sell_session)}</td></tr>`
       + ps.map(p=>{ const skip = p.entry && !bought(p), r = ret(p);
-          return `<tr class="${skip?"off":""}"><td class="l"><span class="sym">${esc(p.symbol)}</span>${skip?'<span class="chip neg">no comprada</span>':""}</td><td>${px(p.entry)}</td><td>${px(nowPx(p))}</td><td class="${skip?"mut":cls(r)}">${skip?"—":pct(r)}</td><td>${skip?"—":qty(p.shares, p.entry)}</td></tr>`; }).join("");
+          return `<tr class="${skip?"off":""}"><td class="l"><span class="sym">${esc(p.symbol)}</span>${skip?'<span class="chip neg">no comprada</span>':""}</td><td>${px(p.entry)}</td><td>${px(nowPx(p))}</td><td class="${skip?"mut":cls(r)}">${skip?"—":pct(r)}</td><td>${skip?"—":amt(p.shares, p.entry)}</td></tr>`; }).join("");
   });
   $("t-pos").innerHTML = mine +
     panel("Listas del modelo", live() ? "en vivo" : "al último cierre",
-      `<div class="scroll"><table><thead><tr><th class="l">Señal</th><th class="l">Compra</th><th>Acc.</th><th>Va</th><th class="l">Venta</th></tr></thead><tbody>${summary}</tbody></table></div>`)
-  + panel("Detalle del modelo", "", `<div class="scroll"><table><thead><tr><th class="l">Símbolo</th><th>Entrada</th><th>${live()?"Ahora":"Cierre"}</th><th>Va</th><th>Acc.</th></tr></thead><tbody>${body}</tbody></table></div>
+      `<div class="scroll"><table><thead><tr><th class="l">Señal</th><th class="l">Compra</th><th>Compradas</th><th>Va</th><th class="l">Venta</th></tr></thead><tbody>${summary}</tbody></table></div>`)
+  + panel("Detalle del modelo", "", `<div class="scroll"><table><thead><tr><th class="l">Símbolo</th><th>Entrada</th><th>${live()?"Ahora":"Cierre"}</th><th>Va</th><th>Monto</th></tr></thead><tbody>${body}</tbody></table></div>
       <p class="note">Entrada = apertura del día de compra. Con el mercado abierto el precio se actualiza cada 5 s con el precio más reciente entre IEX y Finnhub; fuera de horario es el último cierre.</p>`);
   keepOpen(wasOpen);
 }

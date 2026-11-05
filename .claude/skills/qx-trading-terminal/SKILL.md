@@ -93,7 +93,8 @@ Los workflows aceptan los nombres de Javier o los estándar: `ALPACA_KEY` (o `AL
 
 - Datos del conector IBKR desde la página: límite duro de 30 llamadas por minuto compartido; todo pasa por una cola con prioridad (~2.2 s entre llamadas). Historia acumulada en IndexedDB.
 - Top 20 "Todo el mercado" usa el screener guardado de IBKR "QX Ganadores" y respeta su orden; filas < $5 llevan una etiqueta.
-- Botones: "Analizar y guardar el día" y "Compras de mañana" (sólo con la bolsa cerrada).
+- Panel principal "Swing 5 días · lista oficial": lee `swing_picks` y `swing_results` de Supabase (la misma lista de Telegram y la app) con la etiqueta "experimento en papel". Sólo si Supabase no responde usa el swing calculado en la página, y lo dice.
+- El modelo de 1 día vive en la pestaña "Modelo 1 día · Patrones · Backtest", marcado "sólo comparación"; su botón "Lista 1 día" (antes "Compras de mañana", sólo con la bolsa cerrada) abre y guarda su lista. Botón principal: "Analizar y guardar el día".
 - Pestaña Servidor: paneles de Supabase (listas, swing, noticias).
 - Para cambiarla: edita `/mnt/project-files/terminal/terminal.html` y vuelve a publicar en la misma URL.
 
