@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import re
 import time
 from zoneinfo import ZoneInfo
 
@@ -38,6 +39,7 @@ BIG_N = 500                       # "grandes" del universo de cada día: las 500
 COSTS = (0.001, 0.002, 0.003)
 BLOCK = 10                        # días por bloque en el bootstrap
 BOOT = 2000
+TICKER = re.compile(r"^[A-Z]{1,5}(\.[A-Z])?$")   # deja fuera CUSIPs, derechos (CVR) y otros códigos raros
 
 
 def log(msg):
@@ -53,7 +55,7 @@ def all_assets(a: Alpaca):
         rows = a._get(f"{a.trading}/v2/assets", {"status": status, "asset_class": "us_equity"})
         for x in rows:
             name = (x.get("name") or "").upper()
-            if any(w in name for w in ETF_WORDS):
+            if not TICKER.match(x["symbol"]) or any(w in name for w in ETF_WORDS):
                 continue
             if status == "active" and (not x.get("tradable") or x.get("exchange") not in C.EXCHANGES):
                 continue
@@ -68,6 +70,18 @@ def ever_liquid(r) -> bool:
         return False
     dv = np.convolve(c * v, np.ones(20) / 20, mode="valid")
     return bool(((c[19:] >= C.MIN_PRICE) & (dv >= C.MIN_DOLLAR_VOL)).any())
+
+
+def safe_bars(a: Alpaca, syms, start):
+    """Como daily_bars, pero si Alpaca rechaza un grupo (símbolo inválido) lo parte en dos hasta aislarlo."""
+    try:
+        return a.daily_bars(syms, start)
+    except Exception as e:
+        if len(syms) == 1:
+            log(f"  sin datos para {syms[0]}: {str(e)[:60]}")
+            return {}
+        h = len(syms) // 2
+        return {**safe_bars(a, syms[:h], start), **safe_bars(a, syms[h:], start)}
 
 
 def load(years):
@@ -90,7 +104,7 @@ def load(years):
     log(f"candidatas: {len(cands)} ({sum(1 for s in st.values() if s == 'inactive')} deslistadas); bajando {years} años…")
     bars = {}
     for k in range(0, len(cands), 500):
-        part = cut(a.daily_bars(cands[k:k + 500], start), last)
+        part = cut(safe_bars(a, cands[k:k + 500], start), last)
         for s, r in part.items():
             if s in INDEXES or s in today_uni or ever_liquid(r):
                 bars[s] = r
