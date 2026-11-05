@@ -56,11 +56,16 @@ def daily_message(f: dict, picks: list[dict], y: dict | None, cum: dict | None) 
     return "\n".join(L)
 
 
+PAPER = ("🧪 <b>Sólo en papel (experimento).</b> En la prueba sin sesgo de universo el swing no le ganó al SPY "
+         "(−1% contra +32% en 2 años). No es una recomendación de compra.")
+
+
 def swing_message(sw: dict, for_session: str) -> str:
     """Sección principal: swing de 5 días."""
     if sw.get("error"):
         return f"⚠️ <b>Swing 5 días:</b> no se pudo calcular hoy ({sw['error']})."
     L = [f"<b>QX Swing 5 días · {for_session}</b>",
+         PAPER,
          f"Compra en la apertura ${C.CAPITAL / 5 / 10:,.0f} de cada una (1/5 del capital entre 10) y mantén 5 sesiones. "
          "Si el precio es mayor que eso, usa acciones fraccionarias."]
     y, cum = sw.get("yesterday"), sw.get("cum")

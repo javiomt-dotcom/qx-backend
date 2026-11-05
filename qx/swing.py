@@ -79,8 +79,44 @@ def run(p: E.Panel, universe: list[str], sp500: frozenset, exclude=frozenset()):
         non_sp += (not sp[k])
         if len(out) == PICKS:
             break
-    return out, {"weights": {E.FEATS[j][0]: float(b[j]) for j in range(E.K)}, "n_train": int(len(y)), "universe": int(len(rows)),
-                 "skipped": skipped}
+    chosen = {x["s"] for x in out}
+    with np.errstate(invalid="ignore", divide="ignore"):
+        dv = np.nanmean(p.c[rows, last - 19:last + 1] * p.v[rows, last - 19:last + 1], axis=1)
+    every = [{"symbol": p.syms[r], "score": float(score[k]), "model": float(mz[k]), "trend": float(Z[k, 10]),
+              "atrp": float(atrp[k]) if np.isfinite(atrp[k]) else None, "close": float(p.c[r, last]),
+              "dvol": float(dv[k]) if np.isfinite(dv[k]) else None, "sp500": bool(sp[k]), "in_list": p.syms[r] in chosen}
+             for k, r in enumerate(rows)]
+    return out, {"weights": {E.FEATS[j][0]: float(b[j]) for j in range(E.K)}, "intercept": float(b[-1]),
+                 "n_train": int(len(y)), "universe": int(len(rows)), "skipped": skipped, "all": every}
+
+
+def live_ic(p: E.Panel, signal: str, scores: list[dict]):
+    """Calidad real del puntaje de una señal cuyo plazo ya cerró: correlación de rangos (IC) entre el puntaje
+    de todas las acciones y su retorno de la apertura del día 1 al cierre del día 5, y retorno del 10% de arriba
+    contra el promedio. Con miles de acciones por día, el IC dice antes que el portafolio si el modelo sirve."""
+    if signal not in p.dates:
+        return None
+    i = p.dates.index(signal)
+    if i + HOLD >= len(p.dates):
+        return None
+    idx = p.idx
+    sc, rt = [], []
+    for x in scores:
+        r = idx.get(x["symbol"])
+        if r is None:
+            continue
+        with np.errstate(invalid="ignore", divide="ignore"):
+            g = p.c[r, i + HOLD] / p.o[r, i + 1] - 1
+        if np.isfinite(g) and x.get("score") is not None:
+            sc.append(float(x["score"])); rt.append(float(g))
+    if len(sc) < 50:
+        return None
+    sc, rt = np.array(sc), np.array(rt)
+    rank = lambda a: np.argsort(np.argsort(a)).astype(float)
+    ic = float(np.corrcoef(rank(sc), rank(rt))[0, 1])
+    top = sc >= np.quantile(sc, 0.9)
+    return {"signal_date": signal, "exit_session": p.dates[i + HOLD], "n": int(len(sc)), "ic": ic,
+            "top10_ret": float(rt[top].mean()), "all_ret": float(rt.mean())}
 
 
 def plan(p: E.Panel, i: int, pick: dict):

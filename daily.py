@@ -133,6 +133,7 @@ def run_swing(panel, universe, store, last, sessions):
         store.delete("swing_picks", {"signal_date": f"eq.{last}"})   # al rehacer la lista no quedan restos de la anterior
         store.upsert("swing_picks", rows)
         out["picks"] = rows
+        out["ic"] = save_swing_data(store, panel, last, sessions, info)
         # las que se venden al cierre de la próxima sesión: compradas con la señal de hace 4 sesiones
         sig_sell = sessions[pos - (SW.HOLD - 1)] if pos - (SW.HOLD - 1) >= 0 else None
         out["sells"] = cohorts.get(sig_sell, []) if sig_sell else []
@@ -145,6 +146,34 @@ def run_swing(panel, universe, store, last, sessions):
 
 
 HOLD_SELL = SW.HOLD        # la lista con señal k se vende al cierre de la sesión k+5
+SWING_MODEL = "swing-L-v1"
+
+
+def save_swing_data(store, panel, last, sessions, info):
+    """Guarda lo que el modelo vio y pensó de TODAS las acciones (no sólo las 10 de la lista), y califica las
+    señales cuyo plazo de 5 días ya cerró. Es la base para recalibrar el modelo con datos reales.
+    Un error aquí no debe tumbar la lista del día."""
+    try:
+        store.delete("swing_scores", {"signal_date": f"eq.{last}"})
+        store.upsert("swing_scores", [{"signal_date": last, **x} for x in info["all"]])
+        store.upsert("swing_runs", [{"signal_date": last, "model": SWING_MODEL, "n_train": info["n_train"],
+                                     "universe": info["universe"], "skipped": info["skipped"],
+                                     "weights": {**info["weights"], "_intercept": info["intercept"]}}])
+        done = {str(r["signal_date"]) for r in store.select("swing_ic")}
+        pend = sorted({str(r["signal_date"]) for r in store.select("swing_runs")} - done)
+        res = []
+        for sig in pend:
+            if sig == last:
+                continue
+            x = SW.live_ic(panel, sig, store.select("swing_scores", {"signal_date": f"eq.{sig}"}))
+            if x:
+                res.append(x)
+        if res:
+            store.upsert("swing_ic", res)
+        return res[-1] if res else None
+    except Exception as e:
+        print(f"No se pudieron guardar los datos del swing: {type(e).__name__}: {e}")
+        return None
 
 
 def load_earnings(store, last):

@@ -6,6 +6,13 @@ on:
       years:
         description: "Años de historia"
         default: "3"
+      script:
+        description: "Prueba a correr"
+        type: choice
+        default: research.py
+        options:
+          - research.py
+          - research_bias.py
 
 jobs:
   research:
@@ -17,7 +24,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: python research.py --years ${{ inputs.years || '3' }} | tee research.md
+      - run: set -o pipefail; python ${{ inputs.script || 'research.py' }} --years ${{ inputs.years || '3' }} | tee research.md
         env:
           ALPACA_KEY_ID: ${{ secrets.ALPACA_KEY_ID || secrets.ALPACA_KEY }}
           ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY || secrets.ALPACA_SECRETO }}

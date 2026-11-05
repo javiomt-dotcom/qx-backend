@@ -41,7 +41,7 @@ def cmd_lista(store, a=None, today=None):
     t = ["#  Símbolo  NoArriba  Acc"] + [f"{r['rank']:<2} {r['symbol'] + ('' if r['sp500'] else '*'):<8} {r['max_entry']:8.2f} {r['shares']:>4}"
                                        for r in rows]
     return (f"<b>Lista swing · señal {sig}</b> (se vende al cierre del {rows[0].get('sell_session') or '—'})\n"
-            f"${C.CAPITAL / SW.HOLD / SW.PICKS:,.0f} en cada una, compra en la apertura.\n<pre>" + "\n".join(t) + "</pre>")
+            f"{notify.PAPER}\n${C.CAPITAL / SW.HOLD / SW.PICKS:,.0f} en cada una, compra en la apertura.\n<pre>" + "\n".join(t) + "</pre>")
 
 
 def cmd_posiciones(store, a, today=None):
