@@ -86,7 +86,7 @@
     moderado_conservador: "Crecimiento moderado con caídas acotadas. Más renta fija que acciones.",
     moderado: "Balance entre crecer y aguantar caídas. Alrededor de 60% acciones y 40% renta fija.",
     crecimiento: "Busca crecer a largo plazo y acepta caídas fuertes en el camino.",
-    agresivo: "Casi todo en acciones. Puede caer 40–50% en una crisis; sólo tiene sentido con plazo largo y nervios firmes.",
+    agresivo: "Todo en acciones, sin bonos. Puede caer 50% en una crisis (el S&P 500 cayó -51% en 2008); sólo tiene sentido con plazo largo y nervios firmes.",
   };
 
   function scoreOne(q, a) {
@@ -154,7 +154,7 @@
     moderado_conservador: { eq: 0.40, bond: 0.42, cash: 0.13, gold: 0.05 },
     moderado: { eq: 0.60, bond: 0.30, cash: 0.05, gold: 0.05 },
     crecimiento: { eq: 0.80, bond: 0.15, cash: 0.00, gold: 0.05 },
-    agresivo: { eq: 0.95, bond: 0.05, cash: 0.00, gold: 0.00 },
+    agresivo: { eq: 1.00, bond: 0.00, cash: 0.00, gold: 0.00 },   // 100% acciones: iguala al S&P 500 en el portafolio "Pegado al S&P"
   };
   // Clase de activo de cada ETF que usan los modelos (para la simulación a futuro)
   const ASSET = {
@@ -207,7 +207,7 @@
     //    con el riesgo del perfil, y es también la referencia justa. Acercarse más sólo se logra con más acciones (otro perfil).
     {
       const w = round({ VOO: m.eq, BND: m.bond, BIL: m.cash, GLD: m.gold });
-      out.push({ id: "sp", name: "Pegado al S&P 500", rec: true, tag: `${Math.round(m.eq * 100)}% en el S&P 500, el resto en bonos y efectivo`,
+      out.push({ id: "sp", name: "Pegado al S&P 500", rec: true, tag: m.eq >= 0.995 ? "100% en el S&P 500: es el índice mismo" : `${Math.round(m.eq * 100)}% en el S&P 500, el resto en bonos y efectivo`,
         why: `Toda la parte de acciones va al S&P 500 (VOO). Es lo más parecido al S&P 500 que permite tu perfil: sube y baja con él en proporción a tu ${Math.round(m.eq * 100)}% de acciones. Para pegarse todavía más hay que subir de perfil (más acciones), lo que también trae caídas más grandes. Es el recomendado: en nuestra investigación ningún fondo de factores le ganó al índice con significancia, así que lo más simple y barato es la mejor base; los otros tres son alternativas.`, w });
     }
 
@@ -232,7 +232,7 @@
       w.VOO = core * (div ? 0.7 : 1); if (div) w.SCHD = core * 0.3; if (lowVol) w.USMV = eqUS * lowVol;
       w.VEA = eqIn * (mx ? 0.6 : 0.7); w.VWO = eqIn * 0.3; if (mx) w.EWW = eqIn * 0.1;
       w.BND = m.bond * 0.5; w.IEF = m.bond * 0.2; w.TIP = m.bond * 0.3; w.BIL = m.cash; w.GLD = m.gold;
-      out.push({ id: "div", name: "Diversificado", tag: "más regiones y tipos de bono",
+      out.push({ id: "div", name: "Diversificado", tag: m.bond > 0 ? "más regiones y tipos de bono" : "más regiones (desarrollados y emergentes)",
         why: "Agrega países desarrollados y emergentes por separado y bonos que protegen contra inflación. No garantiza más rendimiento, pero reparte mejor los riesgos." +
           (lowVol ? " Igual que en el Sencillo, la mitad de las acciones de EE. UU. va a mínima volatilidad (USMV)." : ""), w: round(w) });
     }
