@@ -198,7 +198,10 @@ section[hidden]{display:none}
 .ladder em{font-style:normal;font-size:10px;color:var(--dim);opacity:.8}
 .tagm{font-size:11px;font-weight:600;vertical-align:middle;color:var(--ink);background:var(--amber);border-radius:4px;padding:1px 6px}
 .pick5{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
-.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:10px}
+.wp{font-size:16px;font-weight:700;color:var(--amber);text-align:right;white-space:nowrap}
+.eqbig{font-size:22px;font-weight:700;color:var(--amber);line-height:1.1}
+.eqbig small{font-size:12px;font-weight:400;color:var(--muted);margin-left:6px}
 @media (max-width:960px){.cards{grid-template-columns:minmax(0,1fr)}}
 .card.sel{border-color:var(--amber)}
 .stack{display:flex;height:12px;border-radius:2px;overflow:hidden;margin-top:6px;background:var(--rule-soft)}
@@ -250,7 +253,7 @@ nav.mob{display:none}
     </div>
   </div>
   <div class="disc">Herramienta educativa. Nada de esto es una recomendación de compra o venta. Datos: SEC EDGAR, Finnhub, Alpaca y FRED.</div>
-  <div class="banner" id="pfBanner" hidden><span>Aún no contestas tu perfil de inversionista. Con él se ajustan las recomendaciones y te armo 3 portafolios modelo.</span><button class="btn sm pri" id="pfBannerGo">Contestar</button></div>
+  <div class="banner" id="pfBanner" hidden><span>Aún no contestas tu perfil de inversionista. Con él se ajustan las recomendaciones y te armo 4 portafolios modelo.</span><button class="btn sm pri" id="pfBannerGo">Contestar</button></div>
 
   <section id="t-perfil" hidden>
     <div id="perfOut"></div>
@@ -1008,7 +1011,7 @@ function quizProgress(){
 function renderQuiz(){
   let n = 0;
   let h = panel("Conoce tu perfil de inversionista", `<span id="qProg"></span>`,
-    `<p class="note" style="margin-top:2px">${QXP.QUESTIONS.length} preguntas en 5 partes (unos 7 minutos): qué tanto sabes, para qué es el dinero, tu situación, cómo reaccionas a las caídas y tus gustos. Con eso calculo tu perfil de riesgo, armo 3 portafolios modelo y simulo cómo les habría ido desde 2016 y qué rango de resultados esperar. Sólo tú ves tus respuestas.</p>
+    `<p class="note" style="margin-top:2px">${QXP.QUESTIONS.length} preguntas en 5 partes (unos 7 minutos): qué tanto sabes, para qué es el dinero, tu situación, cómo reaccionas a las caídas y tus gustos. Con eso calculo tu perfil de riesgo, armo 4 portafolios modelo y simulo cómo les habría ido desde 2016 y qué rango de resultados esperar. Sólo tú ves tus respuestas.</p>
      <div class="prog"><i id="qBar" style="width:0"></i></div>
      <div class="lbl" style="margin-top:12px">¿Ya sabes tu perfil? Elígelo directo y ve sus portafolios (puedes contestar el cuestionario después)</div>
      <div class="pick5">${QXP.PROFILE_ORDER.map(p => `<button type="button" class="opt${EV && EV.profile === p ? " on" : ""}" data-setp="${p}">${esc(PLABEL(p))}</button>`).join("")}</div>`);
@@ -1085,12 +1088,13 @@ function renderResult(){
      ${ev.notes.length ? `<div class="lbl" style="margin-top:10px">Para tomar en cuenta</div>` + ev.notes.map(c => item(`<span class="lvl blue">i</span>`, c)).join("") : ""}
      <div style="margin-top:10px"><button class="btn sm" id="pfRedo">${ev.noQuiz ? "Contestar el cuestionario" : "Volver a contestar"}</button></div>`);
 
-  h += `<div class="p" style="border:0;background:none"><div class="ph" style="background:none;border:0;padding:8px 0 0"><h2>3 portafolios modelo para tu perfil</h2><small>montos para ${money(SIMIN.amount,0)}</small></div></div>`;
+  h += `<div class="p" style="border:0;background:none"><div class="ph" style="background:none;border:0;padding:8px 0 0"><h2>${PFS.length} portafolios modelo para tu perfil</h2><small>montos para ${money(SIMIN.amount,0)}</small></div></div>`;
   const REF = QXP.referenceWeights(ev, SET.answers || ANS || {});
   h += `<div class="honest"><b>Antes de elegir:</b> probamos 30 fondos reales (valor, calidad, momentum, baja volatilidad, multifactor, peso igual) contra el S&P 500 desde que existe cada uno, y ninguno le ganó con significancia estadística. Por eso el núcleo de todos los portafolios son índices baratos. Tu meta realista no es el S&P 500 solo, sino <b>tu referencia</b>: la misma mezcla de tu perfil hecha sólo con índices (${Object.entries(REF).sort((a, b) => b[1] - a[1]).map(([s, w]) => pct(w,0) + " " + s).join(" + ")}).${ev.profile === "agresivo" ? "" : " Con bonos en la mezcla, rendir menos que el S&P 500 en años buenos es lo esperado; a cambio, las caídas son más chicas."}</div>`;
   h += `<div class="cards">` + PFS.map((p, i) => `<div class="p card${i === PSEL ? " sel" : ""}"><div class="ph"><h2>${i+1}. ${esc(p.name)}</h2><small>${esc(p.tag)}</small></div><div class="pb">
+      <div class="eqbig">${pct(p.mix.eq,0)}<small>en acciones${p.w.VOO ? ` · ${pct(p.w.VOO,0)} directo en el S&P 500` : ""}</small></div>
       ${stackHtml(p.mix)}
-      <table style="margin-top:6px">${Object.entries(p.w).sort((a, b) => b[1] - a[1]).map(([s, w]) => `<tr><td><a class="sym" href="#${s}" data-an="${s}">${s}</a><span class="sub">${esc(QXP.NAMES[s] || "")}</span></td><td>${pct(w,0)}</td><td class="mut">${money(w * SIMIN.amount,0)}</td></tr>`).join("")}</table>
+      <table style="margin-top:6px">${Object.entries(p.w).sort((a, b) => b[1] - a[1]).map(([s, w]) => `<tr><td><a class="sym" href="#${s}" data-an="${s}">${s}</a><span class="sub">${esc(QXP.NAMES[s] || "")}</span></td><td class="wp">${pct(w,0)}</td><td class="mut">${money(w * SIMIN.amount,0)}</td></tr>`).join("")}</table>
       <p class="note">${esc(p.why)}</p>
       <button class="btn sm ${i === PSEL ? "pri" : ""}" data-pick="${i}" style="margin-top:8px">${i === PSEL ? "Es el que simulo" : "Simular este"}</button></div></div>`).join("") + `</div>`;
 
@@ -1145,6 +1149,11 @@ function svgChart(labels, lines, band, fmt){
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img">${ticks}${area}${ls}${xl}</svg>`;
 }
 
+// Qué parte de la ganancia del S&P 500 (mismos aportes y fechas) se quedó el portafolio
+function gainShare(b, spy){
+  const g = b.final - b.contributed, gs = spy.final - spy.contributed;
+  return gs > 0 ? g / gs : null;
+}
 function renderSim(){
   const el = $("simOut"); if (!el) return;
   if (SIMERR){ el.innerHTML = `<div class="err">No pude bajar los precios: ${esc(SIMERR)}. Intenta de nuevo en un minuto.</div>`; return; }
@@ -1168,13 +1177,21 @@ function renderSim(){
         ${kpi("Rendimiento anual", pct(bt.cagr,1,true), "S&P " + pct(spy?.cagr,1,true))}
         ${kpi("Peor caída", pct(bt.maxDD,1), "S&P " + pct(spy?.maxDD,1), "down")}
       </div>
+      ${spy ? `<div class="lbl" style="margin-top:10px">Qué tan cerca del S&P 500 quedó</div>
+      <div class="kpis">
+        ${kpi("De la ganancia del S&P", pct(gainShare(bt, spy),0), "te quedaste con esta parte de lo que ganó el S&P 500", gainShare(bt, spy) >= 0.9 ? "up" : "")}
+        ${kpi("De la caída del S&P", pct(spy.maxDD ? bt.maxDD / spy.maxDD : null,0), "tu peor caída comparada con la suya")}
+        ${kpi("Diferencia al año", pct(bt.cagr - spy.cagr,1,true), "contra el S&P 500", cls(bt.cagr - spy.cagr))}
+        ${kpi("Acciones en el portafolio", pct(p.mix.eq,0), "el S&P 500 es 100% acciones")}
+      </div>` : ""}
       ${svgChart(bt.path.map(x => x.m), [{v: bt.path.map(x => x.contrib), color:"#5f6f8c", w:1.2, dash:"4 4"}, {v: bt.path.map(x => x.vs), color:"#6cc4ff", w:1.3}, ...(refAt && bt.path.every(x => refAt.has(x.m)) ? [{v: bt.path.map(x => refAt.get(x.m)), color:"#b48cff", w:1.3, dash:"6 3"}] : []), {v: bt.path.map(x => x.v), color:"#f0b44c", w:2}], null, kmoney)}
       <div class="legend"><span><i style="background:#f0b44c"></i>${esc(p.name)}</span><span><i style="background:#b48cff"></i>Tu referencia</span><span><i style="background:#6cc4ff"></i>Sólo S&P 500</span><span><i style="background:#5f6f8c"></i>Lo que aportaste</span></div>
-      <div class="scroll" style="margin-top:10px"><table><tr><th>Portafolio</th><th>Desde</th><th>Rend. anual</th><th>Volatilidad</th><th>Peor caída</th><th>Peor año</th><th>Terminarías con</th></tr>
-        ${bts.map((b, i) => b ? `<tr${i === PSEL ? ' style="background:var(--panel-2)"' : ""}><td class="k">${i+1}. ${esc(PFS[i].name)}</td><td class="mut">${ym(b.start)}</td><td class="${cls(b.cagr)}">${pct(b.cagr,1,true)}</td><td>${pct(b.vol,1)}</td><td class="down">${pct(b.maxDD,1)}</td><td>${pct(b.worstYear.r,1,true)} <span class="mut">${b.worstYear.y}</span></td><td>${money(b.final,0)}</td></tr>` : "").join("")}
-        ${ref ? `<tr><td class="k mut">Tu referencia (${esc(Object.entries(QXP.referenceWeights(EV, SET.answers || ANS || {})).map(([s, w]) => pct(w,0) + " " + s).join(" / "))})</td><td class="mut">${ym(ref.start)}</td><td>${pct(ref.cagr,1,true)}</td><td>${pct(ref.vol,1)}</td><td class="down">${pct(ref.maxDD,1)}</td><td>${pct(ref.worstYear.r,1,true)} <span class="mut">${ref.worstYear.y}</span></td><td>${money(ref.final,0)}</td></tr>` : ""}
-        ${spy ? `<tr><td class="k mut">Sólo S&P 500 (SPY)</td><td class="mut">${ym(spy.start)}</td><td>${pct(spy.cagr,1,true)}</td><td>${pct(spy.vol,1)}</td><td class="down">${pct(spy.maxDD,1)}</td><td>${pct(spy.worstYear.r,1,true)} <span class="mut">${spy.worstYear.y}</span></td><td>${money(spy.final,0)}</td></tr>` : ""}
+      <div class="scroll" style="margin-top:10px"><table><tr><th>Portafolio</th><th>Desde</th><th>Rend. anual</th><th>% de la ganancia del S&P</th><th>Volatilidad</th><th>Peor caída</th><th>Peor año</th><th>Terminarías con</th></tr>
+        ${bts.map((b, i) => b ? `<tr${i === PSEL ? ' style="background:var(--panel-2)"' : ""}><td class="k">${i+1}. ${esc(PFS[i].name)}</td><td class="mut">${ym(b.start)}</td><td class="${cls(b.cagr)}">${pct(b.cagr,1,true)}</td><td class="wp" style="text-align:left">${spy ? pct(gainShare(b, spy),0) : "—"}</td><td>${pct(b.vol,1)}</td><td class="down">${pct(b.maxDD,1)}</td><td>${pct(b.worstYear.r,1,true)} <span class="mut">${b.worstYear.y}</span></td><td>${money(b.final,0)}</td></tr>` : "").join("")}
+        ${ref ? `<tr><td class="k mut">Tu referencia (${esc(Object.entries(QXP.referenceWeights(EV, SET.answers || ANS || {})).map(([s, w]) => pct(w,0) + " " + s).join(" / "))})</td><td class="mut">${ym(ref.start)}</td><td>${pct(ref.cagr,1,true)}</td><td class="mut">${spy ? pct(gainShare(ref, spy),0) : "—"}</td><td>${pct(ref.vol,1)}</td><td class="down">${pct(ref.maxDD,1)}</td><td>${pct(ref.worstYear.r,1,true)} <span class="mut">${ref.worstYear.y}</span></td><td>${money(ref.final,0)}</td></tr>` : ""}
+        ${spy ? `<tr><td class="k mut">Sólo S&P 500 (SPY)</td><td class="mut">${ym(spy.start)}</td><td>${pct(spy.cagr,1,true)}</td><td class="mut">100%</td><td>${pct(spy.vol,1)}</td><td class="down">${pct(spy.maxDD,1)}</td><td>${pct(spy.worstYear.r,1,true)} <span class="mut">${spy.worstYear.y}</span></td><td>${money(spy.final,0)}</td></tr>` : ""}
       </table></div>
+      <p class="note"><b>¿Por qué no queda igual que el S&P 500?</b> Porque tiene ${pct(1 - p.mix.eq,0)} en bonos, efectivo y oro, que suben menos en años buenos pero amortiguan las caídas. El portafolio «Pegado al S&P 500» es lo más cerca que se puede estar con tu perfil; para acercarte más hay que subir de perfil (más acciones) y aceptar caídas más grandes. No ajustamos las mezclas para que «salgan bien» en esta gráfica: eso sólo funcionaría hacia atrás.</p>
       <p class="note">Cómo leerlo: si un portafolio queda arriba de <b>tu referencia</b>, sus piezas extra (USMV, JQUA, emergentes, oro…) ayudaron; si queda abajo, habría sido mejor la mezcla simple. Diez años es poco para separar suerte de habilidad.</p>
       <p class="note">Ojo: 2016–2026 fue una década excepcional para la bolsa de EE. UU. (el S&P 500 rindió más de 12% al año, contra ~10% de su promedio histórico) y por eso casi cualquier portafolio con más bonos se ve «peor» aquí. El S&P 500 solo tuvo caídas de ${pct(spy?.maxDD,0)}; la pregunta importante es si tú las habrías aguantado sin vender. Si un ETF todavía no existía, su peso se repartió entre los demás.</p>`;
   } else h += `<p class="empty">No hay suficiente historia de precios para estos ETFs.</p>`;
