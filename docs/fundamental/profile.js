@@ -137,6 +137,16 @@
              amount: Number(answers.f6) > 0 ? Number(answers.f6) : 10000, monthly: Number(answers.f7) >= 0 && answers.f7 !== "" && answers.f7 != null ? Number(answers.f7) : 0 };
   }
 
+  // Perfil elegido a mano: toma el resultado del cuestionario (si hay) y cambia sólo el perfil.
+  // Sin cuestionario usa supuestos generales (experiencia básica, $10,000 sin aportes).
+  function withProfile(ev, profile) {
+    const idx = PROFILE_ORDER.indexOf(profile);
+    if (idx < 0) return ev || null;
+    if (ev) return { ...ev, profile, idx, text: PROFILE_TEXT[profile], quizProfile: ev.profile, quizIdx: ev.idx, manual: profile !== ev.profile };
+    return { profile, idx, score: null, cap: null, will: null, know: null, level: 1, caps: [], notes: [], text: PROFILE_TEXT[profile],
+             amount: 10000, monthly: 0, quizProfile: null, quizIdx: null, manual: true, noQuiz: true };
+  }
+
   // ---------------- portafolios ----------------
   // Mezcla por perfil: acciones / bonos / efectivo / oro
   const MIX = {
@@ -349,6 +359,6 @@
     return mix;
   }
 
-  const QXP = { SECTIONS, QUESTIONS, PROFILE_ORDER, PROFILE_TEXT, MIX, ASSET, NAMES, KIND, EXPECTED, evaluate, missing, buildPortfolios, monthly, backtest, monteCarlo, mixOf };
+  const QXP = { SECTIONS, QUESTIONS, PROFILE_ORDER, PROFILE_TEXT, MIX, ASSET, NAMES, KIND, EXPECTED, evaluate, withProfile, missing, buildPortfolios, monthly, backtest, monteCarlo, mixOf };
   if (typeof module !== "undefined" && module.exports) module.exports = QXP; else root.QXP = QXP;
 })(typeof self !== "undefined" ? self : this);

@@ -192,8 +192,12 @@ section[hidden]{display:none}
 .pfhead{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start}
 @media (max-width:700px){.pfhead{grid-template-columns:minmax(0,1fr)}}
 .ladder{display:flex;flex-direction:column;gap:3px;min-width:190px}
-.ladder span{font-size:11px;color:var(--dim);padding:3px 8px;border-left:3px solid var(--rule)}
-.ladder span.on{color:var(--amber);border-left-color:var(--amber);background:var(--panel-2);font-weight:600}
+.ladder button{font:inherit;font-size:12px;text-align:left;color:var(--muted);padding:5px 8px;border:0;border-left:3px solid var(--rule);background:none;cursor:pointer;display:flex;justify-content:space-between;gap:8px}
+.ladder button:hover{color:var(--fg);background:var(--panel-2)}
+.ladder button.on{color:var(--amber);border-left-color:var(--amber);background:var(--panel-2);font-weight:600}
+.ladder em{font-style:normal;font-size:10px;color:var(--dim);opacity:.8}
+.tagm{font-size:11px;font-weight:600;vertical-align:middle;color:var(--ink);background:var(--amber);border-radius:4px;padding:1px 6px}
+.pick5{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 @media (max-width:960px){.cards{grid-template-columns:minmax(0,1fr)}}
 .card.sel{border-color:var(--amber)}
@@ -760,7 +764,9 @@ $("bSet").onclick = async () => {
   const row = {user_id: USER.id, profile: $("prof").value, cash, updated_at: new Date().toISOString()};
   const {error} = await sb.from("fa_settings").upsert(row);
   if (error){ $("pErr").textContent = error.message; return; }
-  SET = {...SET, ...row}; badge(); renderPortfolio();
+  if (!SET.answers || QXP.missing(SET.answers).length) row.result = {manual: true, profile: row.profile};
+  if (row.result) await sb.from("fa_settings").update({result: row.result}).eq("user_id", USER.id);
+  SET = {...SET, ...row}; initProfile(); renderPortfolio();
 };
 $("posF").onsubmit = async (e) => {
   e.preventDefault(); $("pErr").textContent = "";
@@ -917,7 +923,7 @@ function renderPortfolio(){
 }
 
 // ---------------- mi perfil ----------------
-let ANS = {}, EV = null, PFS = null, PSEL = 0, EDIT = false;
+let ANS = {}, EV = null, QEV = null, PFS = null, PSEL = 0, EDIT = false;
 let SIMD = null, SIMKEY = "", SIMERR = "", SIMIN = null, simBusy = false;
 const PLABEL = (p) => QX.PROFILES[p]?.label || p;
 const HZ_YEARS = [1, 3, 5, 10, 20];
@@ -928,8 +934,13 @@ const kmoney = (v) => !ok(v) ? "—" : (v<0?"-":"") + "$" + (Math.abs(v) >= 1e6 
 function initProfile(){
   const saved = SET.answers && typeof SET.answers === "object" && !QXP.missing(SET.answers).length ? SET.answers : null;
   ANS = saved ? {...saved} : store.get("fa_ans_draft", {}) || {};
-  EV = saved ? QXP.evaluate(saved) : null;       // se recalcula con la versión actual de las reglas
-  PFS = EV ? QXP.buildPortfolios(EV, saved) : null;
+  QEV = saved ? QXP.evaluate(saved) : null;      // se recalcula con la versión actual de las reglas
+  // Perfil activo: el del cuestionario, salvo que lo hayas elegido a mano (SET.profile distinto al que dio el cuestionario)
+  const R = SET.result || {};
+  const act = QEV ? (R.profile && SET.profile !== R.profile && QX.PROFILES[SET.profile] ? SET.profile : QEV.profile)
+                  : (R.manual && QX.PROFILES[SET.profile] ? SET.profile : null);
+  EV = act ? QXP.withProfile(QEV, act) : null;
+  PFS = EV ? QXP.buildPortfolios(EV, saved || {}) : null;
   PSEL = PFS ? Math.max(0, PFS.findIndex(p => p.id === SET.chosen_portfolio)) : 0;
   SIMIN = null;
   badge();
@@ -940,7 +951,7 @@ function badge(){
   b.textContent = EV ? "Perfil: " + PLABEL(EV.profile) : "Contesta tu perfil";
   b.title = EV ? "Tu perfil de inversionista (toca para verlo)" : "Contesta el cuestionario de perfil";
   const pf = $("profFrom");
-  if (pf) pf.textContent = !EV ? "· contesta el cuestionario" : SET.profile === EV.profile ? "· según tu cuestionario" : `· tu cuestionario dice ${PLABEL(EV.profile)}`;
+  if (pf) pf.textContent = !QEV ? (EV ? "· elegido a mano" : "· contesta el cuestionario") : SET.profile === QEV.profile ? "· según tu cuestionario" : `· elegido a mano; tu cuestionario dice ${PLABEL(QEV.profile)}`;
 }
 $("pBadge").onclick = () => setTab("perfil");
 $("pfBannerGo").onclick = () => setTab("perfil");
@@ -953,6 +964,23 @@ function profileFit(b){
   if (b > P.beta[1] + 0.2) return ` Para tu perfil ${P.label} (beta de portafolio ${P.beta[0]}–${P.beta[1]}) es más movida de lo que te toca: si la compras, que pese poco (máx. ${pct(P.maxStock,0)}).`;
   if (b < P.beta[0]) return ` Más tranquila que el rango de tu perfil ${P.label}.`;
   return ` Encaja con el rango de tu perfil ${P.label} (beta ${P.beta[0]}–${P.beta[1]}).`;
+}
+
+// Elegir el perfil a mano (o volver al del cuestionario). Ajusta portafolios modelo, simulación, «Mi portafolio» y «Buscar».
+async function setProfile(p){
+  if (!QX.PROFILES[p]) return;
+  const row = {user_id: USER.id, profile: p, cash: +SET.cash || 0, updated_at: new Date().toISOString()};
+  if (!QEV) row.result = {manual: true, profile: p};
+  SET = {...SET, ...row}; $("prof").value = p;
+  initProfile(); EDIT = false; renderPerfil();
+  const {error} = await sb.from("fa_settings").upsert(row);
+  if (error && $("pfMsg")) $("pfMsg").textContent = "No se guardó: " + error.message;
+}
+function ladderHtml(cur, quiz){
+  return `<div class="ladder">${QXP.PROFILE_ORDER.map((p, i) => `<button type="button" class="${i === cur ? "on" : ""}" data-setp="${p}" aria-pressed="${i === cur}">${esc(PLABEL(p))}${i === quiz ? `<em>cuestionario</em>` : ""}</button>`).join("")}</div>`;
+}
+function bindLadder(){
+  for (const b of $("perfOut").querySelectorAll("[data-setp]")) b.onclick = () => setProfile(b.dataset.setp);
 }
 
 function renderPerfil(){
@@ -980,13 +1008,15 @@ function renderQuiz(){
   let n = 0;
   let h = panel("Conoce tu perfil de inversionista", `<span id="qProg"></span>`,
     `<p class="note" style="margin-top:2px">${QXP.QUESTIONS.length} preguntas en 5 partes (unos 7 minutos): qué tanto sabes, para qué es el dinero, tu situación, cómo reaccionas a las caídas y tus gustos. Con eso calculo tu perfil de riesgo, armo 3 portafolios modelo y simulo cómo les habría ido desde 2016 y qué rango de resultados esperar. Sólo tú ves tus respuestas.</p>
-     <div class="prog"><i id="qBar" style="width:0"></i></div>`);
+     <div class="prog"><i id="qBar" style="width:0"></i></div>
+     <div class="lbl" style="margin-top:12px">¿Ya sabes tu perfil? Elígelo directo y ve sus portafolios (puedes contestar el cuestionario después)</div>
+     <div class="pick5">${QXP.PROFILE_ORDER.map(p => `<button type="button" class="opt${EV && EV.profile === p ? " on" : ""}" data-setp="${p}">${esc(PLABEL(p))}</button>`).join("")}</div>`);
   for (const sec of QXP.SECTIONS) h += panel(esc(sec.title), esc(sec.intro), sec.qs.map(q => qHtml(q, ++n)).join(""));
   h += `<div class="qend"><div class="err" id="qErr"></div>${EV ? `<button class="btn" id="qCancel">Cancelar</button>` : ""}<button class="btn pri" id="qGo">Ver mi perfil</button></div>`;
   $("perfOut").innerHTML = h;
   quizProgress();
   $("perfOut").onclick = (e) => {
-    const b = e.target.closest(".opt"); if (!b) return;
+    const b = e.target.closest(".opt"); if (!b || b.dataset.setp) return;
     const q = QXP.QUESTIONS.find(x => x.id === b.dataset.q), i = +b.dataset.i;
     if (q.kind === "many"){
       const cur = new Set(Array.isArray(ANS[q.id]) ? ANS[q.id] : []);
@@ -1004,6 +1034,7 @@ function renderQuiz(){
     ANS[inp.dataset.q] = isFinite(v) && v >= 0 ? v : null; store.set("fa_ans_draft", ANS);
   };
   $("qGo").onclick = saveProfile;
+  bindLadder();
   if ($("qCancel")) $("qCancel").onclick = () => { EDIT = false; ANS = {...SET.answers}; renderPerfil(); window.scrollTo(0, 0); };
 }
 async function saveProfile(){
@@ -1039,15 +1070,19 @@ function renderResult(){
   if (!SIMIN) SIMIN = {amount: ev.amount, monthly: ev.monthly, years: HZ_YEARS[ANS.o2] ?? 10};
   const meter = (k, v) => `<div class="row"><span>${k}</span><div class="bar"><i style="width:${(v*100).toFixed(0)}%"></i></div><span>${(v*100).toFixed(0)}/100</span></div>`;
   const item = (icon, t) => `<div class="rec">${icon}<div><p>${esc(t)}</p></div></div>`;
-  let h = panel("Tu perfil de inversionista", SET.profile_at ? "contestado el " + new Date(SET.profile_at).toLocaleDateString("es-MX", {day:"numeric", month:"long", year:"numeric"}) : "",
-    `<div class="pfhead"><div><div class="lbl">Resultado</div><div class="big amb">${esc(PLABEL(ev.profile))}</div>
+  const riskier = ev.manual && ev.quizIdx != null && ev.idx > ev.quizIdx;
+  let h = panel("Tu perfil de inversionista", ev.noQuiz ? "elegido a mano, sin cuestionario" : SET.profile_at ? "contestado el " + new Date(SET.profile_at).toLocaleDateString("es-MX", {day:"numeric", month:"long", year:"numeric"}) : "",
+    `<div class="pfhead"><div><div class="lbl">${ev.manual ? "Perfil que elegiste" : "Resultado"}</div><div class="big amb">${esc(PLABEL(ev.profile))}${ev.manual ? ` <span class="tagm">elegido a mano</span>` : ""}</div>
        <p class="note" style="margin-top:2px">${esc(ev.text)}</p>
-       <div class="bars" style="margin-top:10px">${meter("Capacidad", ev.cap)}${meter("Disposición", ev.will)}${meter("Conocimiento", ev.know)}</div></div>
-     <div class="ladder">${QXP.PROFILE_ORDER.map((p, i) => `<span class="${i === ev.idx ? "on" : ""}">${esc(PLABEL(p))}</span>`).join("")}</div></div>
-     <p class="note">Experiencia: <b>${LEVELS[ev.level]}</b>. Capacidad es lo que tu plazo, ingresos y ahorros permiten; disposición es lo que aguantarías sin vender. Pesa más la más baja de las dos. Con este perfil, tu portafolio debería tener una beta de ${P.beta[0]} a ${P.beta[1]}${P.minBonds > 0 ? `, al menos ${pct(P.minBonds,0)} en renta fija` : ""} y no más de ${pct(P.maxStock,0)} en una sola acción. Así se configuran las recomendaciones de «Mi portafolio» y la lectura de riesgo en «Buscar».</p>
+       ${ev.noQuiz ? "" : `<div class="bars" style="margin-top:10px">${meter("Capacidad", ev.cap)}${meter("Disposición", ev.will)}${meter("Conocimiento", ev.know)}</div>`}</div>
+     <div><div class="lbl">Cambia tu perfil aquí</div>${ladderHtml(ev.idx, ev.quizIdx)}
+       ${ev.manual && ev.quizProfile ? `<button class="btn sm" id="pfAuto" style="margin-top:6px">Usar el de mi cuestionario (${esc(PLABEL(ev.quizProfile))})</button>` : ""}
+       <div class="err" id="pfMsg"></div></div></div>
+     ${ev.manual ? `<p class="note" style="margin-top:8px">${ev.noQuiz ? "No has contestado el cuestionario, así que los portafolios usan supuestos generales: experiencia básica, 25% fuera de EE. UU. y $10,000 sin aportes. Contestarlo los ajusta a ti." : riskier ? `<b class="amb">Elegiste más riesgo del que sugiere tu cuestionario (${esc(PLABEL(ev.quizProfile))}).</b> Está bien si es a propósito, pero recuerda que un portafolio que no aguantas suele venderse en el peor momento.` : `Elegiste menos riesgo del que sugiere tu cuestionario (${esc(PLABEL(ev.quizProfile))}). Es más tranquilo, pero con el tiempo suele crecer menos.`} Los portafolios, la simulación, «Mi portafolio» y «Buscar» ya usan el perfil que elegiste.</p>` : ""}
+     <p class="note">${ev.noQuiz ? "" : `Experiencia: <b>${LEVELS[ev.level]}</b>. Capacidad es lo que tu plazo, ingresos y ahorros permiten; disposición es lo que aguantarías sin vender. Pesa más la más baja de las dos. `}Con este perfil, tu portafolio debería tener una beta de ${P.beta[0]} a ${P.beta[1]}${P.minBonds > 0 ? `, al menos ${pct(P.minBonds,0)} en renta fija` : ""} y no más de ${pct(P.maxStock,0)} en una sola acción. Así se configuran las recomendaciones de «Mi portafolio» y la lectura de riesgo en «Buscar».</p>
      ${ev.caps.length ? `<div class="lbl" style="margin-top:10px">Límites que aplican</div>` + ev.caps.map(c => item(`<span class="lvl amb">◆</span>`, c)).join("") : ""}
      ${ev.notes.length ? `<div class="lbl" style="margin-top:10px">Para tomar en cuenta</div>` + ev.notes.map(c => item(`<span class="lvl blue">i</span>`, c)).join("") : ""}
-     <div style="margin-top:10px"><button class="btn sm" id="pfRedo">Volver a contestar</button></div>`);
+     <div style="margin-top:10px"><button class="btn sm" id="pfRedo">${ev.noQuiz ? "Contestar el cuestionario" : "Volver a contestar"}</button></div>`);
 
   h += `<div class="p" style="border:0;background:none"><div class="ph" style="background:none;border:0;padding:8px 0 0"><h2>3 portafolios modelo para tu perfil</h2><small>montos para ${money(SIMIN.amount,0)}</small></div></div>`;
   h += `<div class="cards">` + PFS.map((p, i) => `<div class="p card${i === PSEL ? " sel" : ""}"><div class="ph"><h2>${i+1}. ${esc(p.name)}</h2><small>${esc(p.tag)}</small></div><div class="pb">
@@ -1067,6 +1102,8 @@ function renderResult(){
   $("perfOut").innerHTML = h;
   $("perfOut").onclick = null;
   $("pfRedo").onclick = () => { EDIT = true; ANS = {...(SET.answers || ANS)}; renderPerfil(); window.scrollTo(0, 0); };
+  if ($("pfAuto")) $("pfAuto").onclick = () => setProfile(ev.quizProfile);
+  bindLadder();
   for (const a of $("perfOut").querySelectorAll("[data-an]")) a.onclick = (e) => { e.preventDefault(); analyze(a.dataset.an); };
   for (const b of $("perfOut").querySelectorAll("[data-pick]")) b.onclick = async () => {
     PSEL = +b.dataset.pick; SET.chosen_portfolio = PFS[PSEL].id;
