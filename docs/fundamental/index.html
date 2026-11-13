@@ -283,6 +283,7 @@ nav.mob{display:none}
     </div>
     <div class="recent" id="recent"></div>
     <div id="co"></div>
+    <div id="ideas"></div>
   </section>
 
   <section id="t-port" hidden>
@@ -381,7 +382,7 @@ async function boot(){
   USER = session.user; $("auth").hidden = true; $("app").hidden = false; $("mob").hidden = false;
   await loadUserData();
   const h = (location.hash||"").slice(1).toUpperCase();
-  renderRecent();
+  renderRecent(); renderIdeas();
   setTab(SYM.test(h) ? "buscar" : store.get("fa_tab", EV ? "buscar" : "perfil"));
   if (SYM.test(h)) analyze(h);
 }
@@ -449,6 +450,36 @@ function renderRecent(){
   const all = [...new Set([...r, ...favs])].slice(0, 14);
   $("recent").innerHTML = all.length ? `<span class="mut" style="font-size:11px;margin-right:6px">Recientes:</span>` + all.map(s => `<span class="chip" data-s="${esc(s)}">${esc(s)}</span>`).join("") : "";
   for (const c of $("recent").querySelectorAll(".chip")) c.onclick = () => analyze(c.dataset.s);
+}
+
+// ---- ideas de crecimiento: empresas que hoy pasan reglas fijas, con el historial real de esas reglas ----
+let IDEAS = null, IDEAS_TAB = "growth";
+async function renderIdeas(){
+  const el = $("ideas"); if (!el) return;
+  if (!IDEAS) { try { IDEAS = await (await fetch("ideas.json", {cache: "no-cache"})).json(); } catch { el.innerHTML = ""; return; } }
+  const kpi = (k, v, s, c = "") => `<div class="kpi"><div class="k">${k}</div><div class="v ${c}">${v}</div><div class="s">${s || ""}</div></div>`;
+  const I = IDEAS, bt = I.backtest || {}, list = I[IDEAS_TAB] || [];
+  const key = IDEAS_TAB === "garp" ? "GARP" : "G15", me = bt[key] || {}, sp = bt.SPY || {}, qq = bt.QQQ || {};
+  const yrs = Object.keys((I.byYear || {}).SPY || {});
+  const yrow = (k, lbl) => `<tr><td class="k">${lbl}</td>${yrs.map(y => { const v = I.byYear[k]?.[y]; return `<td class="${cls(v)}">${pct(v,0,true)}</td>`; }).join("")}</tr>`;
+  el.innerHTML = panel("Ideas de crecimiento", `reglas fijas · datos al ${esc(I.asOf || "")}`, `
+    <div class="honest"><b>Ideas para investigar, no una recomendación.</b> Son las empresas que hoy pasan nuestras reglas de crecimiento (${esc(I.rules || "")}). Probamos esas mismas reglas con datos como se veían en cada fecha desde ${esc((I.from||"").slice(0,4))}: la canasta <b>${(me.ann ?? 0) < (sp.ann ?? 0) ? "quedó abajo" : "quedó arriba"} del S&P 500</b> (${pct(me.ann,1,true)} contra ${pct(sp.ann,1,true)} al año) y del Nasdaq 100 (${pct(qq.ann,1,true)}), con peor caída de ${pct(me.dd,0)}. Por eso no es el núcleo de ningún portafolio: úsalas para buscar y analizar, revisando su valuación abajo.</div>
+    <div class="kpis">
+      ${kpi("Canasta al año", pct(me.ann,1,true), `${esc((I.from||"").slice(0,7))} a ${esc((I.to||"").slice(0,7))}`, cls((me.ann ?? 0) - (sp.ann ?? 0)))}
+      ${kpi("S&P 500", pct(sp.ann,1,true), "mismas fechas")}
+      ${kpi("Nasdaq 100", pct(qq.ann,1,true), "mismas fechas")}
+      ${kpi("Peor caída", pct(me.dd,0), "S&P " + pct(sp.dd,0), "down")}
+      ${kpi("Sharpe", fx(me.sharpe), "S&P " + fx(sp.sharpe))}
+    </div>
+    <div class="scroll" style="margin-top:10px"><table><tr><th>Año</th>${yrs.map(y => `<th>${y}</th>`).join("")}</tr>${yrow(key, IDEAS_TAB === "garp" ? "Crecimiento + PEG ≤ 2" : "Canasta de crecimiento")}${yrow("SPY", "S&P 500")}${yrow("QQQ", "Nasdaq 100")}</table></div>
+    <div class="lbl" style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span>Las ${list.length} de hoy</span>
+      <span class="seg" id="ideasSeg"><button data-k="growth" class="${IDEAS_TAB==="growth"?"on":""}">Más crecimiento</button><button data-k="garp" class="${IDEAS_TAB==="garp"?"on":""}">Crecimiento a precio razonable</button></span></div>
+    <div class="scroll"><table><tr><th>#</th><th>Símbolo</th><th class="l">Empresa</th><th>Ventas (3 años, al año)</th><th>Utilidad por acción (3 años, al año)</th><th>PEG</th><th>Último 10-K</th></tr>
+      ${list.map((x, i) => `<tr><td class="mut">${i+1}</td><td class="sym"><a href="#${esc(x.symbol)}" data-is="${esc(x.symbol)}">${esc(x.symbol)}</a></td><td class="l">${esc(x.name || "")}</td><td class="up">${pct(x.revG3,0,true)}</td><td class="${cls(x.epsG3)}">${pct(x.epsG3,0,true)}</td><td>${x.peg ? fx(x.peg,1) : "—"}</td><td class="mut">${esc(x.fy || "")}</td></tr>`).join("")}
+    </table></div>
+    <p class="note">PEG aquí = P/U del último año entre el crecimiento de la utilidad por acción de los últimos 3 años; cuando ese crecimiento fue enorme (salir de pérdidas o de un año malo) el PEG sale casi 0 y exagera lo barato, porque ese ritmo casi nunca se repite. Toca un símbolo para ver su valuación por múltiplos, DCF y calidad. La lista se actualiza cuando volvemos a correr la investigación (research_growth.py). Ofrecer selecciones de acciones a clientes como recomendación puede requerir registro ante la CNBV.</p>`);
+  for (const b of el.querySelectorAll("#ideasSeg button")) b.onclick = () => { IDEAS_TAB = b.dataset.k; renderIdeas(); };
+  for (const a of el.querySelectorAll("[data-is]")) a.onclick = (e) => { e.preventDefault(); analyze(a.dataset.is); };
 }
 
 async function analyze(sym){
