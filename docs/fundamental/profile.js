@@ -203,6 +203,14 @@
     const div = answers.p3 === 0, mx = answers.p4 === 1;
     const out = [];
 
+    // 0. Pegado al S&P 500: la parte de acciones es 100% S&P 500 (VOO). Es lo más cerca del S&P 500 que se puede estar
+    //    con el riesgo del perfil, y es también la referencia justa. Acercarse más sólo se logra con más acciones (otro perfil).
+    {
+      const w = round({ VOO: m.eq, BND: m.bond, BIL: m.cash, GLD: m.gold });
+      out.push({ id: "sp", name: "Pegado al S&P 500", tag: `${Math.round(m.eq * 100)}% en el S&P 500, el resto en bonos y efectivo`,
+        why: `Toda la parte de acciones va al S&P 500 (VOO). Es lo más parecido al S&P 500 que permite tu perfil: sube y baja con él en proporción a tu ${Math.round(m.eq * 100)}% de acciones. Para pegarse todavía más hay que subir de perfil (más acciones), lo que también trae caídas más grandes.`, w });
+    }
+
     // 1. Sencillo: 3 o 4 fondos
     {
       const w = {};
@@ -232,14 +240,14 @@
     {
       const sat = ev.level >= 2 && ev.idx >= 2 ? (answers.p1 === 2 ? 0.2 : 0.15) : ev.level >= 1 && ev.idx >= 1 ? 0.1 : 0;
       if (sat > 0) {
-        const base = out[0].w, w = {};
+        const base = out.find((p) => p.id === "simple").w, w = {};
         const eqTot = Object.entries(base).filter(([k]) => KIND[ASSET[k]] === "eq").reduce((s, [, v]) => s + v, 0);
         for (const [k, v] of Object.entries(base)) w[k] = KIND[ASSET[k]] === "eq" ? v * (1 - sat / eqTot) : v;
         w.JQUA = (w.JQUA || 0) + sat * 0.5; w.USMV = (w.USMV || 0) + sat * 0.5;
         out.push({ id: "sat", name: "Núcleo + satélite de factores", tag: `${Math.round(sat * 100)}% en rentabilidad y baja volatilidad`,
           why: `El núcleo es el portafolio Sencillo. El satélite (${Math.round(sat * 100)}%) va a empresas rentables y de calidad (JQUA) y de baja volatilidad (USMV): son las dos inclinaciones que siguieron dando algo después de publicarse en los estudios (1963–2026). Ojo: sin ventaja comprobada; en 30 fondos reales ninguno le ganó al S&P 500 con significancia. Por eso es un satélite chico, no el núcleo.`, w: round(w), sat });
       } else {
-        const w = { ...out[0].w };
+        const w = { ...out.find((p) => p.id === "simple").w };
         const fromEq = Object.entries(w).filter(([k]) => KIND[ASSET[k]] === "eq");
         const cut = 0.1; let taken = 0;
         for (const [k, v] of fromEq) { const d = v * cut; w[k] = v - d; taken += d; }

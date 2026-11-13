@@ -140,19 +140,19 @@ t("perfil: el plazo corto y la falta de fondo de emergencia limitan el riesgo", 
   assert.strictEqual(sinFondo.profile, "moderado"); assert(sinFondo.caps.some((n) => /emergencia/.test(n)) && sinFondo.notes.some((n) => /3 a 6 meses/.test(n)));
 });
 
-t("portafolios: 3 por perfil, pesos suman 100% y siguen la mezcla del perfil", () => {
+t("portafolios: 4 por perfil, pesos suman 100% y siguen la mezcla del perfil", () => {
   for (const lvl of [0, 1]) {
     const a = answersFor(lvl), ev = P.evaluate(a), ps = P.buildPortfolios(ev, a);
-    assert.strictEqual(ps.length, 3);
+    assert.strictEqual(ps.length, 4); assert.strictEqual(ps[0].id, "sp");
     for (const p of ps) {
       near(Object.values(p.w).reduce((s, x) => s + x, 0), 1, 1e-9, p.name);
       for (const s of Object.keys(p.w)) assert(P.ASSET[s], "ETF sin clase: " + s);
     }
-    near(ps[0].mix.eq, P.MIX[ev.profile].eq, 0.011, "acciones del sencillo");
+    near(ps[0].mix.eq, P.MIX[ev.profile].eq, 0.011, "acciones del pegado al S&P"); near(ps[0].w.VOO, ps[0].mix.eq, 1e-9, "acciones 100% VOO");
   }
   const a = answersFor(1), ps = P.buildPortfolios(P.evaluate(a), a);
-  assert.strictEqual(ps[2].id, "sat"); near(ps[2].w.JQUA * 2, ps[2].sat, 0.011, "satélite: mitad JQUA");
-  assert(ps[2].sat <= 0.2 + 1e-9, "satélite máximo 20%");
+  assert.strictEqual(ps[3].id, "sat"); near(ps[3].w.JQUA * 2, ps[3].sat, 0.011, "satélite: mitad JQUA");
+  assert(ps[3].sat <= 0.2 + 1e-9, "satélite máximo 20%");
   assert(!ps.some((p) => p.w.QUAL || p.w.MOAT || p.w.VB), "sin QUAL, MOAT ni VB");
 });
 
@@ -163,7 +163,7 @@ t("referencia justa y baja volatilidad en perfiles cautos", () => {
     near(Object.values(ref).reduce((s, x) => s + x, 0), 1, 1e-9, "referencia suma 100% " + prof);
     near(ref.VOO, P.MIX[prof].eq, 0.011, "acciones de la referencia " + prof);
     const ps = P.buildPortfolios(ev, a), cautious = ["conservador", "moderado_conservador", "moderado"].includes(prof);
-    assert.strictEqual(!!ps[0].w.USMV, cautious, "USMV en el sencillo sólo si es cauto: " + prof);
+    assert.strictEqual(!!ps[1].w.USMV, cautious, "USMV en el sencillo sólo si es cauto: " + prof);
     for (const p of ps) near(Object.values(p.w).reduce((s, x) => s + x, 0), 1, 1e-9, p.name + " " + prof);
   }
 });
@@ -177,7 +177,7 @@ t("perfil a mano: cambia la mezcla y avisa contra el cuestionario; sin cuestiona
   const n = P.withProfile(null, "agresivo");
   assert(n.noQuiz && n.manual && n.level === 1 && n.amount === 10000);
   const ps = P.buildPortfolios(n, {});
-  assert.strictEqual(ps.length, 3); near(ps[0].mix.eq, P.MIX.agresivo.eq, 0.011, "acciones agresivo");
+  assert.strictEqual(ps.length, 4); near(ps[0].mix.eq, P.MIX.agresivo.eq, 0.011, "acciones agresivo");
   for (const p of ps) near(Object.values(p.w).reduce((s, x) => s + x, 0), 1, 1e-9, p.name);
   assert.strictEqual(P.withProfile(q, "otro"), q);
 });
