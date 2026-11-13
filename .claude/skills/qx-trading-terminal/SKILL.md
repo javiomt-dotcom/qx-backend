@@ -114,6 +114,16 @@ PWA en `docs/` (index.html, sw.js, manifest, `vendor/supabase.js` local). Entra 
 7. Límites: Alpaca noticias ~200 req/min (no corras dos trabajos de noticias a la vez); IBKR 30 llamadas/min.
 8. Toda idea nueva para el modelo se prueba primero con un backtest walk-forward de 3 años contra el swing actual y SPY; sólo entra si mejora más allá del ruido. Guarda el informe en `/mnt/project-files/terminal/research/AAAA-MM-DD-tema.md`.
 
+## 12. Tablero fundamental (proyecto aparte)
+
+Javier lo pidió el 2026-11-13 separado del trading: no lo mezcles con el motor, Telegram, la terminal ni la app.
+- Página `docs/fundamental/` (index.html, calc.js, manifest); entra con la misma cuenta (`qx_allowed`). Pestañas Buscar empresa, Mi portafolio, Favoritos.
+- Edge Function `fundamentals` (verify_jwt apagado; revisa la sesión ella misma; `GET ?selftest=1` sin datos de usuarios). Acciones `company`, `history`, `brief`, `quotes`, `search`. Fuentes: Finnhub (`FINNHUB_KEY`), SEC EDGAR directo (respaldo Finnhub financials-reported), Alpaca (precios ajustados 5 años), FRED (T-bill 3 meses y bono 10 años). Caché en `fa_cache`.
+- Tablas `fa_positions`, `fa_watchlist`, `fa_settings` (RLS por usuario + `qx_allowed`), SQL en `supabase/fundamental.sql`.
+- DCF base = método del backtest Buffett (flujo libre promedio 3 años, crecimiento de ventas 5 años entre 0 y 8%, descuento 10%, perpetuo 3%), menos deuda neta; editable en la página. Bancos y aseguradoras: sin DCF ni Altman.
+- Recomendaciones del portafolio: reglas fijas en `calc.js` (`recommendations`), educativas, nunca señales.
+- Pruebas: `node tests/test_fundamental.js`. Para desplegar la función usa la herramienta MCP de Supabase con el archivo del repo.
+
 ## 11. Notas que no hay que olvidar
 
 - La fila de TENB de la lista del 28-oct quedó en Supabase por decisión de Javier; ignórala.

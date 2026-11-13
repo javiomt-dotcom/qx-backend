@@ -1,0 +1,870 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>QX Fundamental</title>
+<meta name="description" content="Análisis fundamental de empresas, métricas de tu portafolio y favoritos">
+<meta name="theme-color" content="#0a0f1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="QX Fundamental">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="icon" href="../icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Misma identidad que la app QX: tema oscuro, cifras en monoespaciada, títulos condensados en ámbar. */
+:root{
+  --ink:#0a0f1a; --panel:#0f1726; --panel-2:#142036; --rule:#22314d; --rule-soft:#1a2740;
+  --fg:#d7e1f0; --muted:#8a9bb6; --dim:#5f6f8c;
+  --amber:#f0b44c; --up:#33cf96; --down:#ff6f6f; --blue:#6cc4ff; --warn:#e9cf98;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --safe-b:env(safe-area-inset-bottom,0px); --safe-t:env(safe-area-inset-top,0px);
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--ink);color:var(--fg)}
+body{font-family:var(--mono);font-size:12.5px;line-height:1.45;font-variant-numeric:tabular-nums;
+  padding:calc(var(--safe-t) + 6px) 16px calc(var(--safe-b) + 80px);min-height:100vh}
+.wrap{max-width:1180px;margin:0 auto}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+a{color:var(--blue)}
+
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0 8px;border-bottom:1px solid var(--rule)}
+.brand{display:flex;align-items:baseline;gap:8px;min-width:0}
+.brand b{font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:.04em;color:var(--amber)}
+.brand span{font-family:var(--display);font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.tabs{display:flex;gap:4px}
+.tabs button{background:none;border:1px solid transparent;border-radius:3px;padding:6px 12px;font:600 14px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--amber);border-color:var(--rule);background:var(--panel-2)}
+.disc{padding:6px 0;border-bottom:1px solid var(--rule);color:var(--dim);font-size:11px}
+
+.p{background:var(--panel);border:1px solid var(--rule-soft);margin-top:10px;min-width:0}
+.ph{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:10px;padding:8px 10px;border-bottom:1px solid var(--rule-soft);background:var(--panel-2)}
+.ph h2{margin:0;font-family:var(--display);font-weight:600;font-size:16px;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);min-width:0}
+.ph small{color:var(--muted);font-size:10.5px;text-align:right}
+.pb{padding:6px 10px 10px;min-width:0}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 10px}
+@media (max-width:860px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse}
+th{font-weight:500;color:var(--dim);font-size:10px;letter-spacing:.08em;text-transform:uppercase;text-align:right;padding:6px 5px 4px;border-bottom:1px solid var(--rule-soft);white-space:nowrap}
+td{text-align:right;padding:6px 5px;border-bottom:1px solid var(--rule-soft);white-space:nowrap;vertical-align:top}
+tr:last-child td{border-bottom:0}
+th:first-child,td:first-child,th.l,td.l{text-align:left}
+td.read{white-space:normal;text-align:left;color:var(--muted);font-size:11.5px;line-height:1.35;min-width:160px}
+td.k{color:var(--fg)}
+.sym{color:var(--amber);font-weight:600}
+.sub{display:block;color:var(--dim);font-size:10.5px;max-width:200px;overflow:hidden;text-overflow:ellipsis}
+.up{color:var(--up)}.down{color:var(--down)}.mut{color:var(--muted)}.amb{color:var(--amber)}.blue{color:var(--blue)}
+.chip{display:inline-block;font-size:10.5px;padding:1px 6px;border:1px solid var(--rule);border-radius:2px;color:var(--muted);margin:2px 4px 2px 0;white-space:nowrap}
+.chip.pos{border-color:#215f4c;color:var(--up)}.chip.neg{border-color:#6b3238;color:var(--down)}.chip.amb{border-color:#6b5124;color:var(--amber)}
+.note{color:var(--muted);font-size:11px;margin:8px 0 0;line-height:1.5}
+.empty{color:var(--muted);padding:14px 0;white-space:normal;text-align:left}
+.err{color:var(--down);font-size:12px;margin:8px 0;white-space:normal}
+
+.btn{border:1px solid var(--rule);background:var(--panel-2);border-radius:3px;padding:8px 14px;font:600 13px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--fg);cursor:pointer;white-space:nowrap}
+.btn.pri{background:var(--amber);border-color:var(--amber);color:#111}
+.btn.sm{padding:4px 9px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:default}
+.x{background:none;border:1px solid var(--rule);color:var(--muted);border-radius:3px;min-width:26px;height:24px;padding:0 5px;line-height:1;cursor:pointer}
+input.in,select.in{font-family:var(--mono);font-size:16px;color:var(--fg);background:var(--ink);border:1px solid var(--rule);border-radius:3px;padding:8px;min-width:0;width:100%}
+.lbl{display:block;font-family:var(--display);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.form{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:8px;align-items:end;margin:6px 0}
+@media (max-width:700px){.form{grid-template-columns:repeat(2,minmax(0,1fr))}.form .go{grid-column:1/-1}}
+
+/* buscador */
+.search{position:relative;margin-top:12px;display:flex;gap:8px}
+.search input{flex:1;font-size:18px;padding:11px 12px}
+.sugg{position:absolute;left:0;right:0;top:100%;z-index:5;background:var(--panel-2);border:1px solid var(--rule);border-top:0;max-height:320px;overflow:auto}
+.sugg button{display:flex;gap:10px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--rule-soft);padding:8px 10px;cursor:pointer}
+.sugg button:hover,.sugg button.on{background:#1b2a45}
+.recent{margin-top:8px}
+.recent .chip{cursor:pointer}
+
+/* encabezado de empresa */
+.hero{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 10px}
+.hero img{width:44px;height:44px;border-radius:6px;background:#fff;object-fit:contain}
+.hero .nm{font-family:var(--display);font-size:24px;font-weight:600;letter-spacing:.02em;line-height:1.1}
+.hero .meta{color:var(--muted);font-size:11.5px}
+.hero .px{text-align:right}
+.hero .px b{font-size:24px;font-weight:600}
+.hero .acts{display:flex;gap:6px;justify-content:flex-end;margin-top:6px;flex-wrap:wrap}
+@media (max-width:600px){.hero{grid-template-columns:auto minmax(0,1fr)}.hero .px{grid-column:1/-1;text-align:left}.hero .acts{justify-content:flex-start}}
+.range{position:relative;height:6px;background:var(--rule-soft);margin:8px 0 2px;border-radius:3px}
+.range i{position:absolute;top:-3px;width:3px;height:12px;background:var(--amber)}
+
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--rule-soft);border:1px solid var(--rule-soft);margin-top:10px}
+@media (max-width:760px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{background:var(--panel);padding:10px}
+.tile .k{font-family:var(--display);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tile .v{font-family:var(--display);font-size:20px;font-weight:600;letter-spacing:.02em;margin:2px 0}
+.tile .s{font-size:11px;color:var(--muted);line-height:1.4}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:var(--rule-soft);border:1px solid var(--rule-soft);margin-top:10px}
+@media (max-width:860px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:480px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{background:var(--panel);padding:8px}
+.kpi .k{font-family:var(--display);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .v{font-size:16px;font-weight:600;margin-top:1px;white-space:nowrap}
+.kpi .s{font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.chart{width:100%;height:220px;display:block}
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+.seg button{background:none;border:0;padding:3px 9px;font:600 12px var(--display);letter-spacing:.08em;color:var(--muted);cursor:pointer}
+.seg button.on{background:var(--panel-2);color:var(--amber)}
+.legend{display:flex;gap:14px;font-size:11px;color:var(--muted);margin-top:4px}
+.legend i{display:inline-block;width:12px;height:2px;vertical-align:middle;margin-right:5px}
+
+.check{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:6px;padding:6px 0;border-bottom:1px solid var(--rule-soft);align-items:baseline}
+.check:last-child{border-bottom:0}
+.check .d{color:var(--muted);font-size:11px;text-align:right}
+.ok{color:var(--up)}.no{color:var(--down)}.na{color:var(--dim)}
+
+.dcfin{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:6px 0 10px}
+@media (max-width:700px){.dcfin{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.dcfin input{font-size:15px;padding:6px 8px}
+.big{font-family:var(--display);font-size:28px;font-weight:600}
+.grid td.c0{background:#0d2a22}.grid td.c1{background:#13251f}.grid td.c2{background:#1d1d16}.grid td.c3{background:#2a1a1a}.grid td.c4{background:#361719}
+.grid td.cur{outline:1px solid var(--amber);outline-offset:-1px}
+
+.bars .row{display:grid;grid-template-columns:minmax(0,140px) minmax(0,1fr) 52px;gap:8px;align-items:center;padding:3px 0;font-size:11.5px}
+.bars .row span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar{position:relative;height:8px;background:var(--rule-soft)}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--amber)}
+.bar i.b2{background:var(--blue);opacity:.75}
+.rec{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px;padding:8px 0;border-bottom:1px solid var(--rule-soft)}
+.rec:last-child{border-bottom:0}
+.rec b{display:block;font-weight:600;margin-bottom:2px}
+.rec p{margin:0;color:var(--muted);font-size:11.5px;line-height:1.45}
+.lvl{font-size:15px;line-height:1.2}
+.heat{width:auto}.heat td{min-width:52px;text-align:center;font-size:10.5px;padding:4px 3px}
+
+.login{max-width:400px;margin:12vh auto 0}
+.login label{display:block;font-family:var(--display);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:8px}
+.login input{width:100%;font-family:var(--mono);color:var(--fg);background:var(--ink);border:1px solid var(--rule);border-radius:3px;padding:10px;margin-top:4px;font-size:16px}
+.spin{display:inline-block;width:12px;height:12px;border:2px solid var(--rule);border-top-color:var(--amber);border-radius:50%;animation:sp 0.8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+details.gl summary{cursor:pointer;color:var(--amber);font:600 13px var(--display);letter-spacing:.1em;text-transform:uppercase;padding:4px 0}
+details.gl dl{margin:6px 0 0}
+details.gl dt{color:var(--fg);font-weight:600;margin-top:8px}
+details.gl dd{margin:2px 0 0;color:var(--muted);font-size:11.5px}
+section[hidden]{display:none}
+
+nav.mob{display:none}
+@media (max-width:700px){
+  .tabs{display:none}
+  nav.mob{position:fixed;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(3,1fr);background:rgba(10,15,26,.96);
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--rule);padding:4px 4px calc(var(--safe-b) + 4px);z-index:10}
+  nav.mob button{background:none;border:0;border-top:2px solid transparent;padding:7px 0 5px;font:600 13px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px}
+  nav.mob button svg{width:20px;height:20px}
+  nav.mob button[aria-selected="true"]{color:var(--amber);border-top-color:var(--amber)}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div id="auth" class="login" hidden>
+  <div class="brand"><b>QX</b><span>Fundamental</span></div>
+  <div class="p">
+    <div class="ph"><h2>Acceso</h2><small>la misma cuenta de la app QX</small></div>
+    <div class="pb">
+      <label for="em">Correo</label>
+      <input id="em" type="email" autocomplete="username" inputmode="email" autocapitalize="off">
+      <label for="pw">Contraseña</label>
+      <input id="pw" type="password" autocomplete="current-password">
+      <div class="err" id="aerr"></div>
+      <button class="btn pri" id="bIn" style="width:100%">Entrar</button>
+      <p class="note">Usa el mismo correo y contraseña con los que entras a la app QX.</p>
+    </div>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <div class="top">
+    <div class="brand"><b>QX</b><span>Fundamental</span></div>
+    <div class="tabs" role="tablist" id="tabs">
+      <button data-t="buscar" aria-selected="true">Buscar empresa</button>
+      <button data-t="port">Mi portafolio</button>
+      <button data-t="fav">Favoritos</button>
+    </div>
+    <button class="btn sm" id="bOut">Salir</button>
+  </div>
+  <div class="disc">Herramienta educativa. Nada de esto es una recomendación de compra o venta. Datos: SEC EDGAR, Finnhub, Alpaca y FRED.</div>
+
+  <section id="t-buscar">
+    <div class="search">
+      <input class="in" id="q" placeholder="Busca por símbolo o nombre (ej. AAPL, Coca-Cola, VOO)" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <button class="btn pri" id="bGo">Analizar</button>
+      <div class="sugg" id="sugg" hidden></div>
+    </div>
+    <div class="recent" id="recent"></div>
+    <div id="co"></div>
+  </section>
+
+  <section id="t-port" hidden>
+    <div class="p">
+      <div class="ph"><h2>Tus posiciones</h2><small id="portAt"></small></div>
+      <div class="pb">
+        <div class="form" style="grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto">
+          <div><span class="lbl">Tu perfil de inversionista</span>
+            <select class="in" id="prof">
+              <option value="conservador">Conservador</option>
+              <option value="moderado_conservador">Moderado conservador</option>
+              <option value="moderado">Moderado</option>
+              <option value="crecimiento">Crecimiento</option>
+              <option value="agresivo">Agresivo</option>
+            </select></div>
+          <div><span class="lbl">Efectivo / CETES (USD)</span><input class="in" id="cash" inputmode="decimal" placeholder="0"></div>
+          <div class="go"><button class="btn" id="bSet">Guardar</button></div>
+        </div>
+        <div class="scroll" id="posT"></div>
+        <form class="form" id="posF" autocomplete="off">
+          <input type="hidden" id="pId">
+          <div><span class="lbl">Símbolo</span><input class="in" id="pSym" placeholder="AAPL" autocapitalize="characters" required></div>
+          <div><span class="lbl">Acciones</span><input class="in" id="pSh" inputmode="decimal" placeholder="10" required></div>
+          <div><span class="lbl">Precio de compra</span><input class="in" id="pCost" inputmode="decimal" placeholder="opcional"></div>
+          <div><span class="lbl">Fecha</span><input class="in" id="pDate" type="date"></div>
+          <div class="go"><button class="btn pri" id="pSave" type="submit">Agregar</button></div>
+        </form>
+        <div class="err" id="pErr"></div>
+      </div>
+    </div>
+    <div id="portOut"></div>
+  </section>
+
+  <section id="t-fav" hidden>
+    <div class="p">
+      <div class="ph"><h2>Favoritos</h2><small id="favAt">acciones y ETFs que sigues sin tenerlos</small></div>
+      <div class="pb">
+        <form class="form" id="favF" autocomplete="off" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,2fr) auto">
+          <div><span class="lbl">Símbolo</span><input class="in" id="fSym" placeholder="MSFT" autocapitalize="characters" required></div>
+          <div><span class="lbl">Precio que esperas</span><input class="in" id="fTgt" inputmode="decimal" placeholder="opcional"></div>
+          <div><span class="lbl">Nota</span><input class="in" id="fNote" placeholder="por qué la sigues"></div>
+          <div class="go"><button class="btn pri" type="submit">Agregar</button></div>
+        </form>
+        <div class="err" id="fErr"></div>
+        <div class="scroll" id="favT"></div>
+        <p class="note">Toca un símbolo para ver su análisis completo. «Margen DCF» usa el mismo DCF conservador de la pestaña Buscar (positivo = cotiza abajo de su valor estimado).</p>
+      </div>
+    </div>
+  </section>
+</div>
+</div>
+
+<nav class="mob" id="mob" hidden>
+  <button data-t="buscar" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>Buscar</button>
+  <button data-t="port"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M14 3.2A9 9 0 0 1 20.8 10H14z"/></svg>Portafolio</button>
+  <button data-t="fav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>Favoritos</button>
+</nav>
+
+<script src="../vendor/supabase.js"></script>
+<script src="calc.js"></script>
+<script>
+const SB_URL = "https://jswqsaogomxyjtyhoucn.supabase.co";
+const SB_KEY = "sb_publishable_xx5KN3nM6KwkNn6Af_LBDw_2BtJ8XEn";   // llave pública: los datos sólo salen con una sesión autorizada
+const sb = supabase.createClient(SB_URL, SB_KEY, {auth:{persistSession:true, autoRefreshToken:true}});
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ok = (x) => x != null && isFinite(x);
+const pct = (x, d=1, sign=false) => !ok(x) ? "—" : (sign && x>0 ? "+" : "") + (x*100).toFixed(d) + "%";
+const cls = (x) => !ok(x) ? "mut" : x>0 ? "up" : x<0 ? "down" : "mut";
+const fx = (x, d=2) => !ok(x) ? "—" : x.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const money = (x, d=2) => !ok(x) ? "—" : (x<0?"-":"") + "$" + fx(Math.abs(x), d);
+const mult = (x) => !ok(x) ? "—" : x < 0 ? "neg." : x.toFixed(1) + "×";
+const big = QX.fmtBig;
+const panel = (title, small, body, id="") => `<div class="p"${id?` id="${id}"`:""}><div class="ph"><h2>${title}</h2><small>${small||""}</small></div><div class="pb">${body}</div></div>`;
+const SYM = /^[A-Z][A-Z0-9.\-]{0,9}$/;
+const nyNow = () => new Date(new Date().toLocaleString("en-US",{timeZone:"America/New_York"}));
+const marketOpen = () => { const t = nyNow(), m = t.getHours()*60+t.getMinutes(), w = t.getDay(); return w>0 && w<6 && m>=570 && m<960; };
+const store = { get(k, d){ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch(e){ return d; } }, set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} } };
+
+let USER = null, TAB = "buscar", SET = {profile:"moderado", cash:0}, POS = [], FAV = [];
+const CO = {};        // análisis por símbolo
+let CUR = null, DCF = null, CH_RANGE = 5;
+
+async function call(body){
+  const {data, error} = await sb.functions.invoke("fundamentals", {body});
+  if (error){ let m = error.message; try{ m = (await error.context.json()).error || m; }catch(e){} throw new Error(m === "no_autorizado" ? "Tu correo no está autorizado" : m); }
+  return data;
+}
+
+// ---------------- sesión ----------------
+async function boot(){
+  const {data:{session}} = await sb.auth.getSession();
+  if (!session){ $("auth").hidden = false; $("app").hidden = true; $("mob").hidden = true; return; }
+  USER = session.user; $("auth").hidden = true; $("app").hidden = false; $("mob").hidden = false;
+  await loadUserData();
+  const h = (location.hash||"").slice(1).toUpperCase();
+  renderRecent();
+  setTab(SYM.test(h) ? "buscar" : store.get("fa_tab","buscar"));
+  if (SYM.test(h)) analyze(h);
+}
+$("bIn").onclick = async () => {
+  $("aerr").textContent = "";
+  const {error} = await sb.auth.signInWithPassword({email:$("em").value.trim(), password:$("pw").value});
+  if (error) $("aerr").textContent = "No se pudo entrar: " + error.message; else boot();
+};
+$("pw").addEventListener("keydown", e => { if (e.key==="Enter") $("bIn").click(); });
+$("bOut").onclick = async () => { await sb.auth.signOut(); location.reload(); };
+
+async function loadUserData(){
+  const [s, p, f] = await Promise.all([
+    sb.from("fa_settings").select("*").maybeSingle(),
+    sb.from("fa_positions").select("*").order("created_at"),
+    sb.from("fa_watchlist").select("*").order("added_at"),
+  ]);
+  if (s.data) SET = s.data;
+  POS = p.data || []; FAV = f.data || [];
+  $("prof").value = SET.profile; $("cash").value = SET.cash ? String(SET.cash) : "";
+}
+
+function setTab(t){
+  TAB = t; store.set("fa_tab", t);
+  for (const b of document.querySelectorAll("[data-t]")) b.setAttribute("aria-selected", b.dataset.t===t ? "true" : "false");
+  for (const id of ["buscar","port","fav"]) $("t-"+id).hidden = id !== t;
+  if (t==="port") loadPortfolio();
+  if (t==="fav") loadFav();
+}
+for (const b of document.querySelectorAll("[data-t]")) b.onclick = () => setTab(b.dataset.t);
+
+// ---------------- buscar ----------------
+let sTimer = null, sIdx = -1, sList = [];
+$("q").addEventListener("input", () => {
+  clearTimeout(sTimer);
+  const v = $("q").value.trim();
+  if (v.length < 2){ $("sugg").hidden = true; return; }
+  sTimer = setTimeout(async () => {
+    try{
+      const {result} = await call({action:"search", q:v});
+      sList = result || []; sIdx = -1;
+      $("sugg").innerHTML = sList.map((r,i) => `<button data-i="${i}"><span class="sym">${esc(r.symbol)}</span><span class="mut">${esc(r.name)}</span></button>`).join("");
+      $("sugg").hidden = !sList.length;
+      for (const b of $("sugg").querySelectorAll("button")) b.onclick = () => { analyze(sList[+b.dataset.i].symbol); };
+    }catch(e){ $("sugg").hidden = true; }
+  }, 300);
+});
+$("q").addEventListener("keydown", e => {
+  if (e.key==="ArrowDown" || e.key==="ArrowUp"){
+    if (!sList.length) return; e.preventDefault();
+    sIdx = (sIdx + (e.key==="ArrowDown"?1:-1) + sList.length) % sList.length;
+    $("sugg").querySelectorAll("button").forEach((b,i) => b.classList.toggle("on", i===sIdx));
+  } else if (e.key==="Enter"){ e.preventDefault(); if (sIdx>=0 && sList[sIdx]) analyze(sList[sIdx].symbol); else $("bGo").click(); }
+  else if (e.key==="Escape") $("sugg").hidden = true;
+});
+$("bGo").onclick = () => { const v = $("q").value.trim().toUpperCase(); if (SYM.test(v)) analyze(v); else if (sList[0]) analyze(sList[0].symbol); };
+document.addEventListener("click", e => { if (!e.target.closest(".search")) $("sugg").hidden = true; });
+
+function renderRecent(){
+  const r = store.get("fa_recent", []);
+  const favs = FAV.map(f => f.symbol);
+  const all = [...new Set([...r, ...favs])].slice(0, 14);
+  $("recent").innerHTML = all.length ? `<span class="mut" style="font-size:11px;margin-right:6px">Recientes:</span>` + all.map(s => `<span class="chip" data-s="${esc(s)}">${esc(s)}</span>`).join("") : "";
+  for (const c of $("recent").querySelectorAll(".chip")) c.onclick = () => analyze(c.dataset.s);
+}
+
+async function analyze(sym){
+  sym = sym.toUpperCase(); $("sugg").hidden = true; $("q").value = sym;
+  if (TAB !== "buscar") setTab("buscar");
+  history.replaceState(null, "", "#" + sym);
+  const r = store.get("fa_recent", []).filter(x => x !== sym); r.unshift(sym); store.set("fa_recent", r.slice(0, 10)); renderRecent();
+  $("co").innerHTML = `<div class="empty"><span class="spin"></span>Analizando ${esc(sym)}: estados financieros de la SEC, métricas y 5 años de precios…</div>`;
+  try{
+    const d = CO[sym] && Date.now() - CO[sym]._t < 10*60e3 ? CO[sym] : await call({action:"company", symbol:sym});
+    d._t = d._t || Date.now(); CO[sym] = d;
+    if (!d.prices || !d.prices.t || !d.prices.t.length){
+      if (!d.profile || d.profile.empty) throw new Error(`No encontré datos para ${sym}. Revisa el símbolo (acciones y ETFs de EE. UU.).`);
+    }
+    CUR = build(d); DCF = CUR.dcfP ? {...CUR.dcfP} : null;
+    renderCompany();
+  }catch(e){ $("co").innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}
+
+function build(d){
+  const price = d.quote?.last ?? (d.prices?.c?.length ? d.prices.c[d.prices.c.length-1] : null);
+  const prof = d.profile || {};
+  const isEtf = !!prof.empty || !!QX.etfClass(d.symbol);
+  const f = !isEtf && d.sec && !d.sec.none ? QX.fundamentals(d.sec, price, d.metric || {}, prof.finnhubIndustry) : null;
+  const rf = d.rf?.t3m ?? 0.04, rf10 = d.rf?.t10y ?? 0.045;
+  const risk = QX.stockRisk(d.prices, d.spy, rf);
+  const dcfP = f && !f.financial ? QX.dcfDefaults(d.sec, f) : null;
+  return { d, price, prof, isEtf, f, risk, rf, rf10, dcfP,
+           pio: f && !f.financial ? QX.piotroski(d.sec) : null,
+           alt: f && !f.financial ? QX.altman(d.sec, f.mcap) : null };
+}
+
+function verdicts(C, dv){
+  const {f, risk, price} = C, out = [];
+  // valuación
+  if (C.isEtf) out.push({k:"Tipo", v:"ETF / fondo", c:"blue", s:"Los ETF no tienen estados financieros propios: aquí ves su riesgo y rendimiento."});
+  else if (f && f.financial) out.push({k:"Valuación", v: ok(f.pb) ? `P/VL ${f.pb.toFixed(1)}×` : "—", c:"blue", s:"En bancos y aseguradoras el DCF de flujo libre no aplica; se comparan con su valor en libros y su ROE."});
+  else if (dv && dv.perShare){
+    const mos = 1 - price / dv.perShare;
+    const ig = QX.impliedGrowth(DCF, price);
+    out.push({k:"Valuación (DCF)", v: mos >= 0.25 ? "Barata" : mos >= -0.1 ? "Cerca de su valor" : "Cara", c: mos >= 0.25 ? "up" : mos >= -0.1 ? "amb" : "down",
+      s: `Valor estimado ${money(dv.perShare)} vs precio ${money(price)} (margen ${pct(mos,0)}).` + (ig && ig.g!=null && !ig.above && !ig.below ? ` El precio supone que su flujo crece ${pct(ig.g,1)} al año por 10 años.` : "")});
+  } else out.push({k:"Valuación (DCF)", v:"No aplica", c:"mut", s:"Flujo libre negativo o sin datos suficientes: el DCF no da un valor confiable."});
+  // calidad
+  if (f && !f.financial){
+    const b = QX.buffett(C.d.sec, f.mcap, dv && dv.equity);
+    const q = b.items.slice(0,5).filter(x=>x.ok===true).length;
+    out.push({k:"Calidad", v:`${q} de 5 reglas`, c: q>=5 ? "up" : q>=3 ? "amb" : "down", s:`ROIC ${pct(f.roic,0)}, margen neto ${pct(f.netM,0)}. Reglas de calidad del backtest Buffett.`});
+  } else if (f) out.push({k:"Rentabilidad", v:`ROE ${pct(f.roe,0)}`, c: f.roe>=0.12 ? "up" : "amb", s:"Para un banco, un ROE arriba de 12% sostenido suele ser bueno."});
+  // salud
+  if (C.pio || C.alt){
+    const p = C.pio, a = C.alt;
+    const good = (p ? p.score/p.of >= 0.67 : true) && (a ? a.zone==="segura" : true);
+    const bad = (p && p.score/p.of < 0.4) || (a && a.zone==="peligro");
+    out.push({k:"Salud financiera", v: good ? "Sólida" : bad ? "Débil" : "Regular", c: good ? "up" : bad ? "down" : "amb",
+      s: [p ? `Piotroski ${p.score}/${p.of}` : null, a ? `Altman Z ${a.z.toFixed(1)} (zona ${a.zone})` : null, f && ok(f.ndEbitda) ? `deuda neta ${f.ndEbitda.toFixed(1)}× EBITDA` : null].filter(Boolean).join(", ") + "."});
+  }
+  // riesgo
+  if (risk){
+    const b = risk.beta5m ?? C.d.metric?.beta;
+    out.push({k:"Riesgo de mercado", v: ok(b) ? `Beta ${b.toFixed(2)}` : "—", c: !ok(b) ? "mut" : b > 1.3 ? "down" : b < 0.8 ? "up" : "amb",
+      s:`Volatilidad ${pct(risk.s3?.vol,0)} al año; peor caída en 5 años ${pct(risk.maxDD5,0)}.` + (ok(b) ? ` Si el S&P cae 10%, tiende a caer ~${(b*10).toFixed(0)}%.` : "")});
+  }
+  return out;
+}
+
+function chartSvg(px, spy, years){
+  const a = QX.sliceYears(px, years), al = QX.align(a, spy);
+  if (al.t.length < 5) return `<div class="empty">Sin historia de precios suficiente.</div>`;
+  const W = Math.max(320, Math.min(1160, ($("co").clientWidth || 900) - 22)), H = 220, P = {l:44, r:10, t:10, b:22};
+  const na = al.a.map(x => x/al.a[0]-1), nb = al.b.map(x => x/al.b[0]-1);
+  const lo = Math.min(...na, ...nb), hi = Math.max(...na, ...nb), span = hi - lo || 1;
+  const X = (i) => P.l + i*(W-P.l-P.r)/(al.t.length-1), Y = (v) => P.t + (hi - v)*(H-P.t-P.b)/span;
+  const path = (s) => s.map((v,i) => (i?"L":"M") + X(i).toFixed(1) + " " + Y(v).toFixed(1)).join("");
+  const ticks = [lo, lo+span/2, hi].map(v => `<text x="${P.l-6}" y="${Y(v)+3}" text-anchor="end" fill="#5f6f8c" font-size="10">${pct(v,0,true)}</text><line x1="${P.l}" x2="${W-P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#1a2740"/>`).join("");
+  const zero = lo < 0 && hi > 0 ? `<line x1="${P.l}" x2="${W-P.r}" y1="${Y(0)}" y2="${Y(0)}" stroke="#22314d" stroke-dasharray="3 3"/>` : "";
+  const xl = [0, Math.floor(al.t.length/2), al.t.length-1].map((i,k) => `<text x="${X(i)}" y="${H-6}" text-anchor="${["start","middle","end"][k]}" fill="#5f6f8c" font-size="10">${al.t[i]}</text>`).join("");
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Precio contra SPY">${ticks}${zero}
+    <path d="${path(nb)}" fill="none" stroke="#6cc4ff" stroke-width="1.4" opacity=".8" vector-effect="non-scaling-stroke"/>
+    <path d="${path(na)}" fill="none" stroke="#f0b44c" stroke-width="1.8" vector-effect="non-scaling-stroke"/>${xl}</svg>
+    <div class="legend"><span><i style="background:#f0b44c"></i>${esc(CUR.d.symbol)} ${pct(na[na.length-1],1,true)}</span><span><i style="background:#6cc4ff"></i>SPY ${pct(nb[nb.length-1],1,true)}</span></div>`;
+}
+
+const REF = "Referencia aproximada del S&P 500";
+function renderCompany(){
+  const C = CUR, {d, f, risk, price, prof} = C, m = d.metric || {};
+  const dv = DCF ? QX.dcfValue(DCF) : null;
+  const name = prof.name || d.sec?.name || d.symbol;
+  const inFav = FAV.some(x => x.symbol === d.symbol);
+  const lo = m["52WeekLow"], hi = m["52WeekHigh"];
+  const rpos = ok(lo) && ok(hi) && hi > lo && ok(price) ? QX.clip((price-lo)/(hi-lo), 0, 1) : null;
+  const nextE = (d.earnings||[]).filter(e => e.date >= new Date().toISOString().slice(0,10)).sort((a,b)=>a.date<b.date?-1:1)[0];
+  let h = `<div class="p"><div class="hero">
+    ${prof.logo ? `<img src="${esc(prof.logo)}" alt="" onerror="this.style.display='none'">` : `<span></span>`}
+    <div><div class="nm">${esc(name)} <span class="sym" style="font-size:18px">${esc(d.symbol)}</span></div>
+      <div class="meta">${esc([C.isEtf ? (QX.ETF_LABEL[QX.etfClass(d.symbol)] || "ETF / fondo") : prof.finnhubIndustry, prof.exchange, prof.country].filter(Boolean).join(" · "))}</div>
+      <div class="meta">Valor de mercado ${big(f?.mcap ?? (m.marketCapitalization ? m.marketCapitalization*1e6 : null))}${nextE ? ` · Próximo reporte <b class="amb">${esc(nextE.date)}</b>` : ""}</div></div>
+    <div class="px"><b>${money(price)}</b> <span class="${cls(d.quote?.chg)}">${pct(d.quote?.chg,2,true)}</span>
+      <div class="meta">${d.quote?.day ? "sesión " + esc(d.quote.day) : ""}</div>
+      ${rpos!=null ? `<div class="range" title="Rango de 52 semanas"><i style="left:calc(${(rpos*100).toFixed(1)}% - 1px)"></i></div><div class="meta" style="display:flex;justify-content:space-between"><span>${money(lo)}</span><span>52 sem.</span><span>${money(hi)}</span></div>` : ""}
+      <div class="acts"><button class="btn sm" id="bFav">${inFav ? "★ En favoritos" : "☆ Favorito"}</button><button class="btn sm" id="bAddPos">+ Portafolio</button></div>
+    </div></div></div>`;
+
+  h += `<div class="tiles">${verdicts(C, dv).map(v => `<div class="tile"><div class="k">${v.k}</div><div class="v ${v.c}">${esc(v.v)}</div><div class="s">${esc(v.s)}</div></div>`).join("")}</div>`;
+
+  // precio vs SPY
+  h += panel("Precio contra el S&P 500", `<span class="seg" id="rng">${[1,3,5].map(y => `<button data-y="${y}" class="${y===CH_RANGE?"on":""}">${y}A</button>`).join("")}</span>`, `<div id="chart">${chartSvg(d.prices, d.spy, CH_RANGE)}</div>`);
+
+  // riesgo
+  if (risk){
+    const s3 = risk.s3 || {}, sp = risk.spyS3 || {};
+    const row = (k, a, b, read) => `<tr><td class="k">${k}</td><td>${a}</td><td class="mut">${b}</td><td class="read">${read||""}</td></tr>`;
+    h += `<div class="grid2">` + panel("Riesgo y rendimiento", "contra SPY", `<div class="scroll"><table><tr><th>Métrica</th><th>${esc(d.symbol)}</th><th>SPY</th><th class="l">Cómo leerlo</th></tr>
+      ${row("Beta 5 años (mensual)", fx(risk.beta5m), "1.00", "Cuánto se mueve contra el mercado. 1 = igual; 1.5 = 50% más.")}
+      ${row("Beta 1 año (diaria)", fx(risk.beta1d), "1.00", "La misma idea con datos recientes.")}
+      ${row("Beta (Finnhub)", fx(m.beta), "1.00", "Cálculo del proveedor, para comparar.")}
+      ${row("Rendimiento 1 año", `<span class="${cls(risk.r1)}">${pct(risk.r1,1,true)}</span>`, pct(risk.spy1,1,true), "")}
+      ${row("Rendimiento 3 años", `<span class="${cls(risk.r3)}">${pct(risk.r3,1,true)}</span>`, pct(risk.spy3,1,true), "")}
+      ${row("Rendimiento 5 años", `<span class="${cls(risk.r5)}">${pct(risk.r5,1,true)}</span>`, pct(risk.spy5,1,true), "Incluye dividendos (precios ajustados).")}
+      ${row("Volatilidad anual (3a)", pct(s3.vol,1), pct(sp.vol,1), "Qué tanto sube y baja en un año típico.")}
+      ${row("Sharpe (3a)", fx(s3.sharpe), fx(sp.sharpe), "Rendimiento extra sobre CETES/T-bills por unidad de riesgo. Más es mejor.")}
+      ${row("Sortino (3a)", fx(s3.sortino), fx(sp.sortino), "Como Sharpe pero sólo castiga las caídas.")}
+      ${row("Alfa anual (3a)", `<span class="${cls(s3.alpha)}">${pct(s3.alpha,1,true)}</span>`, "0%", "Rendimiento que no explica el mercado. Con 3 años de datos es muy ruidoso.")}
+      ${row("Peor caída (5a)", `<span class="down">${pct(risk.maxDD5,0)}</span>`, "", "La mayor baja de un máximo a un mínimo.")}
+      ${row("Contra su media de 200 días", `<span class="${cls(risk.vsMA200)}">${pct(risk.vsMA200,1,true)}</span>`, "", "Arriba = tendencia de subida.")}
+      </table></div><p class="note">Tasa libre de riesgo ${pct(C.rf,2)} (T-bill 3 meses, ${esc(d.rf?.src||"supuesto")}).</p>`);
+  } else h += `<div class="grid2">`;
+
+  if (f){
+    const rd = (x, lo, hi, good, bad, mid) => !ok(x) ? "" : x <= lo ? good : x >= hi ? bad : mid;
+    const vrow = (k, v, read) => `<tr><td class="k">${k}</td><td>${v}</td><td class="read">${read||""}</td></tr>`;
+    h += panel("Valuación", "múltiplos", `<div class="scroll"><table><tr><th>Métrica</th><th>Valor</th><th class="l">Cómo leerlo</th></tr>
+      ${vrow("P/U (precio / utilidad)", mult(f.pe), (ok(f.pe) && f.pe>0 ? `Pagas $${f.pe.toFixed(0)} por cada $1 de utilidad anual. ` : "") + "S&P 500 ≈ 22×.")}
+      ${vrow("P/U estimada (12 meses)", mult(f.fpe), "Con la utilidad que esperan los analistas.")}
+      ${vrow("PEG", mult(f.peg), "P/U dividido entre el crecimiento. Cerca de 1 = razonable; arriba de 2 = caro para lo que crece.")}
+      ${vrow("EV / EBITDA", mult(f.evEbitda), "Valor de toda la empresa (incluye deuda) entre su utilidad operativa en efectivo. S&P ≈ 16×.")}
+      ${vrow("P / Ventas", mult(f.ps), "Útil cuando todavía no hay utilidades.")}
+      ${vrow("P / Valor en libros", mult(f.pb), "Importa sobre todo en bancos y aseguradoras.")}
+      ${vrow("P / Flujo libre", mult(f.pfcf), "")}
+      ${vrow("Rendimiento de flujo libre", `<span class="${cls(f.fcfYield)}">${pct(f.fcfYield,1)}</span>`, "Flujo libre del año entre el valor en bolsa. Como una «tasa» que genera el negocio. S&P ≈ 3–4%.")}
+      ${vrow("Rendimiento de utilidades (EBIT/EV)", pct(f.earnYield,1), "La métrica de Greenblatt: más alto = más barato.")}
+      ${vrow("Dividendo", pct(f.divYield,2), ok(f.payout) ? `Reparte ${pct(f.payout,0)} de su utilidad.` : "")}
+      ${vrow("Recompras", pct(f.buybackYield,2), "Dinero usado en recomprar acciones entre el valor en bolsa.")}
+      </table></div><p class="note">${REF}: cifras redondas para dar contexto, no un objetivo.</p>`);
+  }
+  h += `</div>`;
+
+  // DCF
+  if (f && !f.financial && DCF){
+    h += panel("Valuación por flujo descontado (DCF)", "cambia los supuestos y se recalcula", dcfHtml(dv), "dcfP");
+  } else if (f && f.financial){
+    h += panel("Valuación por flujo descontado (DCF)", "", `<p class="note">${esc(d.symbol)} es una empresa financiera (${esc(prof.finnhubIndustry)}). Su «flujo libre» incluye préstamos y depósitos, así que un DCF normal da números sin sentido. Para bancos se usa P/VL contra ROE: un banco con ROE de 15% que cotiza a 1.5× libros es razonable; a 3× es caro.</p>`);
+  }
+
+  if (f){
+    const qrow = (k, v, read) => `<tr><td class="k">${k}</td><td>${v}</td><td class="read">${read||""}</td></tr>`;
+    h += `<div class="grid2">` + panel("Calidad y rentabilidad", `año fiscal ${esc(f.fy)}`, `<div class="scroll"><table><tr><th>Métrica</th><th>Valor</th><th class="l">Cómo leerlo</th></tr>
+      ${qrow("ROIC", `<span class="${f.roic>=0.15?"up":f.roic<0.08?"down":""}">${pct(f.roic,1)}</span>`, "Rendimiento sobre todo el capital invertido. Arriba de 15% sostenido sugiere una ventaja competitiva.")}
+      ${qrow("ROE", pct(f.roe,1), "Utilidad entre capital de los accionistas. Mucha deuda lo infla.")}
+      ${qrow("ROA", pct(f.roa,1), "")}
+      ${qrow("Margen bruto", pct(f.grossM,1), "Alto y estable = poder de precio.")}
+      ${qrow("Margen operativo", pct(f.opM,1), "")}
+      ${qrow("Margen neto", pct(f.netM,1), "")}
+      ${qrow("Margen de flujo libre", pct(f.fcfM,1), "")}
+      ${qrow("Ventas: crecimiento anual 3a / 5a / 10a", `${pct(f.rev3,1)} / ${pct(f.rev5,1)} / ${pct(f.rev10,1)}`, "")}
+      ${qrow("Utilidad por acción: 5a", pct(f.eps5,1), "")}
+      ${qrow("Flujo libre: 5a", pct(f.fcf5,1), "")}
+      ${qrow("Acciones en circulación: 5a", `<span class="${f.shChg5<0?"up":f.shChg5>0.05?"down":""}">${pct(f.shChg5,1,true)}</span>`, f.shChg5<0 ? "Bajan: recompra acciones (bueno para ti)." : f.shChg5>0.05 ? "Suben: diluye a los accionistas." : "")}
+      </table></div>`)
+    + panel("Salud financiera", "", `<div class="scroll"><table><tr><th>Métrica</th><th>Valor</th><th class="l">Cómo leerlo</th></tr>
+      ${qrow("Deuda total", big(f.debt), "")}
+      ${qrow("Efectivo e inversiones", big(f.cash), "")}
+      ${qrow("Deuda neta / EBITDA", ok(f.ndEbitda) ? (f.ndEbitda<0 ? "efectivo neto" : f.ndEbitda.toFixed(1)+"×") : "—", "Años de utilidad operativa para pagar la deuda. Abajo de 2× es cómodo; arriba de 4× es mucho.")}
+      ${qrow("Deuda / capital", ok(f.de) ? f.de.toFixed(2) : "—", "")}
+      ${qrow("Cobertura de intereses", ok(f.coverage) ? f.coverage.toFixed(1)+"×" : "—", "Veces que la utilidad operativa paga los intereses. Abajo de 3× es delicado.")}
+      ${qrow("Liquidez corriente", ok(f.current) ? f.current.toFixed(2) : "—", "Activos de corto plazo entre deudas de corto plazo.")}
+      ${C.pio ? qrow("Piotroski F-score", `<b class="${C.pio.score>=7?"up":C.pio.score<=3?"down":"amb"}">${C.pio.score}/${C.pio.of}</b>`, "9 pruebas de mejora contra el año anterior. 7 o más = sólida; 3 o menos = débil.") : ""}
+      ${C.alt ? qrow("Altman Z", `<b class="${C.alt.zone==="segura"?"up":C.alt.zone==="peligro"?"down":"amb"}">${C.alt.z.toFixed(2)}</b>`, `Riesgo de quiebra. Arriba de 3 = zona segura; abajo de 1.8 = peligro. Hoy: zona ${C.alt.zone}.`) : ""}
+      </table></div>
+      ${C.pio ? `<details class="gl"><summary>Ver las pruebas de Piotroski</summary>${C.pio.items.map(i => `<div class="check"><span class="${i.ok?"ok":"no"}">${i.ok?"✓":"✗"}</span><span>${esc(i.name)}</span><span></span></div>`).join("")}</details>` : ""}`) + `</div>`;
+
+    // Buffett
+    const b = QX.buffett(d.sec, f.mcap, dv && dv.equity);
+    h += `<div class="grid2">` + panel("Prueba Buffett", `${b.pass} de ${b.of} reglas`, b.items.map(i => `<div class="check"><span class="${i.ok===true?"ok":i.ok===false?"no":"na"}">${i.ok===true?"✓":i.ok===false?"✗":"·"}</span><span>${esc(i.name)}</span><span class="d">${esc(i.detail)}</span></div>`).join("")
+      + `<p class="note">Son las mismas reglas del backtest del 12 de noviembre: la calidad sola no le ganó al S&P 500 en 10 años, y calidad + margen de seguridad le ganó por ~2% al año pero sin ser estadísticamente significativo. Úsalas como filtro para estudiar, no como señal.${f.financial ? " En bancos la regla de deuda no aplica bien." : ""}</p>`);
+
+    // analistas
+    const rec = (d.recommendation||[])[0];
+    let ah = "";
+    if (rec){
+      const tot = rec.strongBuy + rec.buy + rec.hold + rec.sell + rec.strongSell;
+      const seg = [["Compra fuerte",rec.strongBuy,"#33cf96"],["Compra",rec.buy,"#7fd8b4"],["Mantener",rec.hold,"#8a9bb6"],["Venta",rec.sell,"#ff9d9d"],["Venta fuerte",rec.strongSell,"#ff6f6f"]];
+      ah += `<div style="display:flex;height:12px;margin:8px 0 6px">${seg.map(s => s[1] ? `<i style="flex:${s[1]};background:${s[2]}"></i>` : "").join("")}</div>`
+        + `<div style="display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px">${seg.map(s => `<span><i style="display:inline-block;width:8px;height:8px;background:${s[2]};margin-right:4px"></i>${s[0]} ${s[1]}</span>`).join("")}</div>`
+        + `<p class="note">${tot} analistas, ${esc(rec.period)}. Los analistas suelen ser optimistas: 7 de cada 10 recomendaciones en el mercado son «compra».</p>`;
+    } else ah += `<p class="empty">Sin recomendaciones de analistas.</p>`;
+    if (nextE) ah += `<div class="check"><span class="amb">◆</span><span>Próximo reporte de resultados</span><span class="d">${esc(nextE.date)}${nextE.epsEstimate!=null ? ` · UPA estimada ${fx(nextE.epsEstimate)}` : ""}</span></div>`;
+    h += panel("Analistas y calendario", "", ah) + `</div>`;
+
+    // historial
+    const ys = f.years;
+    if (ys.length){
+      const r = (k, fmt) => ys.map(y => `<td>${fmt(f.rows[y][k])}</td>`).join("");
+      h += panel("Historial de 10 años", `10-K · ${esc(d.sec.src||"")}`, `<div class="scroll"><table>
+        <tr><th>Año fiscal</th>${ys.map(y => `<th>${y}</th>`).join("")}</tr>
+        <tr><td class="k">Ventas</td>${r("rev", big)}</tr>
+        <tr><td class="k">Utilidad neta</td>${r("ni", big)}</tr>
+        <tr><td class="k">Flujo libre</td>${r("fcf", big)}</tr>
+        <tr><td class="k">Margen neto</td>${r("netM", x => pct(x,1))}</tr>
+        <tr><td class="k">ROE</td>${r("roe", x => pct(x,0))}</tr>
+        <tr><td class="k">Acciones (ajust. splits)</td>${r("sh", x => ok(x) ? (x/1e6).toFixed(0)+" M" : "—")}</tr>
+      </table></div>`);
+    }
+  } else if (C.isEtf){
+    h += panel("ETF", "", `<p class="note">Un ETF es una canasta de acciones o bonos. Lo que importa es qué índice sigue, su costo anual (busca «expense ratio»; los amplios cuestan 0.03–0.10%) y cómo encaja en tu portafolio. Agrégalo a «Mi portafolio» para ver su efecto en tu beta, Sharpe y diversificación.</p>`);
+  }
+  if (d.errors && d.errors.length) h += `<p class="note">Algunas fuentes no respondieron: ${esc(d.errors.join("; "))}</p>`;
+  h += panel("Cómo leer cada métrica", "glosario", glossary());
+  $("co").innerHTML = h;
+
+  $("bFav").onclick = () => addFav(d.symbol);
+  $("bAddPos").onclick = () => { setTab("port"); $("pSym").value = d.symbol; $("pSh").focus(); };
+  for (const b of $("rng").querySelectorAll("button")) b.onclick = () => { CH_RANGE = +b.dataset.y; $("chart").innerHTML = chartSvg(d.prices, d.spy, CH_RANGE); $("rng").querySelectorAll("button").forEach(x => x.classList.toggle("on", x===b)); };
+  bindDcf();
+}
+
+function dcfHtml(dv){
+  const C = CUR, p = DCF, price = C.price;
+  const mos = dv && dv.perShare ? 1 - price / dv.perShare : null;
+  const ig = QX.impliedGrowth(p, price);
+  const ke = QX.capm(C.rf10, C.risk?.beta5m ?? C.d.metric?.beta);
+  const grid = QX.dcfGrid(p, price);
+  const cc = (m) => m==null ? "" : m >= 0.25 ? "c0" : m >= 0 ? "c1" : m >= -0.25 ? "c2" : m >= -0.6 ? "c3" : "c4";
+  const inp = (id, lbl, v, step) => `<div><span class="lbl">${lbl}</span><input class="in" id="${id}" type="number" step="${step}" value="${v}"></div>`;
+  return `<div class="dcfin">
+      ${inp("dBase", "Flujo libre base (mil M)", (p.base/1e9).toFixed(2), "0.1")}
+      ${inp("dG", "Crecimiento 10 años %", (p.g*100).toFixed(1), "0.5")}
+      ${inp("dR", "Tasa de descuento %", (p.r*100).toFixed(1), "0.5")}
+      ${inp("dGt", "Crecimiento perpetuo %", (p.gt*100).toFixed(1), "0.5")}
+      <div><span class="lbl">&nbsp;</span><button class="btn" id="dReset" style="width:100%">Restablecer</button></div>
+    </div>
+    <div class="grid2"><div>
+      <div class="lbl">Valor estimado por acción</div>
+      <div class="big ${mos==null?"mut":mos>=0.25?"up":mos>=-0.1?"amb":"down"}">${dv && dv.perShare ? money(dv.perShare) : "—"}</div>
+      <div>Precio ${money(price)} · margen de seguridad <b class="${cls(mos)}">${pct(mos,0)}</b></div>
+      <p class="note">${dv ? `Flujos de 10 años ${big(dv.pv)} + valor terminal ${big(dv.tv)} (${pct(dv.tvShare,0)} del total) − deuda neta ${big(p.netDebt)} = ${big(dv.equity)}, entre ${(p.shares/1e6).toFixed(0)} M acciones.` : "Con estos supuestos el flujo base es negativo o la tasa es menor que el crecimiento perpetuo."}</p>
+      <p class="note"><b class="amb">DCF al revés:</b> ${ig && ig.g!=null ? (ig.above ? "ni con 60% de crecimiento anual se justifica el precio." : ig.below ? "el precio se justifica aun si el flujo se encoge." : `para valer ${money(price)} su flujo libre tendría que crecer <b>${pct(ig.g,1)}</b> al año durante 10 años. En los últimos 5 años sus ventas crecieron ${pct(C.f.rev5,1)} al año.`) : "—"}</p>
+      <p class="note">Supuestos base (los del backtest Buffett): flujo libre promedio de ${p.baseYears.join(", ")}; crecimiento = ventas de los últimos 5 años, entre 0 y 8% (histórico ${pct(p.gRaw,1)}); descuento 10%; perpetuo 3%. ${ok(ke) ? `Por CAPM (bono 10 años ${pct(C.rf10,1)} + beta × 5%) la tasa sería ${pct(ke,1)}.` : ""}</p>
+    </div><div>
+      <div class="lbl">Sensibilidad: valor por acción y margen</div>
+      <div class="scroll"><table class="grid"><tr><th>Descuento \\ crec.</th>${grid.gs.map(g => `<th>${pct(g,0)}</th>`).join("")}</tr>
+      ${grid.rs.map((r,i) => `<tr><td class="k">${pct(r,0)}</td>${grid.cells[i].map((c,j) => `<td class="${c?cc(c.mos):""} ${i===2&&j===2?"cur":""}">${c ? money(c.v,0) : "—"}</td>`).join("")}</tr>`).join("")}
+      </table></div>
+      <p class="note">Verde: cotiza abajo de ese valor. Rojo: arriba. El DCF es tan bueno como sus supuestos; mira el rango, no un solo número.</p>
+    </div></div>`;
+}
+function bindDcf(){
+  if (!$("dBase")) return;
+  const upd = () => {
+    const n = (id) => parseFloat($(id).value);
+    if ([n("dBase"), n("dG"), n("dR"), n("dGt")].some(x => !isFinite(x))) return;
+    DCF = {...DCF, base: n("dBase")*1e9, g: n("dG")/100, r: n("dR")/100, gt: n("dGt")/100};
+    const keep = document.activeElement && document.activeElement.id;
+    $("dcfP").querySelector(".pb").innerHTML = dcfHtml(QX.dcfValue(DCF));
+    bindDcf();
+    if (keep && $(keep)){ $(keep).focus(); const v = $(keep).value; try{ $(keep).setSelectionRange(v.length, v.length); }catch(e){} }
+  };
+  for (const id of ["dBase","dG","dR","dGt"]) $(id).addEventListener("change", upd);
+  $("dReset").onclick = () => { DCF = {...CUR.dcfP}; $("dcfP").querySelector(".pb").innerHTML = dcfHtml(QX.dcfValue(DCF)); bindDcf(); };
+}
+
+function glossary(){
+  const g = [
+    ["Beta", "Cuánto se mueve la acción cuando se mueve el S&P 500. Beta 1.2 quiere decir que, en promedio, si el índice sube 10% ella sube 12% (y lo mismo al bajar)."],
+    ["DCF (flujo descontado)", "Suma el dinero que el negocio generará en el futuro, traído a valor de hoy con una tasa de descuento. Si el valor estimado es mayor que el precio, hay «margen de seguridad»."],
+    ["Margen de seguridad", "Qué tan abajo de su valor estimado cotiza. Buffett y Graham buscaban 25% o más para protegerse de errores en los supuestos."],
+    ["Flujo libre (FCF)", "Flujo de efectivo de la operación menos la inversión en activos. Es lo que el negocio deja disponible para pagar deuda, dividendos o recomprar acciones. Buffett le llama «ganancias del dueño»."],
+    ["ROIC", "Utilidad operativa después de impuestos entre el capital invertido (capital + deuda − efectivo). Mide qué tan bien usa la empresa cada peso invertido."],
+    ["Sharpe", "(Rendimiento − tasa libre de riesgo) ÷ volatilidad. Compara inversiones con distinto riesgo. Arriba de 1 en varios años es bueno."],
+    ["Sortino", "Igual que Sharpe pero sólo cuenta la volatilidad de las caídas."],
+    ["Alfa", "La parte del rendimiento que no se explica por moverse con el mercado. Positivo = le ganó al mercado ajustando por beta. Con pocos años es mayormente ruido."],
+    ["Peor caída (drawdown)", "La mayor pérdida desde un máximo hasta el mínimo siguiente."],
+    ["Piotroski F-score", "9 pruebas simples de salud y mejora (utilidad, flujo, deuda, márgenes…). Sirve para detectar empresas que se están deteriorando."],
+    ["Altman Z", "Fórmula de 1968 que estima el riesgo de quiebra con liquidez, utilidades retenidas, utilidad operativa, valor de mercado y ventas. No aplica a bancos."],
+    ["VaR 95%", "Pérdida de un día que sólo se supera 1 de cada 20 días, según la historia."],
+  ];
+  return `<details class="gl"><summary>Abrir glosario</summary><dl>${g.map(x => `<dt>${x[0]}</dt><dd>${x[1]}</dd>`).join("")}</dl></details>`;
+}
+
+// ---------------- portafolio ----------------
+let PH = null;   // historial del portafolio
+$("bSet").onclick = async () => {
+  const cash = parseFloat($("cash").value) || 0;
+  const row = {user_id: USER.id, profile: $("prof").value, cash, updated_at: new Date().toISOString()};
+  const {error} = await sb.from("fa_settings").upsert(row);
+  if (error){ $("pErr").textContent = error.message; return; }
+  SET = row; renderPortfolio();
+};
+$("posF").onsubmit = async (e) => {
+  e.preventDefault(); $("pErr").textContent = "";
+  const sym = $("pSym").value.trim().toUpperCase(), sh = parseFloat($("pSh").value), cost = parseFloat($("pCost").value);
+  if (!SYM.test(sym)){ $("pErr").textContent = "Símbolo inválido"; return; }
+  if (!(sh > 0)){ $("pErr").textContent = "Escribe cuántas acciones tienes"; return; }
+  const row = {symbol: sym, shares: sh, cost: cost > 0 ? cost : null, bought_on: $("pDate").value || null};
+  const id = $("pId").value;
+  const q = id ? sb.from("fa_positions").update(row).eq("id", id) : sb.from("fa_positions").insert(row);
+  const {error} = await q;
+  if (error){ $("pErr").textContent = "No se guardó: " + error.message; return; }
+  $("posF").reset(); $("pId").value = ""; $("pSave").textContent = "Agregar";
+  const {data} = await sb.from("fa_positions").select("*").order("created_at"); POS = data || [];
+  PH = null; loadPortfolio();
+};
+
+async function loadPortfolio(force){
+  renderPosTable();
+  if (!POS.length){ $("portOut").innerHTML = `<div class="empty">Agrega tus posiciones arriba (símbolo y número de acciones). Con eso calculo beta, Sharpe, volatilidad, concentración y recomendaciones.</div>`; return; }
+  const syms = [...new Set(POS.map(p => p.symbol))].sort();
+  const key = syms.join(",");
+  if (!force && PH && PH._key === key && Date.now() - PH._t < 5*60e3){ renderPortfolio(); return; }
+  $("portOut").innerHTML = `<div class="empty"><span class="spin"></span>Bajando 3 años de precios de ${syms.length} posiciones y del SPY…</div>`;
+  try{
+    PH = await call({action:"history", symbols: syms, years: 3}); PH._key = key; PH._t = Date.now();
+    renderPortfolio();
+  }catch(e){ $("portOut").innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}
+
+function holdingsNow(){
+  const by = {};
+  for (const p of POS){
+    const b = by[p.symbol] ??= {symbol: p.symbol, shares: 0, costSum: 0, costSh: 0, ids: []};
+    b.shares += +p.shares; b.ids.push(p.id);
+    if (p.cost){ b.costSum += p.cost * p.shares; b.costSh += +p.shares; }
+  }
+  return Object.values(by).map(h => {
+    const q = PH?.quotes?.[h.symbol], s = PH?.series?.[h.symbol];
+    const price = q?.last ?? (s?.c?.length ? s.c[s.c.length-1] : null);
+    const prof = PH?.profiles?.[h.symbol] || {};
+    return {...h, price, chg: q?.chg ?? null, cost: h.costSh ? h.costSum / h.costSh : null, value: price ? price * h.shares : 0,
+            prof, bucket: QX.assetBucket(h.symbol, prof)};
+  });
+}
+
+function renderPosTable(){
+  if (!POS.length){ $("posT").innerHTML = ""; return; }
+  const hs = PH ? holdingsNow() : null;
+  const tot = hs ? hs.reduce((s,h) => s + h.value, 0) + (+SET.cash||0) : 0;
+  const rows = POS.map(p => {
+    const h = hs?.find(x => x.symbol === p.symbol);
+    const price = h?.price, val = price ? price * p.shares : null, pl = price && p.cost ? price / p.cost - 1 : null;
+    return `<tr><td><a href="#${esc(p.symbol)}" class="sym" data-an="${esc(p.symbol)}">${esc(p.symbol)}</a><span class="sub">${esc(h?.prof?.name || h?.bucket?.label || "")}</span></td>
+      <td>${fx(+p.shares, p.shares % 1 ? 3 : 0)}</td><td>${money(p.cost)}</td><td>${money(price)}<span class="sub ${cls(h?.chg)}">${pct(h?.chg,2,true)}</span></td>
+      <td>${money(val,0)}</td><td>${tot && val ? pct(val/tot,1) : "—"}</td><td class="${cls(pl)}">${pct(pl,1,true)}${pl!=null ? `<span class="sub ${cls(pl)}">${money((price-p.cost)*p.shares,0)}</span>` : ""}</td>
+      <td><button class="x" data-ed="${p.id}" title="Editar">✎</button> <button class="x" data-del="${p.id}" title="Borrar">✕</button></td></tr>`;
+  }).join("");
+  $("posT").innerHTML = `<table><tr><th>Símbolo</th><th>Acciones</th><th>Compra</th><th>Precio</th><th>Valor</th><th>Peso</th><th>Ganancia</th><th></th></tr>${rows}
+    ${+SET.cash ? `<tr><td class="mut">Efectivo / CETES</td><td></td><td></td><td></td><td>${money(+SET.cash,0)}</td><td>${tot ? pct(SET.cash/tot,1) : "—"}</td><td></td><td></td></tr>` : ""}</table>`;
+  for (const b of $("posT").querySelectorAll("[data-del]")) b.onclick = async () => {
+    if (!confirm("¿Borrar esta posición?")) return;
+    await sb.from("fa_positions").delete().eq("id", b.dataset.del);
+    POS = POS.filter(p => String(p.id) !== b.dataset.del); PH = null; loadPortfolio();
+  };
+  for (const b of $("posT").querySelectorAll("[data-ed]")) b.onclick = () => {
+    const p = POS.find(x => String(x.id) === b.dataset.ed);
+    $("pId").value = p.id; $("pSym").value = p.symbol; $("pSh").value = p.shares; $("pCost").value = p.cost ?? ""; $("pDate").value = p.bought_on ?? "";
+    $("pSave").textContent = "Guardar cambio"; $("pSh").focus();
+  };
+  for (const a of $("posT").querySelectorAll("[data-an]")) a.onclick = (e) => { e.preventDefault(); analyze(a.dataset.an); };
+}
+
+function renderPortfolio(){
+  renderPosTable();
+  if (!PH) return;
+  const hs = holdingsNow().filter(h => h.value > 0);
+  const cash = +SET.cash || 0, total = hs.reduce((s,h) => s + h.value, 0), port = total + cash;
+  if (!hs.length){ $("portOut").innerHTML = `<div class="err">No encontré precios para tus posiciones.</div>`; return; }
+  const weights = Object.fromEntries(hs.map(h => [h.symbol, h.value / port])); weights.__cash = cash / port;
+  const ps = QX.portfolioSeries(PH.series, weights);
+  const rf = PH.rf?.t3m ?? 0.04;
+  const st = ps ? QX.riskStats(ps.r, ps.m, rf) : null, sp = ps ? QX.riskStats(ps.m, ps.m, rf) : null;
+  const risk = ps && ps.syms.length ? QX.riskContrib(PH.series, weights, ps.syms) : null;
+  const costBasis = hs.filter(h => h.cost).reduce((s,h) => s + h.cost*h.shares, 0), mktCost = hs.filter(h => h.cost).reduce((s,h) => s + h.value, 0);
+  const pl = costBasis ? mktCost - costBasis : null, day = hs.reduce((s,h) => s + (h.chg!=null ? h.value - h.value/(1+h.chg) : 0), 0);
+  $("portAt").textContent = "Precios " + new Date(PH.at).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"});
+  const kpi = (k, v, s, c="") => `<div class="kpi"><div class="k">${k}</div><div class="v ${c}">${v}</div><div class="s">${s||""}</div></div>`;
+  let h = `<div class="kpis">
+    ${kpi("Valor total", money(port,0), cash ? `incluye ${money(cash,0)} efectivo` : "")}
+    ${kpi("Ganancia", pl!=null ? money(pl,0) : "—", pl!=null ? pct(pl/costBasis,1,true) + " sobre lo invertido" : "sin precios de compra", cls(pl))}
+    ${kpi("Hoy", money(day,0), pct(day/(port-day),2,true), cls(day))}
+    ${kpi("Beta", fx(st?.beta), "vs S&P 500 · 3 años")}
+    ${kpi("Sharpe", fx(st?.sharpe), "SPY " + fx(sp?.sharpe))}
+    ${kpi("Sortino", fx(st?.sortino), "SPY " + fx(sp?.sortino))}
+    ${kpi("Volatilidad", pct(st?.vol,1), "SPY " + pct(sp?.vol,1))}
+    ${kpi("Peor caída", pct(st?.maxDD,1), "SPY " + pct(sp?.maxDD,1), "down")}
+    ${kpi("Alfa anual", pct(st?.alpha,1,true), "R² " + fx(st?.r2), cls(st?.alpha))}
+    ${kpi("VaR 95% (1 día)", st ? money(st.var95 * port, 0) : "—", pct(st?.var95,2))}
+  </div>`;
+
+  // recomendaciones
+  const recs = QX.recommendations({holdings: hs, total, cash, stats: st, spyStats: sp, profile: SET.profile, risk});
+  const icon = {alerta:`<span class="lvl down">⚠</span>`, considera:`<span class="lvl amb">◆</span>`, bien:`<span class="lvl up">✓</span>`};
+  h += panel("Recomendaciones sobre tu portafolio", `perfil ${esc(QX.PROFILES[SET.profile]?.label || "")}`,
+    recs.map(r => `<div class="rec">${icon[r.level]}<div><b>${esc(r.title)}</b><p>${esc(r.text)}</p></div></div>`).join("")
+    + `<p class="note">Reglas claras y educativas (concentración, sector, región, renta fija, beta según tu perfil, correlación, riesgo por posición y comparación honesta contra el S&P 500). No son señales de compra o venta.</p>`);
+
+  // tabla comparativa y composición
+  const row = (k, a, b, read) => `<tr><td class="k">${k}</td><td>${a}</td><td class="mut">${b}</td><td class="read">${read}</td></tr>`;
+  h += `<div class="grid2">` + panel("Tu portafolio contra el S&P 500", st ? `${st.years.toFixed(1)} años con los pesos de hoy` : "", st ? `<div class="scroll"><table><tr><th>Métrica</th><th>Tú</th><th>SPY</th><th class="l">Cómo leerlo</th></tr>
+    ${row("Rendimiento anual", `<span class="${cls(st.ann)}">${pct(st.ann,1,true)}</span>`, pct(sp.ann,1,true), "Como si hubieras tenido estos pesos todo el periodo (no es tu rendimiento real).")}
+    ${row("Rendimiento acumulado", pct(st.total,1,true), pct(sp.total,1,true), "")}
+    ${row("Volatilidad", pct(st.vol,1), pct(sp.vol,1), "")}
+    ${row("Sharpe", fx(st.sharpe), fx(sp.sharpe), "Rendimiento por unidad de riesgo.")}
+    ${row("Sortino", fx(st.sortino), fx(sp.sortino), "")}
+    ${row("Peor caída", pct(st.maxDD,1), pct(sp.maxDD,1), "")}
+    ${row("Calmar", fx(st.calmar), fx(sp.calmar), "Rendimiento anual ÷ peor caída.")}
+    ${row("Beta", fx(st.beta), "1.00", "")}
+    ${row("Alfa anual", pct(st.alpha,1,true), "0%", "Positivo = le ganó al mercado ajustando por beta (con 3 años es muy ruidoso).")}
+    ${row("Correlación con SPY", fx(st.corr), "1.00", "")}
+    ${row("Error de seguimiento", pct(st.te,1), "", "Qué tan distinto se mueve del índice.")}
+    ${row("Captura en subidas / bajadas", `${pct(st.upCapture,0)} / ${pct(st.downCapture,0)}`, "100% / 100%", "Ideal: más de 100% en subidas y menos en bajadas.")}
+    </table></div><p class="note">Tasa libre de riesgo ${pct(rf,2)} (${esc(PH.rf?.src||"supuesto")}). Rendimientos con dividendos.</p>` : `<p class="empty">Hace falta más historia de precios.</p>`);
+
+  const by = (keyf) => { const m = {}; for (const x of hs) m[keyf(x)] = (m[keyf(x)]||0) + x.value; if (cash) m["Efectivo / CETES"] = (m["Efectivo / CETES"]||0) + cash; return Object.entries(m).sort((a,b) => b[1]-a[1]); };
+  const bars = (list, contrib) => `<div class="bars">${list.map(([k,v]) => `<div class="row"><span>${esc(k)}</span><div class="bar"><i style="width:${(v/port*100).toFixed(1)}%"></i>${contrib && contrib[k]!=null ? `<i class="b2" style="width:${Math.max(0,contrib[k]*100).toFixed(1)}%;top:5px;height:3px"></i>` : ""}</div><span>${pct(v/port,1)}</span></div>`).join("")}</div>`;
+  h += panel("Composición", "", `<div class="lbl">Por posición <span class="mut" style="text-transform:none;letter-spacing:0">(ámbar = dinero, azul = riesgo)</span></div>${bars(by(x => x.symbol), risk?.contrib)}
+    <div class="lbl" style="margin-top:12px">Por sector</div>${bars(by(x => x.bucket.sector))}
+    <div class="lbl" style="margin-top:12px">Por tipo de activo</div>${bars(by(x => x.bucket.kind === "etf" ? x.bucket.label : x.bucket.label))}`) + `</div>`;
+
+  // correlaciones
+  if (risk && ps.syms.length >= 2 && ps.syms.length <= 20){
+    const col = (c) => c==null ? "transparent" : c >= 0 ? `rgba(240,180,76,${(c*0.75).toFixed(2)})` : `rgba(108,196,255,${(-c*0.75).toFixed(2)})`;
+    h += panel("Correlación entre tus posiciones", risk.avgCorr!=null ? `promedio ${fx(risk.avgCorr)}` : "", `<div class="scroll"><table class="heat"><tr><th></th>${ps.syms.map(s => `<th>${esc(s)}</th>`).join("")}</tr>
+      ${ps.syms.map((a,i) => `<tr><td class="sym" style="text-align:left">${esc(a)}</td>${ps.syms.map((b,j) => `<td style="background:${col(risk.corr[i][j])}">${risk.corr[i][j]!=null ? risk.corr[i][j].toFixed(2) : "—"}</td>`).join("")}</tr>`).join("")}
+      </table></div><p class="note">1 = se mueven igual; 0 = sin relación; negativo = se compensan. Cuanto más bajas, mejor diversifican.</p>`);
+  }
+  if (PH.errors?.length) h += `<p class="note">Avisos: ${esc(PH.errors.join("; "))}</p>`;
+  $("portOut").innerHTML = h;
+}
+
+// ---------------- favoritos ----------------
+let FB = null;
+$("favF").onsubmit = async (e) => { e.preventDefault(); await addFav($("fSym").value, parseFloat($("fTgt").value), $("fNote").value.trim()); $("favF").reset(); };
+async function addFav(sym, target, note){
+  sym = String(sym||"").trim().toUpperCase(); $("fErr").textContent = "";
+  if (!SYM.test(sym)){ $("fErr").textContent = "Símbolo inválido"; return; }
+  if (FAV.some(f => f.symbol === sym)){ if (TAB==="buscar") setTab("fav"); return; }
+  const {error} = await sb.from("fa_watchlist").insert({symbol: sym, target: target > 0 ? target : null, note: note || null});
+  if (error){ $("fErr").textContent = "No se guardó: " + error.message; return; }
+  const {data} = await sb.from("fa_watchlist").select("*").order("added_at"); FAV = data || [];
+  renderRecent();
+  if (TAB === "buscar" && CUR) $("bFav").textContent = "★ En favoritos";
+  FB = null; if (TAB === "fav") loadFav();
+}
+async function loadFav(force){
+  if (!FAV.length){ $("favT").innerHTML = `<div class="empty">Todavía no tienes favoritos. Agrega un símbolo arriba o toca «☆ Favorito» al analizar una empresa.</div>`; return; }
+  const syms = FAV.map(f => f.symbol), key = syms.join(",");
+  if (!force && FB && FB._key === key && Date.now() - FB._t < 5*60e3){ renderFav(); return; }
+  $("favT").innerHTML = `<div class="empty"><span class="spin"></span>Cargando ${syms.length} favoritos…</div>`;
+  try{ FB = await call({action:"brief", symbols: syms}); FB._key = key; FB._t = Date.now(); renderFav(); }
+  catch(e){ $("favT").innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+}
+function renderFav(){
+  const rows = FAV.map(f => {
+    const it = FB?.items?.[f.symbol] || {}, m = it.metric || {}, q = FB?.quotes?.[f.symbol] || {};
+    const price = q.last, isEtf = it.profile?.etf || QX.etfClass(f.symbol);
+    let mos = null;
+    if (!isEtf && it.sec && price && !QX.isFinancial(it.profile?.sector)){
+      const fu = QX.fundamentals(it.sec, price, m, it.profile?.sector);
+      if (fu){ const v = QX.dcfValue(QX.dcfDefaults(it.sec, fu)); if (v && v.perShare > 0) mos = 1 - price / v.perShare; }
+    }
+    const lo = m["52WeekLow"], hi = m["52WeekHigh"], pos = ok(lo) && ok(hi) && hi>lo && price ? (price-lo)/(hi-lo) : null;
+    const toT = f.target && price ? f.target / price - 1 : null;
+    return `<tr><td><a href="#${esc(f.symbol)}" class="sym" data-an="${esc(f.symbol)}">${esc(f.symbol)}</a><span class="sub">${esc(it.profile?.name || (isEtf ? QX.ETF_LABEL[QX.etfClass(f.symbol)] || "ETF" : ""))}</span></td>
+      <td>${money(price)}</td><td class="${cls(q.chg)}">${pct(q.chg,2,true)}</td><td class="${cls(m["52WeekPriceReturnDaily"])}">${pct(ok(m["52WeekPriceReturnDaily"]) ? m["52WeekPriceReturnDaily"]/100 : null,1,true)}</td>
+      <td>${pos!=null ? pct(pos,0) : "—"}</td><td>${mult(m.peTTM)}</td><td>${fx(m.beta)}</td><td>${pct(ok(m.dividendYieldIndicatedAnnual) ? m.dividendYieldIndicatedAnnual/100 : null,2)}</td>
+      <td class="${mos==null?"mut":mos>=0.25?"up":mos>=-0.1?"amb":"down"}">${pct(mos,0)}</td>
+      <td>${f.target ? money(f.target) : "—"}${toT!=null ? `<span class="sub ${price<=f.target?"up":"mut"}">${price<=f.target ? "¡ya está en tu precio!" : "falta " + pct(toT,1,true)}</span>` : ""}</td>
+      <td class="read" style="min-width:120px">${esc(f.note||"")}</td>
+      <td><button class="x" data-del="${f.id}" title="Quitar">✕</button></td></tr>`;
+  }).join("");
+  $("favT").innerHTML = `<table><tr><th>Símbolo</th><th>Precio</th><th>Hoy</th><th>1 año</th><th title="Dónde está en su rango de 52 semanas (0% = mínimo, 100% = máximo)">Rango 52s</th><th>P/U</th><th>Beta</th><th>Div.</th><th>Margen DCF</th><th title="Precio al que te gustaría comprar">Tu precio</th><th class="l">Nota</th><th></th></tr>${rows}</table>`
+    + (FB?.errors?.length ? `<p class="note">Algunos datos no llegaron (límite de consultas); toca Favoritos de nuevo en un minuto. ${esc(FB.errors.join("; "))}</p>` : "");
+  $("favAt").textContent = FB ? "Precios " + new Date(FB.at).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"}) : "";
+  for (const b of $("favT").querySelectorAll("[data-del]")) b.onclick = async () => {
+    await sb.from("fa_watchlist").delete().eq("id", b.dataset.del);
+    FAV = FAV.filter(x => String(x.id) !== b.dataset.del); renderRecent(); renderFav();
+  };
+  for (const a of $("favT").querySelectorAll("[data-an]")) a.onclick = (e) => { e.preventDefault(); analyze(a.dataset.an); };
+}
+
+// precios frescos cada minuto con el mercado abierto (portafolio y favoritos)
+setInterval(async () => {
+  if (document.hidden || !USER || !marketOpen()) return;
+  try{
+    if (TAB === "port" && PH){ const syms = Object.keys(PH.profiles||{}); if (syms.length){ const {quotes} = await call({action:"quotes", symbols: syms}); PH.quotes = {...PH.quotes, ...quotes}; renderPortfolio(); } }
+    if (TAB === "fav" && FB){ const {quotes} = await call({action:"quotes", symbols: FAV.map(f=>f.symbol)}); FB.quotes = {...FB.quotes, ...quotes}; renderFav(); }
+  }catch(e){}
+}, 60000);
+window.addEventListener("hashchange", () => { const h = location.hash.slice(1).toUpperCase(); if (SYM.test(h) && (!CUR || CUR.d.symbol !== h)) analyze(h); });
+sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_OUT") location.reload(); });
+boot();
+</script>
+</body>
+</html>
