@@ -218,6 +218,49 @@ function annualSeries(facts: any, key: string) {
   return res;
 }
 
+// Últimos 12 meses (TTM) con los 10-Q: último año fiscal + lo que va del año actual − mismo periodo del año anterior.
+// Importa en empresas que crecen rápido: el último 10-K puede tener casi un año de atraso.
+const FLOW_TTM = ["rev", "ocf", "capex", "ni"], INST_TTM = ["cash", "sti", "ltd", "std"];
+function ttmFlow(facts: any, key: string) {
+  const gaap = facts?.facts?.["us-gaap"] ?? {};
+  const dur = (x: any) => (Date.parse(x.end) - Date.parse(x.start)) / DAY;
+  let best: { v: number; end: string; fyEnd: string } | null = null;
+  for (const concept of CONCEPTS[key]) {
+    const units = gaap[concept]?.units;
+    if (!units) continue;
+    const vals = ((units.USD ?? Object.values(units)[0] ?? []) as any[]).filter((x) => x.start && x.end && isFinite(Number(x.val)));
+    const fy = vals.filter((x) => String(x.form ?? "").startsWith("10-K") && dur(x) > 340 && dur(x) < 390).sort((a, b) => (a.end < b.end ? -1 : 1));
+    const A = fy[fy.length - 1];
+    if (!A) continue;
+    const ytd = vals.filter((x) => x.end > A.end && Math.abs(Date.parse(x.start) - Date.parse(A.end)) <= 7 * DAY && dur(x) > 80 && dur(x) < 300)
+      .sort((a, b) => (a.end < b.end ? -1 : 1));
+    const Y = ytd[ytd.length - 1];
+    let v = Number(A.val), end = A.end;
+    if (Y) {
+      const d = dur(Y);
+      const P = vals.find((x) => Math.abs(Date.parse(x.start) - Date.parse(A.start)) <= 7 * DAY && Math.abs(dur(x) - d) <= 10);
+      if (P) { v = Number(A.val) + Number(Y.val) - Number(P.val); end = Y.end; }
+    }
+    if (!best || end > best.end) best = { v, end, fyEnd: A.end };
+  }
+  return best;
+}
+function lastInstant(facts: any, key: string) {
+  const gaap = facts?.facts?.["us-gaap"] ?? {};
+  let best: { v: number; end: string } | null = null;
+  for (const concept of CONCEPTS[key]) {
+    const vals = ((gaap[concept]?.units?.USD ?? []) as any[]).filter((x) => x.end && /^10-[KQ]/.test(String(x.form ?? "")));
+    for (const x of vals) if (!best || x.end > best.end) best = { v: Number(x.val), end: x.end };
+  }
+  return best;
+}
+function ttmOf(facts: any) {
+  const out: Record<string, any> = {};
+  for (const k of FLOW_TTM) { const t = ttmFlow(facts, k); if (t) out[k] = t; }
+  for (const k of INST_TTM) { const t = lastInstant(facts, k); if (t) out[k] = t; }
+  return out.rev ? { ...out, end: out.rev.end } : null;
+}
+
 const cikMap = () => cached("sec:tickers", 7 * DAY, async () => {
   const r = await fetch("https://www.sec.gov/files/company_tickers.json", { headers: UA });
   if (!r.ok) throw new Error(`sec_tickers_${r.status}`);
@@ -240,7 +283,7 @@ async function secDirect(sym: string) {
   const cover = (facts?.facts?.dei?.EntityCommonStockSharesOutstanding?.units?.shares ?? [])
     .filter((x: any) => x.end && x.filed).sort((a: any, b: any) => (a.filed < b.filed ? -1 : 1));
   const last = cover[cover.length - 1];
-  return { cik, name: facts.entityName, series, sharesOut: last ? { v: Number(last.val), d: last.end } : null, src: "SEC EDGAR" };
+  return { cik, name: facts.entityName, series, ttm: ttmOf(facts), sharesOut: last ? { v: Number(last.val), d: last.end } : null, src: "SEC EDGAR" };
 }
 
 // Respaldo: Finnhub "financials as reported" (los mismos 10-K de la SEC, ya en XBRL)
@@ -273,7 +316,7 @@ async function secViaFinnhub(sym: string) {
 }
 
 async function edgar(sym: string) {
-  return await cached(`sec:facts:${sym}`, 3 * DAY, async () => {
+  return await cached(`sec2:facts:${sym}`, 3 * DAY, async () => {
     try {
       const d: any = await secDirect(sym);
       if (!d.none) return d;
@@ -344,7 +387,7 @@ async function brief(symbols: string[]) {
       const m: any = await cached(`fh:metric:${s}`, 12 * H, async () => (await fh(`stock/metric?symbol=${encodeURIComponent(s)}&metric=all`))?.metric ?? {});
       row.metric = Object.fromEntries(BRIEF_KEYS.map((k) => [k, m?.[k] ?? null]));
       if (!p.empty) {
-        try { const e: any = await edgar(s); if (e && !e.none) row.sec = { series: e.series, sharesOut: e.sharesOut }; } catch { /* sin DCF */ }
+        try { const e: any = await edgar(s); if (e && !e.none) row.sec = { series: e.series, ttm: e.ttm ?? null, sharesOut: e.sharesOut }; } catch { /* sin DCF */ }
       }
     } catch (e) { errors.push(`${s}: ${(e as Error).message}`); }
     out[s] = row;
@@ -354,7 +397,7 @@ async function brief(symbols: string[]) {
 }
 
 async function selftest() {
-  return await cached("selftest:v5", 10 * 60_000, async () => {
+  return await cached("selftest:v6", 10 * 60_000, async () => {
     const r: Record<string, string> = {};
     const t = async (n: string, f: () => Promise<string>) => {
       try { r[n] = await f(); } catch (e) { r[n] = "error: " + (e as Error).message; }
@@ -368,6 +411,7 @@ async function selftest() {
       const e: any = await edgar("AAPL");
       return e?.series ? `ok ${e.src} (ventas ${Object.keys(e.series.rev ?? {}).join(" ")}; flujo ${Object.keys(e.series.ocf ?? {}).length} años; acciones ${JSON.stringify(e.sharesOut)})` : "sin datos";
     });
+    await t("ttm_nvda", async () => JSON.stringify((await edgar("NVDA") as any)?.ttm ?? null));
     await t("alpaca", async () => { const c = await closes("SPY", 11); return `ok (${c.t.length} días, de ${c.t[0]} a ${c.t[c.t.length - 1]})`; });
     await t("rf", async () => JSON.stringify(await riskFree()));
     return r;

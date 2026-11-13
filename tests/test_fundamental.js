@@ -77,6 +77,32 @@ t("portafolio: serie con pesos de hoy y aporte al riesgo suma 1", () => {
   near(Object.values(rc.contrib).reduce((s, x) => s + x, 0), 1, 1e-9, "aportes");
 });
 
+t("DCF de dos etapas: ventas de 12 meses, margen, crecimiento que baja y tasa por beta", () => {
+  const sec = { series: {
+      rev: { 2021: 100, 2022: 130, 2023: 170, 2024: 220, 2025: 290, 2026: 380 },
+      ocf: { 2024: 90, 2025: 120, 2026: 160 }, capex: { 2024: 2, 2025: 4, 2026: 8 } },
+    ttm: { rev: { v: 500, end: "2026-07-26", fyEnd: "2026-01-25" }, ocf: { v: 210, end: "2026-07-26" }, capex: { v: 10, end: "2026-07-26" }, end: "2026-07-26" } };
+  const p = Q.dcfDefaults(sec, { netDebt: -20, shares: 10 }, { rf10: 0.05, beta: 1 });
+  assert.strictEqual(p.rev0, 500, "usa ventas de 12 meses"); assert(/12 meses/.test(p.revFrom));
+  near(p.margin, 0.4, 0.002, "mediana de márgenes");
+  near(p.g, 0.25, 1e-12, "crecimiento con tope de 25%"); assert(p.gRaw > 0.25);
+  near(p.r, 0.095, 1e-12, "5% + 1.0 × 4.5%");
+  near(Q.discountRate(0.05, 3).r, 0.12, 1e-12, "tope 12%"); near(Q.discountRate(0.03, 0).r, 0.08, 1e-12, "piso 8%");
+  const v = Q.dcfValue(p);
+  assert.strictEqual(v.rows.length, 10);
+  near(v.rows[4].g, 0.25, 1e-12, "año 5"); near(v.rows[9].g, 0.03, 1e-12, "año 10 = perpetuo"); near(v.rows[7].g, 0.25 + (0.03 - 0.25) * 3 / 5, 1e-12, "año 8");
+  near(v.rows[0].fcf, 500 * 0.4 * 1.25, 1e-9, "flujo año 1");
+  near(v.equity, v.pv + v.tv + 20, 1e-9, "suma el efectivo neto");
+  const sc = Q.dcfScenarios(p);
+  assert(sc.bear.perShare < sc.base.perShare && sc.base.perShare < sc.bull.perShare, "escenarios ordenados");
+  const price = v.perShare * 0.8;
+  const ig = Q.impliedGrowth(p, price);
+  near(Q.dcfValue({ ...p, g: ig.g }).perShare, price, 1e-4, "crecimiento implícito reproduce el precio");
+  // método conservador (backtest Buffett) sigue igual
+  const c = Q.dcfConservative(sec, { netDebt: 0, shares: 10 });
+  near(c.base, (88 + 116 + 152) / 3, 1e-9, "promedio 3 años"); near(c.g, 0.08, 1e-12, "tope 8%");
+});
+
 const P = require("../docs/fundamental/profile.js");
 const answersFor = (level) => {   // 0 = la opción más prudente en todo, 1 = la más arriesgada
   const a = {};

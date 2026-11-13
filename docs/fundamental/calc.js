@@ -271,8 +271,49 @@
     return { items: res, pass: known.filter((r) => r.ok).length, of: known.length, quality: res.slice(0, 5).every((r) => r.ok === true) };
   }
 
-  // ---------- DCF (mismo método base que el backtest Buffett, con supuestos editables) ----------
-  function dcfDefaults(sec, f) {
+  // ---------- DCF de dos etapas sobre ventas de los últimos 12 meses ----------
+  // Flujo libre = ventas × margen de flujo libre (flujo operativo − inversión). Años 1–5 crecen a g; años 6–10 el crecimiento
+  // baja en línea recta hasta el perpetuo gt; luego valor terminal de Gordon. Todo se trae a hoy con la tasa r y se resta la deuda neta.
+  const ERP = 0.045;   // prima de riesgo del mercado
+  function discountRate(rf10, beta) {
+    const b = num(beta);
+    if (b == null) return { r: 0.10, how: "10% (sin beta)" };
+    const adj = 0.67 * b + 0.33;     // beta ajustada (Blume): las betas extremas tienden a regresar a 1
+    const raw = (num(rf10) ?? 0.045) + adj * ERP;
+    return { r: clip(raw, 0.08, 0.12), raw, adj, how: `bono 10 años ${(100 * (num(rf10) ?? 0.045)).toFixed(1)}% + beta ajustada ${adj.toFixed(2)} × ${(ERP * 100).toFixed(1)}%` };
+  }
+  function dcfDefaults(sec, f, opts) {
+    opts = opts || {};
+    const S = (sec && sec.series) || {}, T = (sec && sec.ttm) || null;
+    const ys = years(S.ocf).filter((y) => S.rev && S.rev[y] > 0).slice(-3);
+    const margins = ys.map((y) => (S.ocf[y] - ((S.capex || {})[y] || 0)) / S.rev[y]);
+    const marginFrom = ys.slice();
+    let rev0 = lastV(S.rev), revFrom = lastY(S.rev) ? `año fiscal ${lastY(S.rev)}` : "";
+    const ttm = T && T.rev && T.rev.v > 0 && T.rev.end > (T.rev.fyEnd || "") ? T : null;
+    if (ttm) {
+      rev0 = ttm.rev.v; revFrom = `últimos 12 meses al ${ttm.rev.end}`;
+      if (ttm.ocf && ttm.ocf.end === ttm.rev.end) { margins.push((ttm.ocf.v - ((ttm.capex && ttm.capex.v) || 0)) / ttm.rev.v); marginFrom.push("12m"); }
+    }
+    const margin = margins.length ? median(margins) : null;
+    const ry = years(S.rev), gr = (n) => (ry.length > n && S.rev[ry[ry.length - 1 - n]] > 0 && S.rev[ry[ry.length - 1]] > 0 ? cagr(S.rev[ry[ry.length - 1 - n]], S.rev[ry[ry.length - 1]], n) : null);
+    const g3 = gr(3), g5 = gr(5), hist = [g3, g5].filter((x) => x != null);
+    const gRaw = hist.length ? mean(hist) : 0;
+    const dr = discountRate(opts.rf10, opts.beta);
+    // deuda neta con el balance más reciente (10-Q) cuando está al día
+    let netDebt = f ? f.netDebt : 0, ndFrom = "último 10-K";
+    if (ttm && f) {
+      const fresh = (k) => (ttm[k] && Math.abs(Date.parse(ttm[k].end) - Date.parse(ttm.end)) < 100 * 864e5 ? ttm[k].v : null);
+      const pick = (k) => fresh(k) ?? lastV(S[k]) ?? 0;
+      if (["cash", "ltd", "std", "sti"].some((k) => fresh(k) != null)) {
+        netDebt = pick("ltd") + pick("std") - pick("cash") - pick("sti"); ndFrom = `balance al ${ttm.end}`;
+      }
+    }
+    return { rev0, revFrom, margin, marginFrom, g: clip(gRaw, 0, 0.25), gRaw, g3, g5, r: dr.r, rHow: dr.how, rRaw: dr.raw,
+             gt: 0.03, years: 10, stage1: 5, netDebt, ndFrom, shares: f ? f.shares : null };
+  }
+  // Método conservador del backtest Buffett (PR #7): flujo libre promedio de 3 años, crecimiento de ventas 0–8%, 10%, 3%.
+  // Se queda como referencia y para la regla 6 de Buffett, que es la que se probó en el backtest.
+  function dcfConservative(sec, f) {
     const S = (sec && sec.series) || {};
     const ys = years(S.ocf).slice(-3);
     const oe = ys.map((y) => S.ocf[y] - ((S.capex || {})[y] || 0));
@@ -282,26 +323,42 @@
     return { base: oe.length ? mean(oe) : null, baseYears: ys, g: clip(g || 0, 0, 0.08), gRaw: g, r: 0.10, gt: 0.03, years: 10,
              netDebt: f ? f.netDebt : 0, shares: f ? f.shares : null };
   }
-  // valor de la empresa (capital) = flujos de 10 años + valor terminal, menos deuda neta
   function dcfValue(p) {
-    if (!(p.base > 0) || !(p.r > p.gt)) return null;
-    let pv = 0, cf = p.base;
-    for (let t = 1; t <= p.years; t++) { cf *= 1 + p.g; pv += cf / Math.pow(1 + p.r, t); }
-    const tv = (cf * (1 + p.gt)) / (p.r - p.gt) / Math.pow(1 + p.r, p.years);
+    const base = p.rev0 != null && p.margin != null ? p.rev0 * p.margin : p.base;
+    if (!(base > 0) || !(p.r > p.gt)) return null;
+    const n = p.years || 10, n1 = p.stage1 != null ? Math.min(p.stage1, n) : n;
+    let pv = 0, cf = base, rev = p.rev0 != null ? p.rev0 : null;
+    const rows = [];
+    for (let t = 1; t <= n; t++) {
+      const g = t <= n1 ? p.g : p.g + ((p.gt - p.g) * (t - n1)) / (n - n1);
+      cf *= 1 + g; if (rev != null) rev *= 1 + g;
+      const d = cf / Math.pow(1 + p.r, t);
+      pv += d; rows.push({ t, g, rev, fcf: cf, pv: d });
+    }
+    const tv = (cf * (1 + p.gt)) / (p.r - p.gt) / Math.pow(1 + p.r, n);
     const equity = pv + tv - (p.netDebt || 0);
-    return { pv, tv, equity, perShare: p.shares ? equity / p.shares : null, tvShare: (pv + tv) ? tv / (pv + tv) : null };
+    return { pv, tv, equity, base, rows, perShare: p.shares ? equity / p.shares : null, tvShare: pv + tv ? tv / (pv + tv) : null };
+  }
+  // Tres escenarios alrededor de los supuestos actuales
+  function dcfScenarios(p) {
+    const m = (k) => (p.margin != null ? { margin: p.margin * k } : { base: p.base * k });
+    return {
+      bear: dcfValue({ ...p, ...m(0.85), g: p.g * 0.5, r: p.r + 0.01 }),
+      base: dcfValue(p),
+      bull: dcfValue({ ...p, ...m(1.1), g: Math.min(p.g * 1.5, p.g + 0.15), r: Math.max(p.gt + 0.02, p.r - 0.01) }),
+    };
   }
   function dcfGrid(p, price) {
-    const rs = [-0.02, -0.01, 0, 0.01, 0.02].map((d) => p.r + d), gs = [-0.04, -0.02, 0, 0.02, 0.04].map((d) => p.g + d);
+    const rs = [-0.02, -0.01, 0, 0.01, 0.02].map((d) => p.r + d), gs = [-0.1, -0.05, 0, 0.05, 0.1].map((d) => p.g + d);
     return { rs, gs, cells: rs.map((r) => gs.map((g) => { const v = dcfValue({ ...p, r, g }); return v && v.perShare ? { v: v.perShare, mos: price ? 1 - price / v.perShare : null } : null; })) };
   }
-  // DCF al revés: qué crecimiento anual de 10 años justifica el precio de hoy
+  // DCF al revés: qué crecimiento (etapa 1) justifica el precio de hoy, con todo lo demás igual
   function impliedGrowth(p, price) {
-    if (!(p.base > 0) || !p.shares || !price) return null;
+    if (!p.shares || !price) return null;
     const target = price * p.shares;
     const f = (g) => { const v = dcfValue({ ...p, g }); return v ? v.equity - target : null; };
-    let lo = -0.3, hi = 0.6, flo = f(lo), fhi = f(hi);
-    if (flo == null || fhi == null || flo > 0 || fhi < 0) return flo > 0 ? { g: lo, below: true } : { g: hi, above: true };
+    let lo = -0.3, hi = 0.8, flo = f(lo), fhi = f(hi);
+    if (flo == null || fhi == null || flo > 0 || fhi < 0) return flo != null && flo > 0 ? { g: lo, below: true } : fhi != null ? { g: hi, above: true } : null;
     for (let i = 0; i < 60; i++) { const mid = (lo + hi) / 2, fm = f(mid); if (fm > 0) hi = mid; else lo = mid; }
     return { g: (lo + hi) / 2 };
   }
@@ -469,7 +526,7 @@
   }
 
   const QX = { num, years, lastY, lastV, mean, median, std, cov, corr, cagr, clip, normSplits, returns, maxDrawdown, align, monthEnds, sliceYears,
-    riskStats, stockRisk, fundamentals, piotroski, altman, buffett, dcfDefaults, dcfValue, dcfGrid, impliedGrowth, capm, isFinancial,
+    riskStats, stockRisk, fundamentals, piotroski, altman, buffett, dcfDefaults, dcfConservative, dcfValue, dcfScenarios, dcfGrid, impliedGrowth, discountRate, capm, isFinancial,
     etfClass, ETF_LABEL, broadSector, assetBucket, PROFILES, portfolioSeries, riskContrib, recommendations, fmtBig };
   if (typeof module !== "undefined" && module.exports) module.exports = QX; else root.QX = QX;
 })(typeof self !== "undefined" ? self : this);

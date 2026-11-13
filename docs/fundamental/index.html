@@ -125,7 +125,7 @@ input.in,select.in{font-family:var(--mono);font-size:16px;color:var(--fg);backgr
 .check .d{color:var(--muted);font-size:11px;text-align:right}
 .ok{color:var(--up)}.no{color:var(--down)}.na{color:var(--dim)}
 
-.dcfin{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:6px 0 10px}
+.dcfin{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:6px 0 10px}
 @media (max-width:700px){.dcfin{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .dcfin input{font-size:15px;padding:6px 8px}
 .big{font-family:var(--display);font-size:28px;font-weight:600}
@@ -289,7 +289,7 @@ nav.mob{display:none}
         </form>
         <div class="err" id="fErr"></div>
         <div class="scroll" id="favT"></div>
-        <p class="note">Toca un símbolo para ver su análisis completo. «Margen DCF» usa el mismo DCF conservador de la pestaña Buscar (positivo = cotiza abajo de su valor estimado).</p>
+        <p class="note">Toca un símbolo para ver su análisis completo. «Margen DCF» usa el mismo DCF de dos etapas de la pestaña Buscar (positivo = cotiza abajo de su valor estimado).</p>
       </div>
     </div>
   </section>
@@ -436,8 +436,9 @@ function build(d){
   const f = !isEtf && d.sec && !d.sec.none ? QX.fundamentals(d.sec, price, d.metric || {}, prof.finnhubIndustry) : null;
   const rf = d.rf?.t3m ?? 0.04, rf10 = d.rf?.t10y ?? 0.045;
   const risk = QX.stockRisk(d.prices, d.spy, rf);
-  const dcfP = f && !f.financial ? QX.dcfDefaults(d.sec, f) : null;
-  return { d, price, prof, isEtf, f, risk, rf, rf10, dcfP,
+  const dcfP = f && !f.financial ? QX.dcfDefaults(d.sec, f, {rf10, beta: risk?.beta5m ?? d.metric?.beta}) : null;
+  const cons = f && !f.financial ? QX.dcfValue(QX.dcfConservative(d.sec, f)) : null;   // método del backtest Buffett
+  return { d, price, prof, isEtf, f, risk, rf, rf10, dcfP, cons,
            pio: f && !f.financial ? QX.piotroski(d.sec) : null,
            alt: f && !f.financial ? QX.altman(d.sec, f.mcap) : null };
 }
@@ -451,11 +452,11 @@ function verdicts(C, dv){
     const mos = 1 - price / dv.perShare;
     const ig = QX.impliedGrowth(DCF, price);
     out.push({k:"Valuación (DCF)", v: mos >= 0.25 ? "Barata" : mos >= -0.1 ? "Cerca de su valor" : "Cara", c: mos >= 0.25 ? "up" : mos >= -0.1 ? "amb" : "down",
-      s: `Valor estimado ${money(dv.perShare)} vs precio ${money(price)} (margen ${pct(mos,0)}).` + (ig && ig.g!=null && !ig.above && !ig.below ? ` El precio supone que su flujo crece ${pct(ig.g,1)} al año por 10 años.` : "")});
+      s: `Valor estimado ${money(dv.perShare)} vs precio ${money(price)} (margen ${pct(mos,0)}).` + (ig && ig.g!=null && !ig.above && !ig.below ? ` El precio supone que sus ventas crecen ${pct(ig.g,1)} al año los próximos 5 años.` : "")});
   } else out.push({k:"Valuación (DCF)", v:"No aplica", c:"mut", s:"Flujo libre negativo o sin datos suficientes: el DCF no da un valor confiable."});
   // calidad
   if (f && !f.financial){
-    const b = QX.buffett(C.d.sec, f.mcap, dv && dv.equity);
+    const b = QX.buffett(C.d.sec, f.mcap, C.cons && C.cons.equity);
     const q = b.items.slice(0,5).filter(x=>x.ok===true).length;
     out.push({k:"Calidad", v:`${q} de 5 reglas`, c: q>=5 ? "up" : q>=3 ? "amb" : "down", s:`ROIC ${pct(f.roic,0)}, margen neto ${pct(f.netM,0)}. Reglas de calidad del backtest Buffett.`});
   } else if (f) out.push({k:"Rentabilidad", v:`ROE ${pct(f.roe,0)}`, c: f.roe>=0.12 ? "up" : "amb", s:"Para un banco, un ROE arriba de 12% sostenido suele ser bueno."});
@@ -592,9 +593,9 @@ function renderCompany(){
       ${C.pio ? `<details class="gl"><summary>Ver las pruebas de Piotroski</summary>${C.pio.items.map(i => `<div class="check"><span class="${i.ok?"ok":"no"}">${i.ok?"✓":"✗"}</span><span>${esc(i.name)}</span><span></span></div>`).join("")}</details>` : ""}`) + `</div>`;
 
     // Buffett
-    const b = QX.buffett(d.sec, f.mcap, dv && dv.equity);
+    const b = QX.buffett(d.sec, f.mcap, CUR.cons && CUR.cons.equity);
     h += `<div class="grid2">` + panel("Prueba Buffett", `${b.pass} de ${b.of} reglas`, b.items.map(i => `<div class="check"><span class="${i.ok===true?"ok":i.ok===false?"no":"na"}">${i.ok===true?"✓":i.ok===false?"✗":"·"}</span><span>${esc(i.name)}</span><span class="d">${esc(i.detail)}</span></div>`).join("")
-      + `<p class="note">Son las mismas reglas del backtest del 12 de noviembre: la calidad sola no le ganó al S&P 500 en 10 años, y calidad + margen de seguridad le ganó por ~2% al año pero sin ser estadísticamente significativo. Úsalas como filtro para estudiar, no como señal.${f.financial ? " En bancos la regla de deuda no aplica bien." : ""}</p>`);
+      + `<p class="note">Son las mismas reglas del backtest del 12 de noviembre (el margen de seguridad usa el DCF conservador de ese backtest, no el de arriba): la calidad sola no le ganó al S&P 500 en 10 años, y calidad + margen de seguridad le ganó por ~2% al año pero sin ser estadísticamente significativo. Úsalas como filtro para estudiar, no como señal.${f.financial ? " En bancos la regla de deuda no aplica bien." : ""}</p>`);
 
     // analistas
     const rec = (d.recommendation||[])[0];
@@ -640,51 +641,65 @@ function dcfHtml(dv){
   const C = CUR, p = DCF, price = C.price;
   const mos = dv && dv.perShare ? 1 - price / dv.perShare : null;
   const ig = QX.impliedGrowth(p, price);
-  const ke = QX.capm(C.rf10, C.risk?.beta5m ?? C.d.metric?.beta);
+  const sc = QX.dcfScenarios(p);
   const grid = QX.dcfGrid(p, price);
   const cc = (m) => m==null ? "" : m >= 0.25 ? "c0" : m >= 0 ? "c1" : m >= -0.25 ? "c2" : m >= -0.6 ? "c3" : "c4";
   const inp = (id, lbl, v, step) => `<div><span class="lbl">${lbl}</span><input class="in" id="${id}" type="number" step="${step}" value="${v}"></div>`;
+  const scv = (k, v, s) => `<div class="kpi"><div class="k">${k}</div><div class="v ${v && v.perShare ? (1 - price / v.perShare >= 0.25 ? "up" : 1 - price / v.perShare >= -0.1 ? "amb" : "down") : "mut"}">${v && v.perShare ? money(v.perShare) : "—"}</div><div class="s">${s}</div></div>`;
   return `<div class="dcfin">
-      ${inp("dBase", "Flujo libre base (mil M)", (p.base/1e9).toFixed(2), "0.1")}
-      ${inp("dG", "Crecimiento 10 años %", (p.g*100).toFixed(1), "0.5")}
+      ${inp("dRev", "Ventas base (mil M)", ((p.rev0||0)/1e9).toFixed(1), "1")}
+      ${inp("dM", "Margen de flujo libre %", ((p.margin||0)*100).toFixed(1), "0.5")}
+      ${inp("dG", "Crecimiento años 1–5 %", (p.g*100).toFixed(1), "1")}
       ${inp("dR", "Tasa de descuento %", (p.r*100).toFixed(1), "0.5")}
       ${inp("dGt", "Crecimiento perpetuo %", (p.gt*100).toFixed(1), "0.5")}
       <div><span class="lbl">&nbsp;</span><button class="btn" id="dReset" style="width:100%">Restablecer</button></div>
     </div>
     <div class="grid2"><div>
-      <div class="lbl">Valor estimado por acción</div>
+      <div class="lbl">Valor estimado por acción (caso base)</div>
       <div class="big ${mos==null?"mut":mos>=0.25?"up":mos>=-0.1?"amb":"down"}">${dv && dv.perShare ? money(dv.perShare) : "—"}</div>
-      <div>Precio ${money(price)} · margen de seguridad <b class="${cls(mos)}">${pct(mos,0)}</b></div>
-      <p class="note">${dv ? `Flujos de 10 años ${big(dv.pv)} + valor terminal ${big(dv.tv)} (${pct(dv.tvShare,0)} del total) − deuda neta ${big(p.netDebt)} = ${big(dv.equity)}, entre ${(p.shares/1e6).toFixed(0)} M acciones.` : "Con estos supuestos el flujo base es negativo o la tasa es menor que el crecimiento perpetuo."}</p>
-      <p class="note"><b class="amb">DCF al revés:</b> ${ig && ig.g!=null ? (ig.above ? "ni con 60% de crecimiento anual se justifica el precio." : ig.below ? "el precio se justifica aun si el flujo se encoge." : `para valer ${money(price)} su flujo libre tendría que crecer <b>${pct(ig.g,1)}</b> al año durante 10 años. En los últimos 5 años sus ventas crecieron ${pct(C.f.rev5,1)} al año.`) : "—"}</p>
-      <p class="note">Supuestos base (los del backtest Buffett): flujo libre promedio de ${p.baseYears.join(", ")}; crecimiento = ventas de los últimos 5 años, entre 0 y 8% (histórico ${pct(p.gRaw,1)}); descuento 10%; perpetuo 3%. ${ok(ke) ? `Por CAPM (bono 10 años ${pct(C.rf10,1)} + beta × 5%) la tasa sería ${pct(ke,1)}.` : ""}</p>
+      <div>Precio ${money(price)} · ${mos==null ? "" : mos >= 0 ? `cotiza <b class="up">${pct(mos,0)} abajo</b> de este valor` : `cotiza <b class="down">${pct(-mos,0)} arriba</b> de este valor`}</div>
+      <div class="kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        ${scv("Pesimista", sc.bear, `crec. ${pct(p.g*0.5,0)}, margen −15%, tasa +1`)}
+        ${scv("Base", sc.base, `crec. ${pct(p.g,0)} → ${pct(p.gt,0)}`)}
+        ${scv("Optimista", sc.bull, `crec. ${pct(Math.min(p.g*1.5,p.g+0.15),0)}, margen +10%, tasa −1`)}
+      </div>
+      <p class="note">${dv ? `Flujos de 10 años ${big(dv.pv)} + valor terminal ${big(dv.tv)} (${pct(dv.tvShare,0)} del total) ${p.netDebt >= 0 ? "− deuda neta " + big(p.netDebt) : "+ efectivo neto " + big(-p.netDebt)} = ${big(dv.equity)}, entre ${(p.shares/1e6).toFixed(0)} M acciones.` : "Con estos supuestos el flujo base es negativo o la tasa es menor que el crecimiento perpetuo: el DCF no da un valor confiable."}</p>
+      <p class="note"><b class="amb">DCF al revés:</b> ${ig && ig.g!=null ? (ig.above ? "ni con 80% de crecimiento anual se justifica el precio." : ig.below ? "el precio se justifica aun si las ventas se encogen." : `para valer ${money(price)}, sus ventas tendrían que crecer <b>${pct(ig.g,1)}</b> al año los próximos 5 años (y luego bajar poco a poco a ${pct(p.gt,0)}). Sus ventas crecieron ${pct(p.g3,0)} al año en 3 años y ${pct(p.g5,0)} en 5.`) : "—"}</p>
     </div><div>
-      <div class="lbl">Sensibilidad: valor por acción y margen</div>
+      <div class="lbl">Sensibilidad: valor por acción</div>
       <div class="scroll"><table class="grid"><tr><th>Descuento \\ crec.</th>${grid.gs.map(g => `<th>${pct(g,0)}</th>`).join("")}</tr>
-      ${grid.rs.map((r,i) => `<tr><td class="k">${pct(r,0)}</td>${grid.cells[i].map((c,j) => `<td class="${c?cc(c.mos):""} ${i===2&&j===2?"cur":""}">${c ? money(c.v,0) : "—"}</td>`).join("")}</tr>`).join("")}
+      ${grid.rs.map((r,i) => `<tr><td class="k">${pct(r,1)}</td>${grid.cells[i].map((c,j) => `<td class="${c?cc(c.mos):""} ${i===2&&j===2?"cur":""}">${c ? money(c.v,0) : "—"}</td>`).join("")}</tr>`).join("")}
       </table></div>
       <p class="note">Verde: cotiza abajo de ese valor. Rojo: arriba. El DCF es tan bueno como sus supuestos; mira el rango, no un solo número.</p>
-    </div></div>`;
+    </div></div>
+    <details class="gl"><summary>Cómo se calcula y de dónde salen los supuestos</summary>
+      <p class="note"><b>Método:</b> DCF de dos etapas. Flujo libre = ventas × margen de flujo libre (flujo operativo − inversión en activos). Años 1–5 las ventas crecen al ritmo de arriba; en los años 6–10 el crecimiento baja en línea recta hasta el perpetuo; después, valor terminal (crecimiento perpetuo para siempre). Todo se trae a hoy con la tasa de descuento y se suma el efectivo neto (o se resta la deuda neta).</p>
+      <p class="note"><b>Ventas base:</b> ${esc(p.revFrom || "último año")}${/12 meses/.test(p.revFrom || "") ? " (sumando los 10-Q más recientes, no sólo el último 10-K)" : " (último 10-K; no hay trimestres más nuevos)"}. <b>Margen:</b> mediana de ${(p.marginFrom||[]).map(x => x === "12m" ? "últimos 12 meses" : x).join(", ")}. <b>Crecimiento:</b> promedio de sus ventas en 3 y 5 años (${pct(p.gRaw,1)}), con tope de 25% porque ninguna empresa grande sostiene más por 5 años. <b>Tasa:</b> ${esc(p.rHow || "")}${ok(p.rRaw) && Math.abs(p.rRaw - p.r) > 0.001 ? ` = ${pct(p.rRaw,1)}, acotada entre 8% y 12%` : ""}. <b>Perpetuo:</b> 3%, cerca del crecimiento de la economía. <b>Deuda neta:</b> ${esc(p.ndFrom || "")}.</p>
+      ${C.cons && C.cons.perShare ? `<p class="note"><b>Referencia conservadora (backtest Buffett):</b> ${money(C.cons.perShare)} por acción. Usa el flujo libre promedio de 3 años fiscales y crecimiento máximo de 8%; castiga mucho a las empresas que crecen rápido y sirve como «piso», no como valor justo.</p>` : ""}
+      <p class="note"><b>Otros sitios</b> (Alpha Spread, Simply Wall St, GuruFocus) usan la misma idea con otras piezas: estimados de analistas para el crecimiento, utilidad neta en vez de flujo libre o un múltiplo de salida (por ejemplo, 7× ventas al final) en vez de crecimiento perpetuo. Por eso sus números difieren; ningún DCF es «el bueno».</p>
+      ${dv ? `<div class="scroll"><table><tr><th>Año</th><th>Crec.</th><th>Ventas</th><th>Flujo libre</th><th>Valor hoy</th></tr>${dv.rows.map(r => `<tr><td class="k">${r.t}</td><td>${pct(r.g,1)}</td><td>${big(r.rev)}</td><td>${big(r.fcf)}</td><td class="mut">${big(r.pv)}</td></tr>`).join("")}<tr><td class="k">Terminal</td><td>${pct(p.gt,1)}</td><td></td><td></td><td class="mut">${big(dv.tv)}</td></tr></table></div>` : ""}
+    </details>`;
 }
 function bindDcf(){
-  if (!$("dBase")) return;
+  if (!$("dRev")) return;
+  const ids = ["dRev","dM","dG","dR","dGt"];
   const upd = () => {
     const n = (id) => parseFloat($(id).value);
-    if ([n("dBase"), n("dG"), n("dR"), n("dGt")].some(x => !isFinite(x))) return;
-    DCF = {...DCF, base: n("dBase")*1e9, g: n("dG")/100, r: n("dR")/100, gt: n("dGt")/100};
+    if (ids.some(id => !isFinite(n(id)))) return;
+    DCF = {...DCF, rev0: n("dRev")*1e9, margin: n("dM")/100, g: n("dG")/100, r: n("dR")/100, gt: n("dGt")/100};
     const keep = document.activeElement && document.activeElement.id;
     $("dcfP").querySelector(".pb").innerHTML = dcfHtml(QX.dcfValue(DCF));
     bindDcf();
     if (keep && $(keep)){ $(keep).focus(); const v = $(keep).value; try{ $(keep).setSelectionRange(v.length, v.length); }catch(e){} }
   };
-  for (const id of ["dBase","dG","dR","dGt"]) $(id).addEventListener("change", upd);
+  for (const id of ids) $(id).addEventListener("change", upd);
   $("dReset").onclick = () => { DCF = {...CUR.dcfP}; $("dcfP").querySelector(".pb").innerHTML = dcfHtml(QX.dcfValue(DCF)); bindDcf(); };
 }
 
 function glossary(){
   const g = [
     ["Beta", "Cuánto se mueve la acción cuando se mueve el S&P 500. Beta 1.2 quiere decir que, en promedio, si el índice sube 10% ella sube 12% (y lo mismo al bajar)."],
-    ["DCF (flujo descontado)", "Suma el dinero que el negocio generará en el futuro, traído a valor de hoy con una tasa de descuento. Si el valor estimado es mayor que el precio, hay «margen de seguridad»."],
+    ["DCF (flujo descontado)", "Suma el dinero que el negocio generará en el futuro, traído a valor de hoy con una tasa de descuento. Aquí es de dos etapas: 5 años de crecimiento alto que luego baja poco a poco hasta 3%. Si el valor estimado es mayor que el precio, hay «margen de seguridad»."],
     ["Margen de seguridad", "Qué tan abajo de su valor estimado cotiza. Buffett y Graham buscaban 25% o más para protegerse de errores en los supuestos."],
     ["Flujo libre (FCF)", "Flujo de efectivo de la operación menos la inversión en activos. Es lo que el negocio deja disponible para pagar deuda, dividendos o recomprar acciones. Buffett le llama «ganancias del dueño»."],
     ["ROIC", "Utilidad operativa después de impuestos entre el capital invertido (capital + deuda − efectivo). Mide qué tan bien usa la empresa cada peso invertido."],
@@ -1126,7 +1141,7 @@ function renderFav(){
     let mos = null;
     if (!isEtf && it.sec && price && !QX.isFinancial(it.profile?.sector)){
       const fu = QX.fundamentals(it.sec, price, m, it.profile?.sector);
-      if (fu){ const v = QX.dcfValue(QX.dcfDefaults(it.sec, fu)); if (v && v.perShare > 0) mos = 1 - price / v.perShare; }
+      if (fu){ const v = QX.dcfValue(QX.dcfDefaults(it.sec, fu, {beta: m.beta})); if (v && v.perShare > 0) mos = 1 - price / v.perShare; }
     }
     const lo = m["52WeekLow"], hi = m["52WeekHigh"], pos = ok(lo) && ok(hi) && hi>lo && price ? (price-lo)/(hi-lo) : null;
     const toT = f.target && price ? f.target / price - 1 : null;
