@@ -128,6 +128,21 @@ input.in,select.in{font-family:var(--mono);font-size:16px;color:var(--fg);backgr
 .dcfin{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:6px 0 10px}
 @media (max-width:700px){.dcfin{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .dcfin input{font-size:15px;padding:6px 8px}
+.unit{position:relative}
+.unit input{padding-right:30px}
+.unit em{position:absolute;right:9px;top:50%;transform:translateY(-50%);font-style:normal;color:var(--amber);font-weight:600;pointer-events:none}
+.dcfin .hint{display:block;font-size:10.5px;color:var(--dim);margin-top:3px;min-height:14px}
+.prof3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--rule-soft);border:1px solid var(--rule-soft);margin-top:10px}
+@media (max-width:600px){.prof3{grid-template-columns:minmax(0,1fr)}}
+.pc{background:var(--panel);padding:12px}
+.pc .k{font-family:var(--display);font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.pc .v{font-family:var(--display);font-size:34px;font-weight:700;line-height:1.1;margin:2px 0}
+.pc .s{font-size:11px;color:var(--muted);line-height:1.4}
+.spark{display:flex;align-items:flex-end;gap:3px;height:34px;margin:6px 0 4px}
+.spark i{flex:1;background:var(--rule);min-height:2px;position:relative}
+.spark i.on{background:var(--amber)}
+.spark i.neg{background:var(--down)}
+
 .big{font-family:var(--display);font-size:28px;font-weight:600}
 .grid td.c0{background:#0d2a22}.grid td.c1{background:#13251f}.grid td.c2{background:#1d1d16}.grid td.c3{background:#2a1a1a}.grid td.c4{background:#361719}
 .grid td.cur{outline:1px solid var(--amber);outline-offset:-1px}
@@ -515,6 +530,7 @@ function renderCompany(){
     </div></div></div>`;
 
   h += `<div class="tiles">${verdicts(C, dv).map(v => `<div class="tile"><div class="k">${v.k}</div><div class="v ${v.c}">${esc(v.v)}</div><div class="s">${esc(v.s)}</div></div>`).join("")}</div>`;
+  if (f) h += profitHtml(C);
 
   // precio vs SPY
   h += panel("Precio contra el S&P 500", `<span class="seg" id="rng">${[1,3,5].map(y => `<button data-y="${y}" class="${y===CH_RANGE?"on":""}">${y}A</button>`).join("")}</span>`, `<div id="chart">${chartSvg(d.prices, d.spy, CH_RANGE)}</div>`);
@@ -637,6 +653,29 @@ function renderCompany(){
   bindDcf();
 }
 
+// ROE, ROA y ROIC en grande, con su historia de 5 años
+function profitHtml(C){
+  const f = C.f, m = C.d.metric || {}, P = QX.profitability(C.d.sec);
+  const fin = f.financial;
+  const card = (k, name, cur, ttm, arr, med, good, okv, read) => {
+    const c = !ok(cur) ? "mut" : cur >= good ? "up" : cur >= okv ? "amb" : "down";
+    const vals = arr.slice(-5), mx = Math.max(0.0001, ...vals.filter(ok).map(Math.abs));
+    return `<div class="pc"><div class="k">${k} <span style="text-transform:none;letter-spacing:0;color:var(--dim)">${name}</span></div>
+      <div class="v ${c}">${pct(cur,1)}</div>
+      <div class="s">${ok(ttm) ? `últimos 12 meses ${pct(ttm,1)} · ` : ""}mediana 5 años <b>${pct(med,1)}</b></div>
+      <div class="spark" title="Últimos 5 años">${vals.map((v,i) => `<i class="${!ok(v) ? "" : v < 0 ? "neg" : i === vals.length - 1 ? "on" : ""}" style="height:${ok(v) ? Math.max(6, Math.abs(v)/mx*100).toFixed(0) : 6}%" title="${P.years.slice(-5)[i]}: ${pct(v,1)}"></i>`).join("")}</div>
+      <div style="display:flex;gap:3px;font-size:9.5px;color:var(--dim)">${P.years.slice(-5).map(y => `<span style="flex:1;text-align:center">${y}</span>`).join("")}</div>
+      <div class="s" style="margin-top:4px">${read}</div></div>`;
+  };
+  const tt = (x) => (ok(x) ? x / 100 : null);
+  return `<div class="prof3">
+    ${card("ROE", "sobre capital", f.roe, tt(m.roeTTM), P.roe, P.roeMed, 0.15, 0.08, "Utilidad ÷ capital de los accionistas. Arriba de 15% es bueno; ojo si viene de mucha deuda.")}
+    ${card("ROA", "sobre activos", f.roa, tt(m.roaTTM), P.roa, P.roaMed, fin ? 0.012 : 0.08, fin ? 0.008 : 0.04, fin ? "Utilidad ÷ activos totales. En bancos, 1% o más ya es bueno." : "Utilidad ÷ todo lo que tiene. Arriba de 8% es bueno; depende mucho del sector.")}
+    ${fin ? card("ROI", "sobre inversión", tt(m.roiTTM), null, [], null, 0.12, 0.06, "Dato del proveedor (Finnhub). En bancos el ROIC no aplica bien porque la deuda es su materia prima.")
+          : card("ROIC", "sobre capital invertido", f.roic, tt(m.roiTTM), P.roic, P.roicMed, 0.15, 0.08, "Utilidad operativa después de impuestos ÷ (capital + deuda − efectivo). La mejor medida de calidad: arriba de 15% sostenido = ventaja competitiva.")}
+  </div><p class="note">Años fiscales del 10-K; el último año es ${esc(f.fy || "")}. «Últimos 12 meses» viene de Finnhub (su ROI = rendimiento sobre la inversión).</p>`;
+}
+
 function dcfHtml(dv){
   const C = CUR, p = DCF, price = C.price;
   const mos = dv && dv.perShare ? 1 - price / dv.perShare : null;
@@ -644,14 +683,14 @@ function dcfHtml(dv){
   const sc = QX.dcfScenarios(p);
   const grid = QX.dcfGrid(p, price);
   const cc = (m) => m==null ? "" : m >= 0.25 ? "c0" : m >= 0 ? "c1" : m >= -0.25 ? "c2" : m >= -0.6 ? "c3" : "c4";
-  const inp = (id, lbl, v, step) => `<div><span class="lbl">${lbl}</span><input class="in" id="${id}" type="number" step="${step}" value="${v}"></div>`;
+  const inp = (id, lbl, v, step, unit, hint) => `<div><span class="lbl">${lbl}</span><div class="unit"><input class="in" id="${id}" type="number" step="${step}" value="${v}" aria-label="${lbl} en ${unit === "%" ? "por ciento" : "miles de millones de dólares"}"><em>${unit}</em></div><span class="hint">${hint || ""}</span></div>`;
   const scv = (k, v, s) => `<div class="kpi"><div class="k">${k}</div><div class="v ${v && v.perShare ? (1 - price / v.perShare >= 0.25 ? "up" : 1 - price / v.perShare >= -0.1 ? "amb" : "down") : "mut"}">${v && v.perShare ? money(v.perShare) : "—"}</div><div class="s">${s}</div></div>`;
   return `<div class="dcfin">
-      ${inp("dRev", "Ventas base (mil M)", ((p.rev0||0)/1e9).toFixed(1), "1")}
-      ${inp("dM", "Margen de flujo libre %", ((p.margin||0)*100).toFixed(1), "0.5")}
-      ${inp("dG", "Crecimiento años 1–5 %", (p.g*100).toFixed(1), "1")}
-      ${inp("dR", "Tasa de descuento %", (p.r*100).toFixed(1), "0.5")}
-      ${inp("dGt", "Crecimiento perpetuo %", (p.gt*100).toFixed(1), "0.5")}
+      ${inp("dRev", "Ventas base", ((p.rev0||0)/1e9).toFixed(p.rev0 < 1e10 ? 3 : 1), "any", "mil M", p.rev0 ? "= " + big(p.rev0) : "")}
+      ${inp("dM", "Margen de flujo libre", ((p.margin||0)*100).toFixed(1), "0.5", "%", p.rev0 && p.margin != null ? "flujo libre " + big(p.rev0 * p.margin) : "")}
+      ${inp("dG", "Crecimiento años 1–5", (p.g*100).toFixed(1), "1", "%", `historia ${pct(p.gRaw,0)} al año`)}
+      ${inp("dR", "Tasa de descuento", (p.r*100).toFixed(1), "0.5", "%", "rendimiento que le pides")}
+      ${inp("dGt", "Crecimiento perpetuo", (p.gt*100).toFixed(1), "0.5", "%", "después del año 10")}
       <div><span class="lbl">&nbsp;</span><button class="btn" id="dReset" style="width:100%">Restablecer</button></div>
     </div>
     <div class="grid2"><div>
@@ -674,7 +713,7 @@ function dcfHtml(dv){
     </div></div>
     <details class="gl"><summary>Cómo se calcula y de dónde salen los supuestos</summary>
       <p class="note"><b>Método:</b> DCF de dos etapas. Flujo libre = ventas × margen de flujo libre (flujo operativo − inversión en activos). Años 1–5 las ventas crecen al ritmo de arriba; en los años 6–10 el crecimiento baja en línea recta hasta el perpetuo; después, valor terminal (crecimiento perpetuo para siempre). Todo se trae a hoy con la tasa de descuento y se suma el efectivo neto (o se resta la deuda neta).</p>
-      <p class="note"><b>Ventas base:</b> ${esc(p.revFrom || "último año")}${/12 meses/.test(p.revFrom || "") ? " (sumando los 10-Q más recientes, no sólo el último 10-K)" : " (último 10-K; no hay trimestres más nuevos)"}. <b>Margen:</b> mediana de ${(p.marginFrom||[]).map(x => x === "12m" ? "últimos 12 meses" : x).join(", ")}. <b>Crecimiento:</b> promedio de sus ventas en 3 y 5 años (${pct(p.gRaw,1)}), con tope de 25% porque ninguna empresa grande sostiene más por 5 años. <b>Tasa:</b> ${esc(p.rHow || "")}${ok(p.rRaw) && Math.abs(p.rRaw - p.r) > 0.001 ? ` = ${pct(p.rRaw,1)}, acotada entre 8% y 12%` : ""}. <b>Perpetuo:</b> 3%, cerca del crecimiento de la economía. <b>Deuda neta:</b> ${esc(p.ndFrom || "")}.</p>
+      <p class="note"><b>Ventas base:</b> ${esc(p.revFrom || "último año")}${/12 meses/.test(p.revFrom || "") ? " (sumando los 10-Q más recientes, no sólo el último 10-K)" : " (último 10-K; no hay trimestres más nuevos)"}. <b>Margen:</b> mediana de ${(p.marginFrom||[]).map(x => x === "12m" ? "últimos 12 meses" : x).join(", ")}. <b>Crecimiento:</b> ${p.gYears ? `sólo hay ${p.gYears + 1} años de ventas, así que se usa su crecimiento de ${p.gYears} año${p.gYears > 1 ? "s" : ""}` : "promedio de sus ventas en 3 y 5 años"} (${pct(p.gRaw,1)}). Como el crecimiento alto casi nunca dura, arriba de 6% sólo se toma 40% del exceso, con tope de 25%: así queda en ${pct(p.g,1)}. <b>Tasa:</b> ${esc(p.rHow || "")}${ok(p.rRaw) && Math.abs(p.rRaw - p.r) > 0.001 ? ` = ${pct(p.rRaw,1)}, acotada entre 8% y 12%` : ""}. <b>Perpetuo:</b> 3%, cerca del crecimiento de la economía. <b>Deuda neta:</b> ${esc(p.ndFrom || "")}.</p>
       ${C.cons && C.cons.perShare ? `<p class="note"><b>Referencia conservadora (backtest Buffett):</b> ${money(C.cons.perShare)} por acción. Usa el flujo libre promedio de 3 años fiscales y crecimiento máximo de 8%; castiga mucho a las empresas que crecen rápido y sirve como «piso», no como valor justo.</p>` : ""}
       <p class="note"><b>Otros sitios</b> (Alpha Spread, Simply Wall St, GuruFocus) usan la misma idea con otras piezas: estimados de analistas para el crecimiento, utilidad neta en vez de flujo libre o un múltiplo de salida (por ejemplo, 7× ventas al final) en vez de crecimiento perpetuo. Por eso sus números difieren; ningún DCF es «el bueno».</p>
       ${dv ? `<div class="scroll"><table><tr><th>Año</th><th>Crec.</th><th>Ventas</th><th>Flujo libre</th><th>Valor hoy</th></tr>${dv.rows.map(r => `<tr><td class="k">${r.t}</td><td>${pct(r.g,1)}</td><td>${big(r.rev)}</td><td>${big(r.fcf)}</td><td class="mut">${big(r.pv)}</td></tr>`).join("")}<tr><td class="k">Terminal</td><td>${pct(p.gt,1)}</td><td></td><td></td><td class="mut">${big(dv.tv)}</td></tr></table></div>` : ""}

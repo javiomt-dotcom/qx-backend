@@ -271,6 +271,25 @@
     return { items: res, pass: known.filter((r) => r.ok).length, of: known.length, quality: res.slice(0, 5).every((r) => r.ok === true) };
   }
 
+  // Rentabilidad por año (ROE, ROA, ROIC) para ver la tendencia y la mediana de 5 años
+  function profitability(sec) {
+    const S = (sec && sec.series) || {};
+    const out = { years: [], roe: [], roa: [], roic: [] };
+    for (const y of years(S.ni).slice(-6)) {
+      const g = (k) => val(S[k] || {}, y);
+      const ni = g("ni"), eq = g("eq"), as = g("assets"), ebit = g("ebit");
+      const debt = (g("ltd") || 0) + (g("std") || 0), cash = (g("cash") || 0) + (g("sti") || 0);
+      const taxR = g("tax") != null && g("pretax") > 0 ? clip(g("tax") / g("pretax"), 0, 0.35) : 0.21;
+      const inv = (eq || 0) + debt - cash;
+      out.years.push(y);
+      out.roe.push(ni != null && eq > 0 ? ni / eq : null);
+      out.roa.push(ni != null && as > 0 ? ni / as : null);
+      out.roic.push(ebit != null && inv > 0 ? (ebit * (1 - taxR)) / inv : null);
+    }
+    for (const k of ["roe", "roa", "roic"]) { const v = out[k].slice(-5).filter((x) => x != null); out[k + "Med"] = v.length >= 3 ? median(v) : null; }
+    return out;
+  }
+
   // ---------- DCF de dos etapas sobre ventas de los últimos 12 meses ----------
   // Flujo libre = ventas × margen de flujo libre (flujo operativo − inversión). Años 1–5 crecen a g; años 6–10 el crecimiento
   // baja en línea recta hasta el perpetuo gt; luego valor terminal de Gordon. Todo se trae a hoy con la tasa r y se resta la deuda neta.
@@ -296,19 +315,23 @@
     }
     const margin = margins.length ? median(margins) : null;
     const ry = years(S.rev), gr = (n) => (ry.length > n && S.rev[ry[ry.length - 1 - n]] > 0 && S.rev[ry[ry.length - 1]] > 0 ? cagr(S.rev[ry[ry.length - 1 - n]], S.rev[ry[ry.length - 1]], n) : null);
-    const g3 = gr(3), g5 = gr(5), hist = [g3, g5].filter((x) => x != null);
+    const g3 = gr(3), g5 = gr(5);
+    let hist = [g3, g5].filter((x) => x != null), gYears = hist.length ? null : Math.min(ry.length - 1, 2);
+    if (!hist.length && gYears >= 1 && gr(gYears) != null) hist = [gr(gYears)];   // poca historia: usa lo que haya
     const gRaw = hist.length ? mean(hist) : 0;
+    // el crecimiento alto no dura: arriba de 6% sólo se toma 40% del exceso (NVDA 83% → 25% tope; INOD 41% → 20%)
+    const gAdj = gRaw <= 0.06 ? gRaw : 0.06 + 0.4 * (gRaw - 0.06);
     const dr = discountRate(opts.rf10, opts.beta);
     // deuda neta con el balance más reciente (10-Q) cuando está al día
     let netDebt = f ? f.netDebt : 0, ndFrom = "último 10-K";
     if (ttm && f) {
       const fresh = (k) => (ttm[k] && Math.abs(Date.parse(ttm[k].end) - Date.parse(ttm.end)) < 100 * 864e5 ? ttm[k].v : null);
-      const pick = (k) => fresh(k) ?? lastV(S[k]) ?? 0;
+      const pick = (k) => fresh(k) ?? val(S[k] || {}, f.fy) ?? 0;   // un saldo viejo (de hace años) no cuenta
       if (["cash", "ltd", "std", "sti"].some((k) => fresh(k) != null)) {
         netDebt = pick("ltd") + pick("std") - pick("cash") - pick("sti"); ndFrom = `balance al ${ttm.end}`;
       }
     }
-    return { rev0, revFrom, margin, marginFrom, g: clip(gRaw, 0, 0.25), gRaw, g3, g5, r: dr.r, rHow: dr.how, rRaw: dr.raw,
+    return { rev0, revFrom, margin, marginFrom, g: clip(gAdj, 0, 0.25), gRaw, g3, g5, gYears, r: dr.r, rHow: dr.how, rRaw: dr.raw,
              gt: 0.03, years: 10, stage1: 5, netDebt, ndFrom, shares: f ? f.shares : null };
   }
   // Método conservador del backtest Buffett (PR #7): flujo libre promedio de 3 años, crecimiento de ventas 0–8%, 10%, 3%.
@@ -526,7 +549,7 @@
   }
 
   const QX = { num, years, lastY, lastV, mean, median, std, cov, corr, cagr, clip, normSplits, returns, maxDrawdown, align, monthEnds, sliceYears,
-    riskStats, stockRisk, fundamentals, piotroski, altman, buffett, dcfDefaults, dcfConservative, dcfValue, dcfScenarios, dcfGrid, impliedGrowth, discountRate, capm, isFinancial,
+    riskStats, stockRisk, fundamentals, piotroski, altman, buffett, profitability, dcfDefaults, dcfConservative, dcfValue, dcfScenarios, dcfGrid, impliedGrowth, discountRate, capm, isFinancial,
     etfClass, ETF_LABEL, broadSector, assetBucket, PROFILES, portfolioSeries, riskContrib, recommendations, fmtBig };
   if (typeof module !== "undefined" && module.exports) module.exports = QX; else root.QX = QX;
 })(typeof self !== "undefined" ? self : this);
