@@ -298,6 +298,10 @@
     const months = [...new Set(Object.values(M).flatMap((x) => x.m))].sort();
     const idx = Object.fromEntries(Object.entries(M).map(([s, x]) => [s, new Map(x.m.map((m, i) => [m, x.r[i]]))]));
     const spyIdx = spy ? new Map(spy.m.map((m, i) => [m, spy.r[i]])) : null;
+    // tasa libre de riesgo mes a mes: T-bills (BIL) si están; si no, 0
+    const bil = seriesMap.BIL && seriesMap.BIL.t.length > 30 ? monthly(seriesMap.BIL) : null;
+    const rfIdx = bil ? new Map(bil.m.map((m, i) => [m, bil.r[i]])) : null;
+    const ex = [];
     let v = init, vs = init, contrib = init, peak = init, mdd = 0, unit = 1, unitPeak = 1;
     const path = [], ret = [], years = {};
     for (const m of months) {
@@ -307,7 +311,7 @@
       const r = acc / ws, rs = spyIdx ? spyIdx.get(m) ?? 0 : 0;
       v = v * (1 + r) + add; vs = vs * (1 + rs) + add; contrib += add;
       unit *= 1 + r; unitPeak = Math.max(unitPeak, unit); mdd = Math.min(mdd, unit / unitPeak - 1);
-      ret.push(r); path.push({ m, v, vs, contrib });
+      ret.push(r); ex.push(r - (rfIdx ? rfIdx.get(m) ?? 0 : 0)); path.push({ m, v, vs, contrib });
       const y = m.slice(0, 4); years[y] = (years[y] ?? 1) * (1 + r);
       peak = Math.max(peak, v);
     }
@@ -315,9 +319,12 @@
     const n = ret.length, mean = ret.reduce((s, x) => s + x, 0) / n;
     const sd = Math.sqrt(ret.reduce((s, x) => s + (x - mean) ** 2, 0) / (n - 1));
     const cagr = Math.pow(unit, 12 / n) - 1;
+    // Sharpe: rendimiento extra sobre T-bills por unidad de riesgo (mensual, anualizado)
+    const exM = ex.reduce((s, x) => s + x, 0) / n, exSd = Math.sqrt(ex.reduce((s, x) => s + (x - exM) ** 2, 0) / (n - 1));
+    const sharpe = exSd > 0 ? (exM / exSd) * Math.sqrt(12) : null;
     const yr = Object.entries(years).map(([y, g]) => ({ y, r: g - 1 }));
     return { path, months: n, start: path[0].m, end: path[path.length - 1].m, final: v, finalSpy: vs, contributed: contrib,
-             cagr, vol: sd * Math.sqrt(12), maxDD: mdd, worstYear: yr.reduce((a, b) => (b.r < a.r ? b : a), yr[0]), bestYear: yr.reduce((a, b) => (b.r > a.r ? b : a), yr[0]), years: yr };
+             cagr, vol: sd * Math.sqrt(12), sharpe, maxDD: mdd, worstYear: yr.reduce((a, b) => (b.r < a.r ? b : a), yr[0]), bestYear: yr.reduce((a, b) => (b.r > a.r ? b : a), yr[0]), years: yr };
   }
 
   // Supuestos a futuro (rendimiento anual nominal en dólares). Más bajos que los últimos 10 años a propósito:

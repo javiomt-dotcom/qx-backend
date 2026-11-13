@@ -221,4 +221,29 @@ t("mezcla actual por clase de activo", () => {
   near(m.eq, 0.7, 1e-12, "acciones"); near(m.bond, 0.2, 1e-12, "bonos"); near(m.cash, 0.1, 1e-12, "efectivo");
 });
 
+t("Sharpe del backtest: con T-bills como tasa libre", () => {
+  let x = 100; const walk = bdays.map((_, i) => (x *= 1 + 0.01 * Math.sin(i * 0.7) + 0.0004));
+  const S = { SPY: { t: bdays, c: walk }, A: { t: bdays, c: walk }, BIL: fakeSeries(bdays, (i) => 1.0001 ** i) };
+  const a = P.backtest(S, { A: 1 }, { initial: 1000 }), b = P.backtest({ SPY: S.SPY, A: S.A }, { A: 1 }, { initial: 1000 });
+  assert(a.sharpe > 0 && b.sharpe > a.sharpe, "restar la tasa libre baja el Sharpe");
+});
+
+t("múltiplos en la historia: P/U por año y veredicto contra su mediana", () => {
+  const t = [], c = [];
+  for (const y of ["2019", "2020", "2021", "2022"]) { t.push(y + "-06-01", y + "-12-30"); c.push(50, y === "2022" ? 200 : 100); }
+  const sec = { series: { sh: { 2019: 10, 2020: 10, 2021: 10, 2022: 10 }, ni: { 2019: 50, 2020: 100, 2021: 100, 2022: 100 },
+    rev: { 2019: 500, 2020: 500, 2021: 500, 2022: 500 }, eq: { 2022: 400 }, ocf: { 2022: 120 }, capex: { 2022: 20 } } };
+  const h = Q.multiplesHistory(sec, { t, c });
+  near(h.pe["2019"], 20, 1e-9, "P/U 2019"); near(h.pe["2022"], 20, 1e-9, "P/U 2022"); near(h.pe["2021"], 10, 1e-9, "P/U 2021");
+  near(h.ps["2020"], 2, 1e-9, "P/V"); near(h.pfcf["2022"], 20, 1e-9, "P/FCF"); near(h.pb["2022"], 5, 1e-9, "P/VL");
+  near(h.peg["2022"], 20 / (((100 / 10) / (50 / 10)) ** (1 / 3) - 1) / 100, 1e-9, "PEG");
+  const st = Q.multipleStat(h.pe, 30);
+  near(st.med, 15, 1e-9, "mediana"); assert.strictEqual(st.verdict, "caro");
+  assert.strictEqual(Q.multipleStat(h.pe, 15).verdict, "normal"); assert.strictEqual(Q.multipleStat(h.pe, 9).verdict, "barato");
+  assert.strictEqual(Q.multipleStat({ 2022: 10 }, 9).verdict, undefined, "sin historia no hay veredicto");
+  // dividendos: el precio ajustado se corrige hacia arriba en años anteriores
+  const d = Q.multiplesHistory({ series: { ...sec.series, div: { 2022: 100 } } }, { t, c });
+  near(d.pe["2021"], 10 * (1 + 100 / 2000), 1e-9, "corrige el ajuste por dividendos");
+});
+
 console.log(`\n${n} pruebas OK`);
