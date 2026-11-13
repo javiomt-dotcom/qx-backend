@@ -154,6 +154,20 @@ t("portafolios: 3 por perfil, pesos suman 100% y siguen la mezcla del perfil", (
   assert.strictEqual(ps[2].id, "sat"); near(ps[2].w.QUAL + ps[2].w.MOAT, 0.2, 0.011, "satélite máximo 20%");
 });
 
+t("perfil a mano: cambia la mezcla y avisa contra el cuestionario; sin cuestionario usa supuestos generales", () => {
+  const a = answersFor(1), q = P.evaluate(a);
+  const m = P.withProfile(q, "conservador");
+  assert.strictEqual(m.profile, "conservador"); assert.strictEqual(m.idx, 0); assert.strictEqual(m.quizProfile, q.profile); assert.strictEqual(m.manual, q.profile !== "conservador");
+  near(P.buildPortfolios(m, a)[0].mix.eq, P.MIX.conservador.eq, 0.011, "acciones conservador");
+  assert.strictEqual(P.withProfile(q, q.profile).manual, false);
+  const n = P.withProfile(null, "agresivo");
+  assert(n.noQuiz && n.manual && n.level === 1 && n.amount === 10000);
+  const ps = P.buildPortfolios(n, {});
+  assert.strictEqual(ps.length, 3); near(ps[0].mix.eq, P.MIX.agresivo.eq, 0.011, "acciones agresivo");
+  for (const p of ps) near(Object.values(p.w).reduce((s, x) => s + x, 0), 1, 1e-9, p.name);
+  assert.strictEqual(P.withProfile(q, "otro"), q);
+});
+
 const fakeSeries = (days, f) => ({ t: days, c: days.map((_, i) => 100 * f(i)) });
 const bdays = Array.from({ length: 2600 }, (_, i) => new Date(Date.UTC(2016, 0, 4 + Math.floor(i * 7 / 5)))).map((d) => d.toISOString().slice(0, 10));
 
