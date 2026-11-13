@@ -399,6 +399,10 @@ FUNDS = {
     "AMOMX": "AQR momentum grandes (fondo)", "QQQ": "Nasdaq 100", "MOAT": "Morningstar ventaja competitiva",
     "SCHD": "Dividendos Schwab", "COWZ": "Flujo de caja libre (Pacer)", "VTI": "Todo el mercado EE. UU.",
     "AVLV": "Avantis valor grandes", "DGRW": "Dividendos con crecimiento (WisdomTree)",
+    "DFEOX": "DFA US Core Equity 1 (fondo: tilt pequeñas/valor/rentabilidad)",
+    "DFQTX": "DFA US Core Equity 2 (fondo: tilt más fuerte)", "AVUS": "Avantis todo EE. UU. (tilt rentabilidad/valor)",
+    "JQUA": "JPMorgan calidad", "SPMO": "S&P 500 momentum (Invesco)", "VFMF": "Vanguard multifactor",
+    "DFUSX": "DFA US Large Company (índice, control)",
 }
 OTHER = ["SPY", "AGG", "BND", "IEF", "GLD", "BIL", "VXUS", "VEA", "VWO"]
 
