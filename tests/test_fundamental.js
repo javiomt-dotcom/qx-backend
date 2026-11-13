@@ -151,7 +151,21 @@ t("portafolios: 3 por perfil, pesos suman 100% y siguen la mezcla del perfil", (
     near(ps[0].mix.eq, P.MIX[ev.profile].eq, 0.011, "acciones del sencillo");
   }
   const a = answersFor(1), ps = P.buildPortfolios(P.evaluate(a), a);
-  assert.strictEqual(ps[2].id, "sat"); near(ps[2].w.QUAL + ps[2].w.MOAT, 0.2, 0.011, "satélite máximo 20%");
+  assert.strictEqual(ps[2].id, "sat"); near(ps[2].w.JQUA * 2, ps[2].sat, 0.011, "satélite: mitad JQUA");
+  assert(ps[2].sat <= 0.2 + 1e-9, "satélite máximo 20%");
+  assert(!ps.some((p) => p.w.QUAL || p.w.MOAT || p.w.VB), "sin QUAL, MOAT ni VB");
+});
+
+t("referencia justa y baja volatilidad en perfiles cautos", () => {
+  const a = answersFor(1), q = P.evaluate(a);
+  for (const prof of P.PROFILE_ORDER) {
+    const ev = P.withProfile(q, prof), ref = P.referenceWeights(ev, a);
+    near(Object.values(ref).reduce((s, x) => s + x, 0), 1, 1e-9, "referencia suma 100% " + prof);
+    near(ref.VOO, P.MIX[prof].eq, 0.011, "acciones de la referencia " + prof);
+    const ps = P.buildPortfolios(ev, a), cautious = ["conservador", "moderado_conservador", "moderado"].includes(prof);
+    assert.strictEqual(!!ps[0].w.USMV, cautious, "USMV en el sencillo sólo si es cauto: " + prof);
+    for (const p of ps) near(Object.values(p.w).reduce((s, x) => s + x, 0), 1, 1e-9, p.name + " " + prof);
+  }
 });
 
 t("perfil a mano: cambia la mezcla y avisa contra el cuestionario; sin cuestionario usa supuestos generales", () => {
