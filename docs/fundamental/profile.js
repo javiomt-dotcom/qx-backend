@@ -158,17 +158,18 @@
   };
   // Clase de activo de cada ETF que usan los modelos (para la simulación a futuro)
   const ASSET = {
-    VTI: "us", VOO: "us", ESGV: "us", SCHD: "usdiv", QUAL: "usq", MOAT: "usq", VB: "ussmall",
+    VTI: "us", VOO: "us", ESGV: "us", SCHD: "usdiv", QUAL: "usq", MOAT: "usq", JQUA: "usq", USMV: "uslv", VB: "ussmall",
     VXUS: "intl", VEA: "intl", VSGX: "intl", VWO: "em", EWW: "mx",
     BND: "bond", IEF: "bond", TIP: "tips", BIL: "cash", GLD: "gold",
   };
   const NAMES = {
     VTI: "Todo el mercado de EE. UU.", VOO: "S&P 500", ESGV: "EE. UU. con filtro ESG", SCHD: "Dividendos de EE. UU.", QUAL: "Calidad EE. UU.", MOAT: "Ventaja competitiva (Morningstar)",
+    JQUA: "Calidad y rentabilidad EE. UU. (JPMorgan)", USMV: "Mínima volatilidad EE. UU. (iShares)",
     VB: "Empresas pequeñas EE. UU.", VXUS: "Todo el mundo fuera de EE. UU.", VEA: "Países desarrollados fuera de EE. UU.", VSGX: "Mundo fuera de EE. UU. con ESG",
     VWO: "Mercados emergentes", EWW: "México", BND: "Bonos de EE. UU. (todo el mercado)", IEF: "Bonos del Tesoro 7–10 años", TIP: "Bonos ligados a inflación",
     BIL: "T-bills 1–3 meses (equivalente a CETES en dólares)", GLD: "Oro",
   };
-  const KIND = { us: "eq", usdiv: "eq", usq: "eq", ussmall: "eq", intl: "eq", em: "eq", mx: "eq", bond: "bond", tips: "bond", cash: "cash", gold: "gold" };
+  const KIND = { us: "eq", usdiv: "eq", usq: "eq", uslv: "eq", ussmall: "eq", intl: "eq", em: "eq", mx: "eq", bond: "bond", tips: "bond", cash: "cash", gold: "gold" };
 
   function round(w) {
     const out = {}; let tot = 0;
@@ -178,9 +179,24 @@
     return out;
   }
 
-  function buildPortfolios(ev, answers) {
+  function profileMix(ev, answers) {
     const m = { ...MIX[ev.profile] };
-    if (answers.p5 === 1 && m.gold) { m.bond += m.gold; m.gold = 0; }   // sin oro: va a bonos
+    if (answers && answers.p5 === 1 && m.gold) { m.bond += m.gold; m.gold = 0; }   // sin oro: va a bonos
+    return m;
+  }
+  // Perfiles que buscan menos sustos: la mitad de las acciones de EE. UU. va a mínima volatilidad (USMV)
+  const CAUTIOUS = { conservador: 1, moderado_conservador: 1, moderado: 1 };
+
+  // Referencia justa: la misma mezcla del perfil hecha sólo con índices baratos (S&P 500, bonos y T-bills).
+  // Es contra lo que hay que medir cada portafolio; el S&P 500 solo es la referencia sólo del perfil agresivo.
+  function referenceWeights(ev, answers) {
+    const m = profileMix(ev, answers);
+    return round({ VOO: m.eq, BND: m.bond, BIL: m.cash + m.gold });
+  }
+
+  function buildPortfolios(ev, answers) {
+    const m = profileMix(ev, answers);
+    const lowVol = CAUTIOUS[ev.profile] ? 0.5 : 0;
     const intlShare = answers.p2 === 0 ? 0.1 : answers.p2 === 1 ? 0.25 : 0.4;
     const esg = answers.p7 === 0;
     const US = esg ? "ESGV" : "VTI", INTL = esg ? "VSGX" : "VXUS";
@@ -191,21 +207,26 @@
     {
       const w = {};
       const eqUS = m.eq * (1 - intlShare), eqIn = m.eq * intlShare;
-      if (div) { w[US] = eqUS * 0.65; w.SCHD = eqUS * 0.35; } else w[US] = eqUS;
+      const core = eqUS * (1 - lowVol);
+      if (div) { w[US] = core * 0.65; w.SCHD = core * 0.35; } else w[US] = core;
+      if (lowVol) w.USMV = eqUS * lowVol;
       w[INTL] = eqIn * (mx ? 0.8 : 1); if (mx) w.EWW = eqIn * 0.2;
       w.BND = m.bond; w.BIL = m.cash; w.GLD = m.gold;
       out.push({ id: "simple", name: "Sencillo", tag: "pocos fondos, barato y fácil de mantener",
-        why: "Tres o cuatro ETFs amplios cubren miles de empresas y bonos. Es la base que recomiendan la mayoría de los estudios: costo bajo y casi nada que vigilar.", w: round(w) });
+        why: "Tres o cuatro ETFs amplios cubren miles de empresas y bonos. Es la base que recomiendan la mayoría de los estudios: costo bajo y casi nada que vigilar." +
+          (lowVol ? " La mitad de las acciones de EE. UU. va a USMV (mínima volatilidad): en la historia ha tenido caídas más chicas con un rendimiento por riesgo parecido; en mercados muy alcistas rinde menos." : ""), w: round(w) });
     }
-    // 2. Diversificado: más piezas (pequeñas, emergentes, bonos ligados a inflación)
+    // 2. Diversificado: más piezas (emergentes, bonos ligados a inflación). Sin VB: las pequeñas sin filtro no tienen premio comprobado.
     {
       const w = {};
       const eqUS = m.eq * (1 - intlShare), eqIn = m.eq * intlShare;
-      w.VOO = eqUS * (div ? 0.55 : 0.8); w.VB = eqUS * 0.2; if (div) w.SCHD = eqUS * 0.25;
+      const core = eqUS * (1 - lowVol);
+      w.VOO = core * (div ? 0.7 : 1); if (div) w.SCHD = core * 0.3; if (lowVol) w.USMV = eqUS * lowVol;
       w.VEA = eqIn * (mx ? 0.6 : 0.7); w.VWO = eqIn * 0.3; if (mx) w.EWW = eqIn * 0.1;
       w.BND = m.bond * 0.5; w.IEF = m.bond * 0.2; w.TIP = m.bond * 0.3; w.BIL = m.cash; w.GLD = m.gold;
-      out.push({ id: "div", name: "Diversificado", tag: "más regiones, tamaños y tipos de bono",
-        why: "Agrega empresas pequeñas, mercados emergentes y bonos que protegen contra inflación. No garantiza más rendimiento, pero reparte mejor los riesgos.", w: round(w) });
+      out.push({ id: "div", name: "Diversificado", tag: "más regiones y tipos de bono",
+        why: "Agrega países desarrollados y emergentes por separado y bonos que protegen contra inflación. No garantiza más rendimiento, pero reparte mejor los riesgos." +
+          (lowVol ? " Igual que en el Sencillo, la mitad de las acciones de EE. UU. va a mínima volatilidad (USMV)." : ""), w: round(w) });
     }
     // 3. Núcleo + satélite de calidad (Buffett), si el conocimiento y el perfil lo permiten
     {
@@ -214,9 +235,9 @@
         const base = out[0].w, w = {};
         const eqTot = Object.entries(base).filter(([k]) => KIND[ASSET[k]] === "eq").reduce((s, [, v]) => s + v, 0);
         for (const [k, v] of Object.entries(base)) w[k] = KIND[ASSET[k]] === "eq" ? v * (1 - sat / eqTot) : v;
-        w.QUAL = sat * 0.5; w.MOAT = sat * 0.5;
-        out.push({ id: "sat", name: "Núcleo + satélite de calidad", tag: `${Math.round(sat * 100)}% en empresas de calidad estilo Buffett`,
-          why: `El núcleo es el portafolio Sencillo. El satélite (${Math.round(sat * 100)}%) va a empresas de calidad: aquí se simula con los ETFs QUAL y MOAT; si te gusta elegir, puede ser tu propia canasta de acciones que pasen la prueba Buffett. Ojo: en el backtest de 10 años la calidad sola no le ganó al S&P 500.`, w: round(w), sat });
+        w.JQUA = (w.JQUA || 0) + sat * 0.5; w.USMV = (w.USMV || 0) + sat * 0.5;
+        out.push({ id: "sat", name: "Núcleo + satélite de factores", tag: `${Math.round(sat * 100)}% en rentabilidad y baja volatilidad`,
+          why: `El núcleo es el portafolio Sencillo. El satélite (${Math.round(sat * 100)}%) va a empresas rentables y de calidad (JQUA) y de baja volatilidad (USMV): son las dos inclinaciones que siguieron dando algo después de publicarse en los estudios (1963–2026). Ojo: sin ventaja comprobada; en 30 fondos reales ninguno le ganó al S&P 500 con significancia. Por eso es un satélite chico, no el núcleo.`, w: round(w), sat });
       } else {
         const w = { ...out[0].w };
         const fromEq = Object.entries(w).filter(([k]) => KIND[ASSET[k]] === "eq");
@@ -281,8 +302,8 @@
 
   // Supuestos a futuro (rendimiento anual nominal en dólares). Más bajos que los últimos 10 años a propósito:
   // en 2016-2026 las acciones de EE. UU. rindieron muy por arriba de su promedio de largo plazo.
-  const EXPECTED = { us: 0.065, usdiv: 0.065, usq: 0.065, ussmall: 0.07, intl: 0.07, em: 0.075, mx: 0.075, bond: 0.043, tips: 0.042, cash: null, gold: 0.04 };
-  const VOL_FALLBACK = { us: 0.16, usdiv: 0.15, usq: 0.15, ussmall: 0.21, intl: 0.16, em: 0.2, mx: 0.24, bond: 0.06, tips: 0.06, cash: 0.005, gold: 0.15 };
+  const EXPECTED = { us: 0.065, usdiv: 0.065, usq: 0.065, uslv: 0.06, ussmall: 0.07, intl: 0.07, em: 0.075, mx: 0.075, bond: 0.043, tips: 0.042, cash: null, gold: 0.04 };
+  const VOL_FALLBACK = { us: 0.16, usdiv: 0.15, usq: 0.15, uslv: 0.12, ussmall: 0.21, intl: 0.16, em: 0.2, mx: 0.24, bond: 0.06, tips: 0.06, cash: 0.005, gold: 0.15 };
 
   function mulberry(seed) { return function () { seed |= 0; seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   function gauss(rnd) { let u = 0, v = 0; while (u === 0) u = rnd(); while (v === 0) v = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
@@ -359,6 +380,6 @@
     return mix;
   }
 
-  const QXP = { SECTIONS, QUESTIONS, PROFILE_ORDER, PROFILE_TEXT, MIX, ASSET, NAMES, KIND, EXPECTED, evaluate, withProfile, missing, buildPortfolios, monthly, backtest, monteCarlo, mixOf };
+  const QXP = { SECTIONS, QUESTIONS, PROFILE_ORDER, PROFILE_TEXT, MIX, ASSET, NAMES, KIND, EXPECTED, evaluate, withProfile, missing, buildPortfolios, referenceWeights, monthly, backtest, monteCarlo, mixOf };
   if (typeof module !== "undefined" && module.exports) module.exports = QXP; else root.QXP = QXP;
 })(typeof self !== "undefined" ? self : this);

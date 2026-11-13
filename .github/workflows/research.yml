@@ -13,6 +13,7 @@ on:
         options:
           - research.py
           - research_bias.py
+          - research_portfolios.py
 
 jobs:
   research:
@@ -29,3 +30,11 @@ jobs:
           ALPACA_KEY_ID: ${{ secrets.ALPACA_KEY_ID || secrets.ALPACA_KEY }}
           ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY || secrets.ALPACA_SECRETO }}
       - run: grep -v '^\[' research.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: research
+          path: |
+            research.md
+            research_portfolios.json
+          if-no-files-found: ignore
