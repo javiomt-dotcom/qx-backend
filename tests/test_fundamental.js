@@ -77,4 +77,81 @@ t("portafolio: serie con pesos de hoy y aporte al riesgo suma 1", () => {
   near(Object.values(rc.contrib).reduce((s, x) => s + x, 0), 1, 1e-9, "aportes");
 });
 
+const P = require("../docs/fundamental/profile.js");
+const answersFor = (level) => {   // 0 = la opción más prudente en todo, 1 = la más arriesgada
+  const a = {};
+  for (const q of P.QUESTIONS) {
+    if (q.kind === "num") a[q.id] = q.id === "f6" ? 25000 : 300;
+    else if (q.kind === "many") a[q.id] = [0, 1];
+    else {
+      const order = q.opts.map((o, i) => [o[1], i]).sort((x, y) => x[0] - y[0]);
+      a[q.id] = (level ? order[order.length - 1] : order[0])[1];
+    }
+  }
+  return a;
+};
+
+t("perfil: respuestas prudentes dan conservador y arriesgadas dan agresivo", () => {
+  assert.strictEqual(P.evaluate(answersFor(0)).profile, "conservador");
+  const ev = P.evaluate(answersFor(1));
+  assert.strictEqual(ev.profile, "agresivo"); assert.strictEqual(ev.amount, 25000); assert.strictEqual(ev.monthly, 300);
+  assert.strictEqual(P.missing({}).length, P.QUESTIONS.filter((q) => q.kind === "one").length);
+  assert.strictEqual(P.missing(answersFor(1)).length, 0);
+});
+
+t("perfil: el plazo corto y la falta de fondo de emergencia limitan el riesgo", () => {
+  const a = answersFor(1);
+  assert.strictEqual(P.evaluate({ ...a, o2: 0 }).profile, "conservador");
+  assert.strictEqual(P.evaluate({ ...a, o2: 1 }).profile, "moderado_conservador");
+  const sinFondo = P.evaluate({ ...a, f2: 0 });
+  assert.strictEqual(sinFondo.profile, "moderado"); assert(sinFondo.caps.some((n) => /emergencia/.test(n)) && sinFondo.notes.some((n) => /3 a 6 meses/.test(n)));
+});
+
+t("portafolios: 3 por perfil, pesos suman 100% y siguen la mezcla del perfil", () => {
+  for (const lvl of [0, 1]) {
+    const a = answersFor(lvl), ev = P.evaluate(a), ps = P.buildPortfolios(ev, a);
+    assert.strictEqual(ps.length, 3);
+    for (const p of ps) {
+      near(Object.values(p.w).reduce((s, x) => s + x, 0), 1, 1e-9, p.name);
+      for (const s of Object.keys(p.w)) assert(P.ASSET[s], "ETF sin clase: " + s);
+    }
+    near(ps[0].mix.eq, P.MIX[ev.profile].eq, 0.011, "acciones del sencillo");
+  }
+  const a = answersFor(1), ps = P.buildPortfolios(P.evaluate(a), a);
+  assert.strictEqual(ps[2].id, "sat"); near(ps[2].w.QUAL + ps[2].w.MOAT, 0.2, 0.011, "satélite máximo 20%");
+});
+
+const fakeSeries = (days, f) => ({ t: days, c: days.map((_, i) => 100 * f(i)) });
+const bdays = Array.from({ length: 2600 }, (_, i) => new Date(Date.UTC(2016, 0, 4 + Math.floor(i * 7 / 5)))).map((d) => d.toISOString().slice(0, 10));
+
+t("simulación histórica: aportes, rendimiento compuesto y SPY con las mismas fechas", () => {
+  const S = { SPY: fakeSeries(bdays, (i) => 1.0003 ** i), A: fakeSeries(bdays, (i) => 1.0002 ** i), B: fakeSeries(bdays, () => 1) };
+  const bt = P.backtest(S, { A: 0.5, B: 0.5 }, { initial: 1000, monthly: 100 });
+  assert(bt && bt.months > 100);
+  near(bt.contributed, 1000 + 100 * bt.months, 1e-6, "aportado");
+  assert(bt.final > bt.contributed && bt.finalSpy > bt.final, "SPY sube más rápido");
+  assert(bt.maxDD > -1e-9, "sin caídas");
+  const solo = P.backtest(S, { A: 1 }, { initial: 1000 });
+  near(solo.cagr, P.backtest(S, { A: 0.5, B: 0.5 }, { initial: 1000 }).cagr * 2, 0.01, "mitad en efectivo, mitad del rendimiento (aprox.)");
+});
+
+t("Monte Carlo: percentiles ordenados y efectivo puro sin pérdidas", () => {
+  let x = 100; const walk = bdays.map((_, i) => (x *= 1 + 0.012 * Math.sin(i * 0.9) + 0.0003));
+  const S = { VTI: { t: bdays, c: walk }, BND: fakeSeries(bdays, (i) => 1 + 0.00005 * i), BIL: fakeSeries(bdays, (i) => 1 + 0.0001 * i) };
+  const mc = P.monteCarlo(S, { VTI: 0.6, BND: 0.4 }, { years: 10, initial: 10000, monthly: 0, paths: 500, rf: 0.04 });
+  assert(mc.p10 < mc.p50 && mc.p50 < mc.p90, "percentiles");
+  assert.strictEqual(mc.bands.length, 11);
+  near(mc.expRet, 0.6 * 0.065 + 0.4 * 0.043, 1e-12, "rendimiento esperado");
+  const cash = P.monteCarlo(S, { BIL: 1 }, { years: 5, initial: 1000, paths: 200, rf: 0.04 });
+  assert(cash.probBelow < 0.05 && cash.probDD30 === 0, "efectivo");
+  const again = P.monteCarlo(S, { VTI: 0.6, BND: 0.4 }, { years: 10, initial: 10000, monthly: 0, paths: 500, rf: 0.04 });
+  assert.strictEqual(again.p50, mc.p50, "misma semilla, mismo resultado");
+});
+
+t("mezcla actual por clase de activo", () => {
+  const hs = [{ symbol: "VOO", value: 600 }, { symbol: "BND", value: 200 }, { symbol: "AAPL", value: 100, prof: { country: "US" } }];
+  const m = P.mixOf(hs, 100, Q.assetBucket);
+  near(m.eq, 0.7, 1e-12, "acciones"); near(m.bond, 0.2, 1e-12, "bonos"); near(m.cash, 0.1, 1e-12, "efectivo");
+});
+
 console.log(`\n${n} pruebas OK`);

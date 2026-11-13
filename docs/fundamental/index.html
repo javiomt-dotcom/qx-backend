@@ -155,10 +155,41 @@ details.gl dt{color:var(--fg);font-weight:600;margin-top:8px}
 details.gl dd{margin:2px 0 0;color:var(--muted);font-size:11.5px}
 section[hidden]{display:none}
 
+/* mi perfil */
+.badge{border:1px solid #6b5124;color:var(--amber);background:none;border-radius:3px;padding:4px 8px;font:600 12px var(--display);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
+.banner{margin-top:10px;padding:8px 10px;border:1px solid #6b5124;background:#1d1a12;color:var(--warn);font-size:12px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.banner[hidden]{display:none}
+@media (max-width:600px){.top .brand span{display:none}}
+.prog{height:6px;background:var(--rule-soft);border-radius:3px;margin-top:8px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--amber);transition:width .2s}
+.q{padding:10px 0;border-bottom:1px solid var(--rule-soft)}
+.q:last-child{border-bottom:0}
+.q.miss .qt{color:var(--down)}
+.qt{font-size:13px;color:var(--fg);margin-bottom:7px;line-height:1.4}
+.qn{display:inline-block;min-width:22px;color:var(--amber);font-weight:600}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opt{background:var(--ink);border:1px solid var(--rule);border-radius:3px;padding:8px 11px;text-align:left;cursor:pointer;color:var(--muted);font-size:12.5px;line-height:1.3}
+.opt:hover{border-color:var(--dim)}
+.opt.on{border-color:var(--amber);color:var(--fg);background:#1d1a12}
+@media (max-width:600px){.opts{flex-direction:column}.opt{width:100%}}
+.qend{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin:12px 0}
+.qend .err{flex:1 1 100%;text-align:right;margin:0}
+.pfhead{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start}
+@media (max-width:700px){.pfhead{grid-template-columns:minmax(0,1fr)}}
+.ladder{display:flex;flex-direction:column;gap:3px;min-width:190px}
+.ladder span{font-size:11px;color:var(--dim);padding:3px 8px;border-left:3px solid var(--rule)}
+.ladder span.on{color:var(--amber);border-left-color:var(--amber);background:var(--panel-2);font-weight:600}
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:960px){.cards{grid-template-columns:minmax(0,1fr)}}
+.card.sel{border-color:var(--amber)}
+.stack{display:flex;height:12px;border-radius:2px;overflow:hidden;margin-top:6px;background:var(--rule-soft)}
+.stack i{display:block;height:100%}
+.card td{padding:4px 5px}
+
 nav.mob{display:none}
 @media (max-width:700px){
   .tabs{display:none}
-  nav.mob{position:fixed;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(3,1fr);background:rgba(10,15,26,.96);
+  nav.mob{position:fixed;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(4,1fr);background:rgba(10,15,26,.96);
     backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--rule);padding:4px 4px calc(var(--safe-b) + 4px);z-index:10}
   nav.mob button{background:none;border:0;border-top:2px solid transparent;padding:7px 0 5px;font:600 13px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px}
   nav.mob button svg{width:20px;height:20px}
@@ -188,13 +219,22 @@ nav.mob{display:none}
   <div class="top">
     <div class="brand"><b>QX</b><span>Fundamental</span></div>
     <div class="tabs" role="tablist" id="tabs">
+      <button data-t="perfil">Mi perfil</button>
       <button data-t="buscar" aria-selected="true">Buscar empresa</button>
       <button data-t="port">Mi portafolio</button>
       <button data-t="fav">Favoritos</button>
     </div>
-    <button class="btn sm" id="bOut">Salir</button>
+    <div style="display:flex;gap:6px;align-items:center;min-width:0">
+      <button class="badge" id="pBadge" hidden></button>
+      <button class="btn sm" id="bOut">Salir</button>
+    </div>
   </div>
   <div class="disc">Herramienta educativa. Nada de esto es una recomendación de compra o venta. Datos: SEC EDGAR, Finnhub, Alpaca y FRED.</div>
+  <div class="banner" id="pfBanner" hidden><span>Aún no contestas tu perfil de inversionista. Con él se ajustan las recomendaciones y te armo 3 portafolios modelo.</span><button class="btn sm pri" id="pfBannerGo">Contestar</button></div>
+
+  <section id="t-perfil" hidden>
+    <div id="perfOut"></div>
+  </section>
 
   <section id="t-buscar">
     <div class="search">
@@ -211,7 +251,7 @@ nav.mob{display:none}
       <div class="ph"><h2>Tus posiciones</h2><small id="portAt"></small></div>
       <div class="pb">
         <div class="form" style="grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto">
-          <div><span class="lbl">Tu perfil de inversionista</span>
+          <div><span class="lbl">Tu perfil de inversionista <a href="#" id="profFrom" style="text-transform:none;letter-spacing:0"></a></span>
             <select class="in" id="prof">
               <option value="conservador">Conservador</option>
               <option value="moderado_conservador">Moderado conservador</option>
@@ -257,6 +297,7 @@ nav.mob{display:none}
 </div>
 
 <nav class="mob" id="mob" hidden>
+  <button data-t="perfil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.2-4 4.3-6 8-6s6.8 2 8 6"/></svg>Perfil</button>
   <button data-t="buscar" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>Buscar</button>
   <button data-t="port"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M14 3.2A9 9 0 0 1 20.8 10H14z"/></svg>Portafolio</button>
   <button data-t="fav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>Favoritos</button>
@@ -264,6 +305,7 @@ nav.mob{display:none}
 
 <script src="../vendor/supabase.js"></script>
 <script src="calc.js"></script>
+<script src="profile.js"></script>
 <script>
 const SB_URL = "https://jswqsaogomxyjtyhoucn.supabase.co";
 const SB_KEY = "sb_publishable_xx5KN3nM6KwkNn6Af_LBDw_2BtJ8XEn";   // llave pública: los datos sólo salen con una sesión autorizada
@@ -301,7 +343,7 @@ async function boot(){
   await loadUserData();
   const h = (location.hash||"").slice(1).toUpperCase();
   renderRecent();
-  setTab(SYM.test(h) ? "buscar" : store.get("fa_tab","buscar"));
+  setTab(SYM.test(h) ? "buscar" : store.get("fa_tab", EV ? "buscar" : "perfil"));
   if (SYM.test(h)) analyze(h);
 }
 $("bIn").onclick = async () => {
@@ -321,12 +363,15 @@ async function loadUserData(){
   if (s.data) SET = s.data;
   POS = p.data || []; FAV = f.data || [];
   $("prof").value = SET.profile; $("cash").value = SET.cash ? String(SET.cash) : "";
+  initProfile();
 }
 
 function setTab(t){
   TAB = t; store.set("fa_tab", t);
   for (const b of document.querySelectorAll("[data-t]")) b.setAttribute("aria-selected", b.dataset.t===t ? "true" : "false");
-  for (const id of ["buscar","port","fav"]) $("t-"+id).hidden = id !== t;
+  for (const id of ["perfil","buscar","port","fav"]) $("t-"+id).hidden = id !== t;
+  $("pfBanner").hidden = !!EV || t === "perfil";
+  if (t==="perfil") renderPerfil();
   if (t==="port") loadPortfolio();
   if (t==="fav") loadFav();
 }
@@ -426,7 +471,7 @@ function verdicts(C, dv){
   if (risk){
     const b = risk.beta5m ?? C.d.metric?.beta;
     out.push({k:"Riesgo de mercado", v: ok(b) ? `Beta ${b.toFixed(2)}` : "—", c: !ok(b) ? "mut" : b > 1.3 ? "down" : b < 0.8 ? "up" : "amb",
-      s:`Volatilidad ${pct(risk.s3?.vol,0)} al año; peor caída en 5 años ${pct(risk.maxDD5,0)}.` + (ok(b) ? ` Si el S&P cae 10%, tiende a caer ~${(b*10).toFixed(0)}%.` : "")});
+      s:`Volatilidad ${pct(risk.s3?.vol,0)} al año; peor caída en 5 años ${pct(risk.maxDD5,0)}.` + (ok(b) ? ` Si el S&P cae 10%, tiende a caer ~${(b*10).toFixed(0)}%.` : "") + profileFit(b)});
   }
   return out;
 }
@@ -661,7 +706,7 @@ $("bSet").onclick = async () => {
   const row = {user_id: USER.id, profile: $("prof").value, cash, updated_at: new Date().toISOString()};
   const {error} = await sb.from("fa_settings").upsert(row);
   if (error){ $("pErr").textContent = error.message; return; }
-  SET = row; renderPortfolio();
+  SET = {...SET, ...row}; badge(); renderPortfolio();
 };
 $("posF").onsubmit = async (e) => {
   e.preventDefault(); $("pErr").textContent = "";
@@ -769,6 +814,20 @@ function renderPortfolio(){
     recs.map(r => `<div class="rec">${icon[r.level]}<div><b>${esc(r.title)}</b><p>${esc(r.text)}</p></div></div>`).join("")
     + `<p class="note">Reglas claras y educativas (concentración, sector, región, renta fija, beta según tu perfil, correlación, riesgo por posición y comparación honesta contra el S&P 500). No son señales de compra o venta.</p>`);
 
+  // mezcla actual contra el portafolio recomendado del cuestionario
+  if (EV && PFS){
+    const tgt = PFS[PSEL], cur = QXP.mixOf(hs, cash, QX.assetBucket);
+    const L = {eq:"Acciones", bond:"Bonos", cash:"Efectivo / CETES", gold:"Oro", other:"Otros (cripto, apalancados)"};
+    const rows = Object.keys(L).filter(k => (cur[k]||0) > 0.001 || (tgt.mix[k]||0) > 0.001).map(k => {
+      const d = (cur[k]||0) - (tgt.mix[k]||0), usd = d * port;
+      const read = Math.abs(d) < 0.05 ? `<span class="ok">en línea</span>` : d > 0 ? `tienes ${money(Math.abs(usd),0)} de más` : `te faltan ${money(Math.abs(usd),0)}`;
+      return `<tr><td class="k">${L[k]}</td><td>${pct(cur[k]||0,0)}</td><td class="mut">${pct(tgt.mix[k]||0,0)}</td><td class="read">${read}</td></tr>`;
+    }).join("");
+    h += panel("Tu mezcla contra tu portafolio modelo", `${esc(tgt.name)} · perfil ${esc(PLABEL(EV.profile))}`,
+      `<div class="scroll"><table><tr><th>Clase</th><th>Tienes</th><th>Modelo</th><th class="l">Lectura</th></tr>${rows}</table></div>
+      <p class="note">El modelo sale de tu cuestionario (pestaña Mi perfil). Diferencias menores a 5 puntos no importan. Para acercarte al modelo, lo más sencillo es dirigir tus nuevos aportes a lo que falta en vez de vender.</p>`);
+  }
+
   // tabla comparativa y composición
   const row = (k, a, b, read) => `<tr><td class="k">${k}</td><td>${a}</td><td class="mut">${b}</td><td class="read">${read}</td></tr>`;
   h += `<div class="grid2">` + panel("Tu portafolio contra el S&P 500", st ? `${st.years.toFixed(1)} años con los pesos de hoy` : "", st ? `<div class="scroll"><table><tr><th>Métrica</th><th>Tú</th><th>SPY</th><th class="l">Cómo leerlo</th></tr>
@@ -801,6 +860,241 @@ function renderPortfolio(){
   }
   if (PH.errors?.length) h += `<p class="note">Avisos: ${esc(PH.errors.join("; "))}</p>`;
   $("portOut").innerHTML = h;
+}
+
+// ---------------- mi perfil ----------------
+let ANS = {}, EV = null, PFS = null, PSEL = 0, EDIT = false;
+let SIMD = null, SIMKEY = "", SIMERR = "", SIMIN = null, simBusy = false;
+const PLABEL = (p) => QX.PROFILES[p]?.label || p;
+const HZ_YEARS = [1, 3, 5, 10, 20];
+const LEVELS = ["Principiante", "Básico", "Intermedio", "Avanzado"];
+const MIXL = {eq:["Acciones","#f0b44c"], bond:["Bonos","#6cc4ff"], cash:["Efectivo","#8a9bb6"], gold:["Oro","#e9cf98"]};
+const kmoney = (v) => !ok(v) ? "—" : (v<0?"-":"") + "$" + (Math.abs(v) >= 1e6 ? (Math.abs(v)/1e6).toFixed(2) + "M" : Math.abs(v) >= 1e4 ? (Math.abs(v)/1e3).toFixed(0) + "k" : fx(Math.abs(v),0));
+
+function initProfile(){
+  const saved = SET.answers && typeof SET.answers === "object" && !QXP.missing(SET.answers).length ? SET.answers : null;
+  ANS = saved ? {...saved} : store.get("fa_ans_draft", {}) || {};
+  EV = saved ? QXP.evaluate(saved) : null;       // se recalcula con la versión actual de las reglas
+  PFS = EV ? QXP.buildPortfolios(EV, saved) : null;
+  PSEL = PFS ? Math.max(0, PFS.findIndex(p => p.id === SET.chosen_portfolio)) : 0;
+  SIMIN = null;
+  badge();
+}
+function badge(){
+  const b = $("pBadge");
+  b.hidden = false;
+  b.textContent = EV ? "Perfil: " + PLABEL(EV.profile) : "Contesta tu perfil";
+  b.title = EV ? "Tu perfil de inversionista (toca para verlo)" : "Contesta el cuestionario de perfil";
+  const pf = $("profFrom");
+  if (pf) pf.textContent = !EV ? "· contesta el cuestionario" : SET.profile === EV.profile ? "· según tu cuestionario" : `· tu cuestionario dice ${PLABEL(EV.profile)}`;
+}
+$("pBadge").onclick = () => setTab("perfil");
+$("pfBannerGo").onclick = () => setTab("perfil");
+$("profFrom").onclick = (e) => { e.preventDefault(); setTab("perfil"); };
+
+// Ajuste de una acción (Buscar) al perfil: el rango de beta es para el portafolio completo
+function profileFit(b){
+  if (!ok(b) || !SET.profile) return "";
+  const P = QX.PROFILES[SET.profile]; if (!P) return "";
+  if (b > P.beta[1] + 0.2) return ` Para tu perfil ${P.label} (beta de portafolio ${P.beta[0]}–${P.beta[1]}) es más movida de lo que te toca: si la compras, que pese poco (máx. ${pct(P.maxStock,0)}).`;
+  if (b < P.beta[0]) return ` Más tranquila que el rango de tu perfil ${P.label}.`;
+  return ` Encaja con el rango de tu perfil ${P.label} (beta ${P.beta[0]}–${P.beta[1]}).`;
+}
+
+function renderPerfil(){
+  if (!EV || EDIT) renderQuiz(); else renderResult();
+}
+
+// ---- cuestionario ----
+const REQUIRED = QXP.QUESTIONS.filter(q => q.kind === "one");
+function qHtml(q, n){
+  const a = ANS[q.id];
+  const body = q.kind === "num"
+    ? `<input class="in qnum" data-q="${q.id}" inputmode="decimal" placeholder="${esc(q.ph || "")}" value="${a != null ? esc(a) : ""}" style="max-width:220px">`
+    : `<div class="opts">${q.opts.map((o, i) => {
+        const on = q.kind === "many" ? Array.isArray(a) && a.includes(i) : a === i;
+        return `<button type="button" class="opt${on ? " on" : ""}" data-q="${q.id}" data-i="${i}" aria-pressed="${on}">${esc(o[0])}</button>`;
+      }).join("")}</div>`;
+  return `<div class="q" id="q-${q.id}"><div class="qt"><span class="qn">${n}.</span> ${esc(q.q)}${q.kind !== "one" ? ' <span class="mut">(opcional)</span>' : ""}</div>${body}</div>`;
+}
+function quizProgress(){
+  const done = REQUIRED.filter(q => ANS[q.id] != null).length;
+  if ($("qBar")) $("qBar").style.width = (done / REQUIRED.length * 100).toFixed(0) + "%";
+  if ($("qProg")) $("qProg").textContent = `${done} de ${REQUIRED.length} obligatorias`;
+}
+function renderQuiz(){
+  let n = 0;
+  let h = panel("Conoce tu perfil de inversionista", `<span id="qProg"></span>`,
+    `<p class="note" style="margin-top:2px">${QXP.QUESTIONS.length} preguntas en 5 partes (unos 7 minutos): qué tanto sabes, para qué es el dinero, tu situación, cómo reaccionas a las caídas y tus gustos. Con eso calculo tu perfil de riesgo, armo 3 portafolios modelo y simulo cómo les habría ido desde 2016 y qué rango de resultados esperar. Sólo tú ves tus respuestas.</p>
+     <div class="prog"><i id="qBar" style="width:0"></i></div>`);
+  for (const sec of QXP.SECTIONS) h += panel(esc(sec.title), esc(sec.intro), sec.qs.map(q => qHtml(q, ++n)).join(""));
+  h += `<div class="qend"><div class="err" id="qErr"></div>${EV ? `<button class="btn" id="qCancel">Cancelar</button>` : ""}<button class="btn pri" id="qGo">Ver mi perfil</button></div>`;
+  $("perfOut").innerHTML = h;
+  quizProgress();
+  $("perfOut").onclick = (e) => {
+    const b = e.target.closest(".opt"); if (!b) return;
+    const q = QXP.QUESTIONS.find(x => x.id === b.dataset.q), i = +b.dataset.i;
+    if (q.kind === "many"){
+      const cur = new Set(Array.isArray(ANS[q.id]) ? ANS[q.id] : []);
+      cur.has(i) ? cur.delete(i) : cur.add(i); ANS[q.id] = [...cur].sort((x, y) => x - y);
+      b.classList.toggle("on"); b.setAttribute("aria-pressed", b.classList.contains("on"));
+    } else {
+      ANS[q.id] = i;
+      for (const o of b.parentNode.children){ const on = o === b; o.classList.toggle("on", on); o.setAttribute("aria-pressed", on); }
+      $("q-" + q.id).classList.remove("miss");
+    }
+    store.set("fa_ans_draft", ANS); quizProgress();
+  };
+  for (const inp of $("perfOut").querySelectorAll(".qnum")) inp.oninput = () => {
+    const v = parseFloat(inp.value.replace(/[^0-9.]/g, ""));
+    ANS[inp.dataset.q] = isFinite(v) && v >= 0 ? v : null; store.set("fa_ans_draft", ANS);
+  };
+  $("qGo").onclick = saveProfile;
+  if ($("qCancel")) $("qCancel").onclick = () => { EDIT = false; ANS = {...SET.answers}; renderPerfil(); window.scrollTo(0, 0); };
+}
+async function saveProfile(){
+  const miss = QXP.missing(ANS);
+  if (miss.length){
+    $("qErr").textContent = `Falta${miss.length > 1 ? "n" : ""} ${miss.length} pregunta${miss.length > 1 ? "s" : ""} (marcadas en rojo).`;
+    for (const id of miss) $("q-" + id).classList.add("miss");
+    $("q-" + miss[0]).scrollIntoView({behavior: "smooth", block: "center"});
+    return;
+  }
+  const ev = QXP.evaluate(ANS);
+  const now = new Date().toISOString();
+  const row = {user_id: USER.id, profile: ev.profile, cash: +SET.cash || 0, answers: ANS, updated_at: now, profile_at: now, chosen_portfolio: null,
+    result: {profile: ev.profile, score: ev.score, cap: ev.cap, will: ev.will, know: ev.know, level: ev.level, caps: ev.caps, notes: ev.notes}};
+  $("qGo").disabled = true; $("qErr").textContent = "";
+  const {error} = await sb.from("fa_settings").upsert(row);
+  $("qGo").disabled = false;
+  if (error){ $("qErr").textContent = "No se guardó: " + error.message; return; }
+  SET = {...SET, ...row}; store.set("fa_ans_draft", null);
+  $("prof").value = ev.profile; EDIT = false;
+  initProfile(); $("pfBanner").hidden = true;
+  renderPerfil(); window.scrollTo(0, 0);
+}
+
+// ---- resultado, portafolios y simulación ----
+function stackHtml(mix){
+  const parts = Object.entries(mix).filter(([, v]) => v > 0.001);
+  return `<div class="stack">${parts.map(([k, v]) => `<i style="width:${(v*100).toFixed(1)}%;background:${MIXL[k][1]}"></i>`).join("")}</div>
+    <div class="legend" style="flex-wrap:wrap;gap:4px 12px">${parts.map(([k, v]) => `<span><i style="background:${MIXL[k][1]};height:8px;width:8px"></i>${MIXL[k][0]} ${pct(v,0)}</span>`).join("")}</div>`;
+}
+function renderResult(){
+  const ev = EV, P = QX.PROFILES[ev.profile];
+  if (!SIMIN) SIMIN = {amount: ev.amount, monthly: ev.monthly, years: HZ_YEARS[ANS.o2] ?? 10};
+  const meter = (k, v) => `<div class="row"><span>${k}</span><div class="bar"><i style="width:${(v*100).toFixed(0)}%"></i></div><span>${(v*100).toFixed(0)}/100</span></div>`;
+  const item = (icon, t) => `<div class="rec">${icon}<div><p>${esc(t)}</p></div></div>`;
+  let h = panel("Tu perfil de inversionista", SET.profile_at ? "contestado el " + new Date(SET.profile_at).toLocaleDateString("es-MX", {day:"numeric", month:"long", year:"numeric"}) : "",
+    `<div class="pfhead"><div><div class="lbl">Resultado</div><div class="big amb">${esc(PLABEL(ev.profile))}</div>
+       <p class="note" style="margin-top:2px">${esc(ev.text)}</p>
+       <div class="bars" style="margin-top:10px">${meter("Capacidad", ev.cap)}${meter("Disposición", ev.will)}${meter("Conocimiento", ev.know)}</div></div>
+     <div class="ladder">${QXP.PROFILE_ORDER.map((p, i) => `<span class="${i === ev.idx ? "on" : ""}">${esc(PLABEL(p))}</span>`).join("")}</div></div>
+     <p class="note">Experiencia: <b>${LEVELS[ev.level]}</b>. Capacidad es lo que tu plazo, ingresos y ahorros permiten; disposición es lo que aguantarías sin vender. Pesa más la más baja de las dos. Con este perfil, tu portafolio debería tener una beta de ${P.beta[0]} a ${P.beta[1]}${P.minBonds > 0 ? `, al menos ${pct(P.minBonds,0)} en renta fija` : ""} y no más de ${pct(P.maxStock,0)} en una sola acción. Así se configuran las recomendaciones de «Mi portafolio» y la lectura de riesgo en «Buscar».</p>
+     ${ev.caps.length ? `<div class="lbl" style="margin-top:10px">Límites que aplican</div>` + ev.caps.map(c => item(`<span class="lvl amb">◆</span>`, c)).join("") : ""}
+     ${ev.notes.length ? `<div class="lbl" style="margin-top:10px">Para tomar en cuenta</div>` + ev.notes.map(c => item(`<span class="lvl blue">i</span>`, c)).join("") : ""}
+     <div style="margin-top:10px"><button class="btn sm" id="pfRedo">Volver a contestar</button></div>`);
+
+  h += `<div class="p" style="border:0;background:none"><div class="ph" style="background:none;border:0;padding:8px 0 0"><h2>3 portafolios modelo para tu perfil</h2><small>montos para ${money(SIMIN.amount,0)}</small></div></div>`;
+  h += `<div class="cards">` + PFS.map((p, i) => `<div class="p card${i === PSEL ? " sel" : ""}"><div class="ph"><h2>${i+1}. ${esc(p.name)}</h2><small>${esc(p.tag)}</small></div><div class="pb">
+      ${stackHtml(p.mix)}
+      <table style="margin-top:6px">${Object.entries(p.w).sort((a, b) => b[1] - a[1]).map(([s, w]) => `<tr><td><a class="sym" href="#${s}" data-an="${s}">${s}</a><span class="sub">${esc(QXP.NAMES[s] || "")}</span></td><td>${pct(w,0)}</td><td class="mut">${money(w * SIMIN.amount,0)}</td></tr>`).join("")}</table>
+      <p class="note">${esc(p.why)}</p>
+      <button class="btn sm ${i === PSEL ? "pri" : ""}" data-pick="${i}" style="margin-top:8px">${i === PSEL ? "Es el que simulo" : "Simular este"}</button></div></div>`).join("") + `</div>`;
+
+  h += `<div class="p"><div class="ph"><h2>Simulación: ${esc(PFS[PSEL].name)}</h2><small>en dólares, dividendos reinvertidos, rebalanceo mensual</small></div><div class="pb">
+      <div class="form" style="grid-template-columns:repeat(3,minmax(0,1fr)) auto">
+        <div><span class="lbl">Inversión inicial (USD)</span><input class="in" id="sAmt" inputmode="decimal" value="${SIMIN.amount}"></div>
+        <div><span class="lbl">Aporte cada mes (USD)</span><input class="in" id="sMon" inputmode="decimal" value="${SIMIN.monthly}"></div>
+        <div><span class="lbl">Años hacia adelante</span><select class="in" id="sYrs">${[1,3,5,10,15,20,25,30].map(y => `<option value="${y}"${y === SIMIN.years ? " selected" : ""}>${y}</option>`).join("")}</select></div>
+        <div class="go"><button class="btn pri" id="sGo">Simular</button></div></div>
+      <div id="simOut"><p class="mut"><span class="spin"></span>Bajando 10 años de precios de los ETFs…</p></div></div></div>`;
+  h += `<p class="note">Estos portafolios son modelos educativos hechos con reglas fijas a partir de tus respuestas; no son una recomendación personalizada de un asesor registrado. Antes de invertir revisa costos, impuestos en México por invertir en el extranjero y tu situación completa.</p>`;
+  $("perfOut").innerHTML = h;
+  $("perfOut").onclick = null;
+  $("pfRedo").onclick = () => { EDIT = true; ANS = {...(SET.answers || ANS)}; renderPerfil(); window.scrollTo(0, 0); };
+  for (const a of $("perfOut").querySelectorAll("[data-an]")) a.onclick = (e) => { e.preventDefault(); analyze(a.dataset.an); };
+  for (const b of $("perfOut").querySelectorAll("[data-pick]")) b.onclick = async () => {
+    PSEL = +b.dataset.pick; SET.chosen_portfolio = PFS[PSEL].id;
+    sb.from("fa_settings").update({chosen_portfolio: PFS[PSEL].id}).eq("user_id", USER.id).then(() => {});
+    readSimInputs(); renderResult();
+    $("simOut")?.scrollIntoView({behavior: "smooth", block: "start"});
+  };
+  $("sGo").onclick = () => { readSimInputs(); renderResult(); };
+  const syms = [...new Set(["SPY", ...PFS.flatMap(p => Object.keys(p.w))])].sort();
+  if (SIMD && SIMKEY === syms.join(",")) renderSim(); else loadSim(syms);
+}
+function readSimInputs(){
+  if (!$("sAmt")) return;
+  const a = parseFloat($("sAmt").value.replace(/[^0-9.]/g, "")), m = parseFloat($("sMon").value.replace(/[^0-9.]/g, ""));
+  SIMIN = {amount: a > 0 ? a : 10000, monthly: m >= 0 ? m : 0, years: +$("sYrs").value || 10};
+}
+async function loadSim(syms){
+  if (simBusy) return; simBusy = true;
+  try{ SIMD = await call({action:"history", symbols: syms.filter(s => s !== "SPY"), years: 11}); SIMKEY = syms.join(","); SIMERR = ""; }
+  catch(e){ SIMERR = e.message; }
+  simBusy = false;
+  if (TAB === "perfil" && EV && !EDIT) renderSim();
+}
+
+function svgChart(labels, lines, band, fmt){
+  const W = Math.max(300, Math.min(1160, ($("perfOut").clientWidth || 900) - 22)), H = 220, P = {l:58, r:12, t:10, b:22}, n = labels.length;
+  const vals = lines.flatMap(l => l.v).concat(band ? [...band.lo, ...band.hi] : []).filter(ok);
+  const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
+  const X = (i) => P.l + i * (W - P.l - P.r) / Math.max(1, n - 1), Y = (v) => P.t + (hi - v) * (H - P.t - P.b) / span;
+  const pts = (s) => s.map((v, i) => X(i).toFixed(1) + " " + Y(v).toFixed(1));
+  const ticks = [lo, lo + span / 2, hi].map(v => `<text x="${P.l-6}" y="${Y(v)+3}" text-anchor="end" fill="#5f6f8c" font-size="10">${fmt(v)}</text><line x1="${P.l}" x2="${W-P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#1a2740"/>`).join("");
+  const xi = [...new Set([0, Math.floor((n - 1) / 2), n - 1])];
+  const xl = xi.map(i => `<text x="${X(i)}" y="${H-6}" text-anchor="${i === 0 ? "start" : i === n - 1 ? "end" : "middle"}" fill="#5f6f8c" font-size="10">${esc(labels[i])}</text>`).join("");
+  const area = band ? `<path d="M${pts(band.hi).join("L")}L${pts(band.lo).reverse().join("L")}Z" fill="${band.color}" opacity=".16"/>` : "";
+  const ls = lines.map(l => `<path d="M${pts(l.v).join("L")}" fill="none" stroke="${l.color}" stroke-width="${l.w || 1.6}"${l.dash ? ` stroke-dasharray="${l.dash}"` : ""} vector-effect="non-scaling-stroke"/>`).join("");
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img">${ticks}${area}${ls}${xl}</svg>`;
+}
+
+function renderSim(){
+  const el = $("simOut"); if (!el) return;
+  if (SIMERR){ el.innerHTML = `<div class="err">No pude bajar los precios: ${esc(SIMERR)}. Intenta de nuevo en un minuto.</div>`; return; }
+  if (!SIMD) return;
+  const p = PFS[PSEL], o = {initial: SIMIN.amount, monthly: SIMIN.monthly};
+  const bts = PFS.map(x => QXP.backtest(SIMD.series, x.w, o)), bt = bts[PSEL];
+  const spy = QXP.backtest(SIMD.series, {SPY: 1}, o);
+  const rf = SIMD.rf?.t3m ?? 0.04;
+  const kpi = (k, v, s, c = "") => `<div class="kpi"><div class="k">${k}</div><div class="v ${c}">${v}</div><div class="s">${s || ""}</div></div>`;
+  let h = "";
+  if (bt){
+    const ym = (m) => m.slice(0, 7);
+    h += `<div class="lbl" style="margin-top:6px">Así le habría ido desde ${ym(bt.start)} (historia real)</div>
+      <div class="kpis">
+        ${kpi("Habrías terminado con", money(bt.final,0), "aportaste " + money(bt.contributed,0), cls(bt.final - bt.contributed))}
+        ${kpi("Solo S&P 500", money(bt.finalSpy,0), "mismos aportes y fechas")}
+        ${kpi("Rendimiento anual", pct(bt.cagr,1,true), "S&P " + pct(spy?.cagr,1,true))}
+        ${kpi("Peor caída", pct(bt.maxDD,1), "S&P " + pct(spy?.maxDD,1), "down")}
+        ${kpi("Peor año", pct(bt.worstYear.r,1,true), bt.worstYear.y + " · mejor " + bt.bestYear.y + " " + pct(bt.bestYear.r,0,true), cls(bt.worstYear.r))}
+      </div>
+      ${svgChart(bt.path.map(x => x.m), [{v: bt.path.map(x => x.contrib), color:"#5f6f8c", w:1.2, dash:"4 4"}, {v: bt.path.map(x => x.vs), color:"#6cc4ff", w:1.3}, {v: bt.path.map(x => x.v), color:"#f0b44c", w:2}], null, kmoney)}
+      <div class="legend"><span><i style="background:#f0b44c"></i>${esc(p.name)}</span><span><i style="background:#6cc4ff"></i>Sólo S&P 500</span><span><i style="background:#5f6f8c"></i>Lo que aportaste</span></div>
+      <div class="scroll" style="margin-top:10px"><table><tr><th>Portafolio</th><th>Desde</th><th>Rend. anual</th><th>Volatilidad</th><th>Peor caída</th><th>Peor año</th><th>Terminarías con</th></tr>
+        ${bts.map((b, i) => b ? `<tr${i === PSEL ? ' style="background:var(--panel-2)"' : ""}><td class="k">${i+1}. ${esc(PFS[i].name)}</td><td class="mut">${ym(b.start)}</td><td class="${cls(b.cagr)}">${pct(b.cagr,1,true)}</td><td>${pct(b.vol,1)}</td><td class="down">${pct(b.maxDD,1)}</td><td>${pct(b.worstYear.r,1,true)} <span class="mut">${b.worstYear.y}</span></td><td>${money(b.final,0)}</td></tr>` : "").join("")}
+        ${spy ? `<tr><td class="k mut">Sólo S&P 500 (SPY)</td><td class="mut">${ym(spy.start)}</td><td>${pct(spy.cagr,1,true)}</td><td>${pct(spy.vol,1)}</td><td class="down">${pct(spy.maxDD,1)}</td><td>${pct(spy.worstYear.r,1,true)} <span class="mut">${spy.worstYear.y}</span></td><td>${money(spy.final,0)}</td></tr>` : ""}
+      </table></div>
+      <p class="note">Ojo: 2016–2026 fue una década excepcional para la bolsa de EE. UU. (el S&P 500 rindió más de 12% al año, contra ~10% de su promedio histórico) y por eso casi cualquier portafolio con más bonos se ve «peor» aquí. El S&P 500 solo tuvo caídas de ${pct(spy?.maxDD,0)}; la pregunta importante es si tú las habrías aguantado sin vender. Si un ETF todavía no existía, su peso se repartió entre los demás.</p>`;
+  } else h += `<p class="empty">No hay suficiente historia de precios para estos ETFs.</p>`;
+
+  const mc = QXP.monteCarlo(SIMD.series, p.w, {years: SIMIN.years, initial: o.initial, monthly: o.monthly, rf, paths: 2000, seed: 7});
+  const yl = mc.bands.map(b => b.y === 0 ? "hoy" : `año ${b.y}`);
+  h += `<div class="lbl" style="margin-top:16px">Qué podría pasar en los próximos ${SIMIN.years} año${SIMIN.years > 1 ? "s" : ""} (2,000 escenarios)</div>
+    <div class="kpis">
+      ${kpi("Escenario malo", money(mc.p10,0), "1 de cada 10 termina peor", cls(mc.p10 - mc.contributed))}
+      ${kpi("Escenario típico", money(mc.p50,0), "la mitad termina arriba", cls(mc.p50 - mc.contributed))}
+      ${kpi("Escenario bueno", money(mc.p90,0), "1 de cada 10 termina mejor", "up")}
+      ${kpi("Terminar abajo de lo aportado", pct(mc.probBelow,0), "aportarías " + money(mc.contributed,0), mc.probBelow > 0.2 ? "down" : "")}
+      ${kpi("Caída de 30% o más", pct(mc.probDD30,0), "en algún momento del camino", mc.probDD30 > 0.3 ? "down" : "")}
+    </div>
+    ${svgChart(yl, [{v: mc.bands.map(b => o.initial + o.monthly * 12 * b.y), color:"#5f6f8c", w:1.2, dash:"4 4"}, {v: mc.bands.map(b => b.p50), color:"#f0b44c", w:2}, {v: mc.bands.map(b => b.p10), color:"#ff6f6f", w:1.1}, {v: mc.bands.map(b => b.p90), color:"#33cf96", w:1.1}], {lo: mc.bands.map(b => b.p10), hi: mc.bands.map(b => b.p90), color:"#f0b44c"}, kmoney)}
+    <div class="legend" style="flex-wrap:wrap"><span><i style="background:#33cf96"></i>Bueno (90)</span><span><i style="background:#f0b44c"></i>Típico (50)</span><span><i style="background:#ff6f6f"></i>Malo (10)</span><span><i style="background:#5f6f8c"></i>Lo aportado</span></div>
+    <p class="note">Cómo se calcula: cada ETF se mueve con su volatilidad y su correlación reales desde 2016, pero con rendimientos esperados más bajos que los de la última década, a propósito: acciones de EE. UU. 6.5% al año, internacionales 7%, emergentes 7.5%, bonos 4.3%, oro 4% y efectivo a la tasa de hoy (${pct(rf,1)}). Con eso, este portafolio supone ${pct(mc.expRet,1)} al año antes de inflación y comisiones. Son escenarios para entender el rango posible, no un pronóstico: la realidad puede salir fuera de la banda.</p>`;
+  if (SIMD.errors?.length) h += `<p class="note">Avisos de datos: ${esc(SIMD.errors.join("; "))}</p>`;
+  el.innerHTML = h;
 }
 
 // ---------------- favoritos ----------------

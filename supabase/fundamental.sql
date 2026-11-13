@@ -49,3 +49,10 @@ create policy fa_settings_own on public.fa_settings for all to authenticated
 
 grant select, insert, update, delete on public.fa_positions, public.fa_watchlist, public.fa_settings to authenticated;
 revoke all on public.fa_cache from anon, authenticated;
+
+-- Hoja "Mi perfil" (cuestionario del inversionista). Aplicado el 2026-11-13.
+alter table public.fa_settings
+  add column if not exists answers jsonb,          -- respuestas del cuestionario (índices de opción / números)
+  add column if not exists result jsonb,           -- perfil calculado, puntajes y notas
+  add column if not exists profile_at timestamptz, -- cuándo contestó
+  add column if not exists chosen_portfolio text;  -- portafolio recomendado que eligió
