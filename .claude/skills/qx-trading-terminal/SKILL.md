@@ -82,6 +82,7 @@ Los workflows aceptan los nombres de Javier o los estándar: `ALPACA_KEY` (o `AL
 
 - 3 años walk-forward (informe `2026-10-22-modelo.md`): 1 día abrir-cerrar pierde (−56%); swing 5 días mezcla modelo + tendencia +106% (Sharpe 1.36, caída −25%) contra SPY +34%. Cautelas: sesgo de supervivencia, ruido de ±45 puntos entre corridas, 2026 pesa mucho.
 - Sesgo de universo (informe `2026-11-05-sesgo-universo.md`, `research_bias.py`): con el universo de cada día (liquidez de ese día, incluye deslistadas, "grandes" = 500 más negociadas) el swing L baja de +106% a −1.4% contra SPY +32% (beta ~1, alfa −11%/año). K (tendencia sólo grandes) +25%. El +106% era casi todo sesgo. Toda prueba nueva usa el universo de cada día.
+- Buffett (informe `2026-11-12-buffett.md`, `research_buffett.py`, EDGAR de su momento, 2016-07 a 2026-11, universo de cada fecha): calidad sola +258% vs SPY +324% (sin alfa); calidad + margen de seguridad 25% +385% (alfa +2%/año, IC 95% −2.9% a +7.1%, prob. 79%, ~7 empresas, meseta 15/25/35% estable); QUAL/MOAT ≈ SPY; últimos 3 años todas pierden. Sin ventaja comprobada: núcleo en índices, satélite B sólo en papel.
 - Real 22 y 23 de octubre: el modelo de 1 día perdió contra SPY.
 - Noticias (informe `2026-10-28-noticias.md`): IC casi cero; swing + noticias +109.7% vs +109.1% sin ellas (ruido). Filtrar noticias negativas empeora. Decisión: noticias sólo como contexto.
 - Las acciones pequeñas del screener (< $5) perdieron mucho en real (CANG −30%, CMCT −28%); de ahí el tope de 3 fuera del S&P y el precio mínimo de $5.
