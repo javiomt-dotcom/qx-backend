@@ -207,8 +207,8 @@
     //    con el riesgo del perfil, y es también la referencia justa. Acercarse más sólo se logra con más acciones (otro perfil).
     {
       const w = round({ VOO: m.eq, BND: m.bond, BIL: m.cash, GLD: m.gold });
-      out.push({ id: "sp", name: "Pegado al S&P 500", tag: `${Math.round(m.eq * 100)}% en el S&P 500, el resto en bonos y efectivo`,
-        why: `Toda la parte de acciones va al S&P 500 (VOO). Es lo más parecido al S&P 500 que permite tu perfil: sube y baja con él en proporción a tu ${Math.round(m.eq * 100)}% de acciones. Para pegarse todavía más hay que subir de perfil (más acciones), lo que también trae caídas más grandes.`, w });
+      out.push({ id: "sp", name: "Pegado al S&P 500", rec: true, tag: `${Math.round(m.eq * 100)}% en el S&P 500, el resto en bonos y efectivo`,
+        why: `Toda la parte de acciones va al S&P 500 (VOO). Es lo más parecido al S&P 500 que permite tu perfil: sube y baja con él en proporción a tu ${Math.round(m.eq * 100)}% de acciones. Para pegarse todavía más hay que subir de perfil (más acciones), lo que también trae caídas más grandes. Es el recomendado: en nuestra investigación ningún fondo de factores le ganó al índice con significancia, así que lo más simple y barato es la mejor base; los otros tres son alternativas.`, w });
     }
 
     // 1. Sencillo: 3 o 4 fondos
