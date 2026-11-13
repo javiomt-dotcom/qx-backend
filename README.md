@@ -59,6 +59,16 @@ Cada tarde la rutina lee los titulares del día (Alpaca/Benzinga, gratis), los c
 
 El workflow **QX bot** escucha tus mensajes de 7am a 10pm (hora de México) y contesta en segundos: `/lista` (lista swing más reciente), `/posiciones` (listas abiertas, cuánto van y cuándo se venden), `/resultados` (acumulado real contra SPY), `/noticias` (noticias del último cierre) y `/ayuda`. Sólo le contesta a tu chat.
 
+## Tablero fundamental (aparte del trading)
+
+Página `docs/fundamental/` (https://javiomt-dotcom.github.io/qx-backend/fundamental/), con el mismo inicio de sesión que la app. No toca el motor, Telegram ni la app.
+
+- **Buscar empresa:** precio, beta (5 años mensual y 1 año diaria), riesgo contra SPY, múltiplos, DCF editable con sensibilidad y DCF al revés, calidad (ROIC, márgenes), salud (deuda, Piotroski, Altman), prueba Buffett, analistas, próximo reporte e historial de 10 años.
+- **Mi portafolio:** posiciones en `fa_positions`, perfil y efectivo en `fa_settings`; beta, Sharpe, Sortino, volatilidad, peor caída, alfa, VaR, correlaciones, riesgo por posición y recomendaciones educativas.
+- **Favoritos:** `fa_watchlist`, con precio, rango de 52 semanas, P/U, beta, dividendo, margen DCF y tu precio objetivo.
+- Datos: Edge Function `supabase/functions/fundamentals` (Finnhub, SEC EDGAR, Alpaca, FRED), caché en `fa_cache`. Tablas en `supabase/fundamental.sql`. Revisión rápida: `GET .../functions/v1/fundamentals?selftest=1`.
+- Cálculos en `docs/fundamental/calc.js`; pruebas: `node tests/test_fundamental.js`.
+
 ## Correr en tu computadora
 
 ```bash
