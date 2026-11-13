@@ -140,10 +140,12 @@ t("perfil: el plazo corto y la falta de fondo de emergencia limitan el riesgo", 
   assert.strictEqual(sinFondo.profile, "moderado"); assert(sinFondo.caps.some((n) => /emergencia/.test(n)) && sinFondo.notes.some((n) => /3 a 6 meses/.test(n)));
 });
 
-t("portafolios: 4 por perfil, pesos suman 100% y siguen la mezcla del perfil", () => {
+t("portafolios: 4 por perfil (5 en crecimiento y agresivo), pesos suman 100% y siguen la mezcla del perfil", () => {
   for (const lvl of [0, 1]) {
     const a = answersFor(lvl), ev = P.evaluate(a), ps = P.buildPortfolios(ev, a);
-    assert.strictEqual(ps.length, 4); assert.strictEqual(ps[0].id, "sp");
+    const big = ev.profile === "agresivo" || ev.profile === "crecimiento";
+    assert.strictEqual(ps.length, big ? 5 : 4); assert.strictEqual(ps[0].id, "sp");
+    assert.strictEqual(ps.some((p) => p.id === "tilt"), big, "apuesta sólo en crecimiento y agresivo");
     for (const p of ps) {
       near(Object.values(p.w).reduce((s, x) => s + x, 0), 1, 1e-9, p.name);
       for (const s of Object.keys(p.w)) assert(P.ASSET[s], "ETF sin clase: " + s);
@@ -177,7 +179,11 @@ t("perfil a mano: cambia la mezcla y avisa contra el cuestionario; sin cuestiona
   const n = P.withProfile(null, "agresivo");
   assert(n.noQuiz && n.manual && n.level === 1 && n.amount === 10000);
   const ps = P.buildPortfolios(n, {});
-  assert.strictEqual(ps.length, 4); near(ps[0].mix.eq, P.MIX.agresivo.eq, 0.011, "acciones agresivo");
+  assert.strictEqual(ps.length, 5); near(ps[0].mix.eq, P.MIX.agresivo.eq, 0.011, "acciones agresivo");
+  near(ps[0].w.VOO, 1, 1e-9, "agresivo pegado al S&P = 100% VOO");
+  const tilt = ps.find((p) => p.id === "tilt"); assert(tilt.bet); near(tilt.w.QQQ, 0.3, 1e-9, "apuesta agresivo 30% QQQ");
+  const c = P.buildPortfolios(P.withProfile(null, "crecimiento"), {}).find((p) => p.id === "tilt");
+  near(c.w.QQQ + c.w.VOO, 0.85, 1e-9, "apuesta crecimiento 85% acciones"); near(c.w.QQQ, 0.425, 0.006, "apuesta crecimiento mitad QQQ"); near(c.w.BND, 0.15, 1e-9, "apuesta crecimiento bonos");
   for (const p of ps) near(Object.values(p.w).reduce((s, x) => s + x, 0), 1, 1e-9, p.name);
   assert.strictEqual(P.withProfile(q, "otro"), q);
 });

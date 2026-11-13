@@ -158,18 +158,18 @@
   };
   // Clase de activo de cada ETF que usan los modelos (para la simulación a futuro)
   const ASSET = {
-    VTI: "us", VOO: "us", ESGV: "us", SCHD: "usdiv", QUAL: "usq", MOAT: "usq", JQUA: "usq", USMV: "uslv", VB: "ussmall",
+    VTI: "us", VOO: "us", ESGV: "us", SCHD: "usdiv", QUAL: "usq", MOAT: "usq", JQUA: "usq", USMV: "uslv", QQQ: "usgrowth", VB: "ussmall",
     VXUS: "intl", VEA: "intl", VSGX: "intl", VWO: "em", EWW: "mx",
     BND: "bond", IEF: "bond", TIP: "tips", BIL: "cash", GLD: "gold",
   };
   const NAMES = {
     VTI: "Todo el mercado de EE. UU.", VOO: "S&P 500", ESGV: "EE. UU. con filtro ESG", SCHD: "Dividendos de EE. UU.", QUAL: "Calidad EE. UU.", MOAT: "Ventaja competitiva (Morningstar)",
-    JQUA: "Calidad y rentabilidad EE. UU. (JPMorgan)", USMV: "Mínima volatilidad EE. UU. (iShares)",
+    JQUA: "Calidad y rentabilidad EE. UU. (JPMorgan)", USMV: "Mínima volatilidad EE. UU. (iShares)", QQQ: "Nasdaq 100 (tecnología y crecimiento)",
     VB: "Empresas pequeñas EE. UU.", VXUS: "Todo el mundo fuera de EE. UU.", VEA: "Países desarrollados fuera de EE. UU.", VSGX: "Mundo fuera de EE. UU. con ESG",
     VWO: "Mercados emergentes", EWW: "México", BND: "Bonos de EE. UU. (todo el mercado)", IEF: "Bonos del Tesoro 7–10 años", TIP: "Bonos ligados a inflación",
     BIL: "T-bills 1–3 meses (equivalente a CETES en dólares)", GLD: "Oro",
   };
-  const KIND = { us: "eq", usdiv: "eq", usq: "eq", uslv: "eq", ussmall: "eq", intl: "eq", em: "eq", mx: "eq", bond: "bond", tips: "bond", cash: "cash", gold: "gold" };
+  const KIND = { us: "eq", usdiv: "eq", usq: "eq", uslv: "eq", usgrowth: "eq", ussmall: "eq", intl: "eq", em: "eq", mx: "eq", bond: "bond", tips: "bond", cash: "cash", gold: "gold" };
 
   function round(w) {
     const out = {}; let tot = 0;
@@ -208,7 +208,7 @@
     {
       const w = round({ VOO: m.eq, BND: m.bond, BIL: m.cash, GLD: m.gold });
       out.push({ id: "sp", name: "Pegado al S&P 500", rec: true, tag: m.eq >= 0.995 ? "100% en el S&P 500: es el índice mismo" : `${Math.round(m.eq * 100)}% en el S&P 500, el resto en bonos y efectivo`,
-        why: `Toda la parte de acciones va al S&P 500 (VOO). Es lo más parecido al S&P 500 que permite tu perfil: sube y baja con él en proporción a tu ${Math.round(m.eq * 100)}% de acciones. Para pegarse todavía más hay que subir de perfil (más acciones), lo que también trae caídas más grandes. Es el recomendado: en nuestra investigación ningún fondo de factores le ganó al índice con significancia, así que lo más simple y barato es la mejor base; los otros tres son alternativas.`, w });
+        why: `Toda la parte de acciones va al S&P 500 (VOO). Es lo más parecido al S&P 500 que permite tu perfil: sube y baja con él en proporción a tu ${Math.round(m.eq * 100)}% de acciones. Para pegarse todavía más hay que subir de perfil (más acciones), lo que también trae caídas más grandes. Es el recomendado: en nuestra investigación ningún fondo de factores le ganó al índice con significancia, así que lo más simple y barato es la mejor base; los demás son alternativas.`, w });
     }
 
     // 1. Sencillo: 3 o 4 fondos
@@ -255,6 +255,18 @@
         out.push({ id: "safe", name: "Sencillo más defensivo", tag: "10% menos acciones",
           why: "Igual al Sencillo pero con más efectivo, por si quieres empezar con menos sustos. Puedes subir la parte de acciones cuando te sientas cómodo.", w: round(w) });
       }
+    }
+    // 4. Apuesta para ganarle al S&P 500 (sólo crecimiento y agresivo). Reglas fijadas ANTES de ver resultados
+    //    (research_profiles.py, 2026-11-13); no se ajustaron pesos. Más Nasdaq = más riesgo, no ventaja comprobada.
+    if (ev.profile === "agresivo" || ev.profile === "crecimiento") {
+      const agr = ev.profile === "agresivo";
+      const w = agr ? { VOO: 0.7, QQQ: 0.3 } : { VOO: 0.425, QQQ: 0.425, BND: 0.15 };
+      out.push({ id: "tilt", name: "Para intentar ganarle al S&P 500", bet: true,
+        tag: agr ? "70% S&P 500 + 30% Nasdaq 100 · apuesta" : "85% acciones (mitad S&P 500, mitad Nasdaq 100) + 15% bonos · apuesta",
+        why: agr
+          ? "Una inclinación a Nasdaq 100 (QQQ). Con datos reales: desde 2016 rindió +1.4 puntos al año más que el S&P 500 (caída máxima -27% contra -24%); desde 1999, +0.8 puntos al año pero con caída de -58% contra -51% (en 2000–2002 el Nasdaq cayó -81%). La ventaja no es estadísticamente segura: viene de tomar más riesgo y de una década buena para la tecnología. Úsalo sólo si aceptas quedar abajo del S&P 500 varios años seguidos."
+          : "Más acciones (85%) y la mitad en Nasdaq 100 (QQQ), sin oro. Con datos reales: desde 2016 quedó prácticamente igual al S&P 500 (+0.1 puntos al año, caída -26% contra -24%); desde 2004, +0.7 puntos al año con caída de -44% contra -51%. La ventaja no es estadísticamente segura y depende de que la tecnología siga bien. Es más riesgo que el resto de tu perfil.",
+        w: round(w) });
     }
     for (const p of out) {
       p.mix = { eq: 0, bond: 0, cash: 0, gold: 0 };
@@ -310,8 +322,8 @@
 
   // Supuestos a futuro (rendimiento anual nominal en dólares). Más bajos que los últimos 10 años a propósito:
   // en 2016-2026 las acciones de EE. UU. rindieron muy por arriba de su promedio de largo plazo.
-  const EXPECTED = { us: 0.065, usdiv: 0.065, usq: 0.065, uslv: 0.06, ussmall: 0.07, intl: 0.07, em: 0.075, mx: 0.075, bond: 0.043, tips: 0.042, cash: null, gold: 0.04 };
-  const VOL_FALLBACK = { us: 0.16, usdiv: 0.15, usq: 0.15, uslv: 0.12, ussmall: 0.21, intl: 0.16, em: 0.2, mx: 0.24, bond: 0.06, tips: 0.06, cash: 0.005, gold: 0.15 };
+  const EXPECTED = { us: 0.065, usdiv: 0.065, usq: 0.065, uslv: 0.06, usgrowth: 0.065, ussmall: 0.07, intl: 0.07, em: 0.075, mx: 0.075, bond: 0.043, tips: 0.042, cash: null, gold: 0.04 };
+  const VOL_FALLBACK = { us: 0.16, usdiv: 0.15, usq: 0.15, uslv: 0.12, usgrowth: 0.21, ussmall: 0.21, intl: 0.16, em: 0.2, mx: 0.24, bond: 0.06, tips: 0.06, cash: 0.005, gold: 0.15 };
 
   function mulberry(seed) { return function () { seed |= 0; seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   function gauss(rnd) { let u = 0, v = 0; while (u === 0) u = rnd(); while (v === 0) v = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
