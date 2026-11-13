@@ -85,19 +85,26 @@ t("DCF de dos etapas: ventas de 12 meses, margen, crecimiento que baja y tasa po
   const p = Q.dcfDefaults(sec, { netDebt: -20, shares: 10 }, { rf10: 0.05, beta: 1 });
   assert.strictEqual(p.rev0, 500, "usa ventas de 12 meses"); assert(/12 meses/.test(p.revFrom));
   near(p.margin, 0.4, 0.002, "mediana de márgenes");
-  near(p.g, 0.25, 1e-12, "crecimiento con tope de 25%"); assert(p.gRaw > 0.25);
+  near(p.g, 0.06 + 0.4 * (p.gRaw - 0.06), 1e-12, "40% del exceso sobre 6%"); assert(p.gRaw > 0.25);
+  const nv = Q.dcfDefaults({ series: { rev: { 2021: 17, 2022: 27, 2023: 27, 2024: 61, 2025: 130, 2026: 216 } } }, null, {});
+  near(nv.g, 0.25, 1e-12, "tope de 25%");
+  const corta = Q.dcfDefaults({ series: { rev: { 2023: 87, 2024: 170, 2025: 252 } } }, null, {});
+  assert.strictEqual(corta.gYears, 2); assert(corta.gRaw > 0.6 && corta.g > 0.2, "con 3 años de ventas usa 2 años de crecimiento");
   near(p.r, 0.095, 1e-12, "5% + 1.0 × 4.5%");
   near(Q.discountRate(0.05, 3).r, 0.12, 1e-12, "tope 12%"); near(Q.discountRate(0.03, 0).r, 0.08, 1e-12, "piso 8%");
   const v = Q.dcfValue(p);
   assert.strictEqual(v.rows.length, 10);
-  near(v.rows[4].g, 0.25, 1e-12, "año 5"); near(v.rows[9].g, 0.03, 1e-12, "año 10 = perpetuo"); near(v.rows[7].g, 0.25 + (0.03 - 0.25) * 3 / 5, 1e-12, "año 8");
-  near(v.rows[0].fcf, 500 * 0.4 * 1.25, 1e-9, "flujo año 1");
+  near(v.rows[4].g, p.g, 1e-12, "año 5"); near(v.rows[9].g, 0.03, 1e-12, "año 10 = perpetuo"); near(v.rows[7].g, p.g + (0.03 - p.g) * 3 / 5, 1e-12, "año 8");
+  near(v.rows[0].fcf, 500 * 0.4 * (1 + p.g), 1e-9, "flujo año 1");
   near(v.equity, v.pv + v.tv + 20, 1e-9, "suma el efectivo neto");
   const sc = Q.dcfScenarios(p);
   assert(sc.bear.perShare < sc.base.perShare && sc.base.perShare < sc.bull.perShare, "escenarios ordenados");
   const price = v.perShare * 0.8;
   const ig = Q.impliedGrowth(p, price);
   near(Q.dcfValue({ ...p, g: ig.g }).perShare, price, 1e-4, "crecimiento implícito reproduce el precio");
+  const pr = Q.profitability({ series: { ni: { 2022: 10, 2023: 12, 2024: 15 }, eq: { 2022: 100, 2023: 100, 2024: 100 }, assets: { 2022: 200, 2023: 200, 2024: 300 },
+    ebit: { 2022: 20, 2023: 20, 2024: 20 }, ltd: { 2024: 50 }, cash: { 2024: 50 } } });
+  near(pr.roe[2], 0.15, 1e-12, "ROE"); near(pr.roa[2], 0.05, 1e-12, "ROA"); near(pr.roic[2], 20 * 0.79 / 100, 1e-12, "ROIC"); near(pr.roeMed, 0.12, 1e-12, "mediana");
   // método conservador (backtest Buffett) sigue igual
   const c = Q.dcfConservative(sec, { netDebt: 0, shares: 10 });
   near(c.base, (88 + 116 + 152) / 3, 1e-9, "promedio 3 años"); near(c.g, 0.08, 1e-12, "tope 8%");

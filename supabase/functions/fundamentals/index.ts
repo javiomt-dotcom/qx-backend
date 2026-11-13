@@ -192,8 +192,10 @@ const INSTANT = new Set(["assets", "liab", "ca", "cl", "eq", "re", "cash", "sti"
 
 function annualSeries(facts: any, key: string) {
   const gaap = facts?.facts?.["us-gaap"] ?? {};
-  // el concepto con el año fiscal más reciente gana (las empresas cambian de etiqueta con los años)
+  // el concepto con el año fiscal más reciente gana (las empresas cambian de etiqueta con los años);
+  // los años que le faltan se llenan con las otras etiquetas, para no perder historia (ej. INOD: ventas sólo 3 años)
   let best: Record<string, { v: number; f: string }> = {}, bestFy = "";
+  const others: Record<string, { v: number; f: string }>[] = [];
   for (const concept of CONCEPTS[key]) {
     const units = gaap[concept]?.units;
     if (!units) continue;
@@ -211,8 +213,11 @@ function annualSeries(facts: any, key: string) {
       if (!out[fy] || x.filed > out[fy].f) out[fy] = { v: Number(x.val), f: x.filed };
     }
     const fys = Object.keys(out).sort();
-    if (fys.length && fys[fys.length - 1] > bestFy) { best = out; bestFy = fys[fys.length - 1]; }
+    if (!fys.length) continue;
+    if (fys[fys.length - 1] > bestFy) { if (bestFy) others.push(best); best = out; bestFy = fys[fys.length - 1]; }
+    else others.push(out);
   }
+  for (const o of others) for (const [fy, x] of Object.entries(o)) if (!best[fy] && fy < bestFy) best[fy] = x;
   const res: Record<string, number> = {};
   for (const fy of Object.keys(best).sort().slice(-11)) res[fy] = best[fy].v;
   return res;
@@ -316,7 +321,7 @@ async function secViaFinnhub(sym: string) {
 }
 
 async function edgar(sym: string) {
-  return await cached(`sec2:facts:${sym}`, 3 * DAY, async () => {
+  return await cached(`sec3:facts:${sym}`, 3 * DAY, async () => {
     try {
       const d: any = await secDirect(sym);
       if (!d.none) return d;
