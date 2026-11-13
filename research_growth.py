@@ -183,6 +183,41 @@ def main():
         if len(picks["G15"]) % 8 == 1:
             log(f"  {day}: universo {len(uni)}, G15 {len(picks['G15'][-1])}: {' '.join(S[r] for r in picks['G15'][-1])}")
 
+    # ---------- ideas de hoy: las mismas reglas con lo publicado hasta la última sesión
+    def pick_at(i, gmin, garp):
+        day, sig = dates[i], i
+        win = dv[stock_rows, max(0, sig - 62):sig + 1]
+        cnt = np.isfinite(win).sum(axis=1)
+        with np.errstate(invalid="ignore"):
+            avg = np.where(cnt >= 40, np.nanmean(win, axis=1), np.nan)
+        avg = np.where(np.isfinite(Pr[stock_rows, sig]), avg, np.nan)
+        order = np.argsort(-np.where(np.isfinite(avg), avg, -np.inf))
+        uni = [int(stock_rows[k]) for k in order[:UNIVERSE_N] if np.isfinite(avg[k])]
+        out = []
+        for r in uni:
+            if cik.get(S[r]) not in fund:
+                continue
+            f = fund[cik[S[r]]]
+            p, info = evaluate(f, day + "~", gmin)      # "~" > cualquier fecha del mismo día: incluye lo publicado hoy
+            if not p:
+                continue
+            peg = None
+            sn = shares_now(f, day + "~")
+            if sn:
+                shares, filed = sn
+                jf = max(0, min(sig, int(np.searchsorted(dates_np, filed))))
+                fa, fr, sa, sr = A[r, jf], Pr[r, jf], A[r, sig], Pr[r, sig]
+                if all(np.isfinite([fa, fr, sa, sr])) and min(fa, fr, sa, sr) > 0:
+                    mcap = shares / ((sa / sr) / (fa / fr)) * sr
+                    peg = (mcap / info["ni"]) / (info["eg"] * 100)
+            if garp and not (peg is not None and 0 < peg <= 2):
+                continue
+            out.append({"symbol": S[r], "name": assets.get(S[r], {}).get("name", ""), "revG3": round(info["g3"], 4),
+                        "epsG3": round(info["eg"], 4), "peg": round(peg, 2) if peg else None, "fy": info["fy"]})
+        out.sort(key=(lambda x: x["peg"]) if garp else (lambda x: -x["revG3"]))
+        return out[:N]
+    ideas = {"asOf": dates[-1], "growth": pick_at(len(dates) - 1, 0.15, False), "garp": pick_at(len(dates) - 1, 0.15, True)}
+
     spy_row, t0 = row["SPY"], reb[0]
     series = {}
     for name in [v[0] for v in VARS]:
@@ -237,6 +272,20 @@ def main():
     for j in (0, len(reb) // 2, len(reb) - 1):
         print(f"- {dates[reb[j]]} G15: {' '.join(S[r] for r in picks['G15'][j]) or '(ninguna)'}")
         print(f"- {dates[reb[j]]} GARP: {' '.join(S[r] for r in picks['GARP'][j]) or '(ninguna)'}")
+    summ = {}
+    for k in ("G15", "GARP", "SPY", "QQQ", "VUG"):
+        st = stats(series[k][0])
+        summ[k] = {"ann": round(st["ann"], 4), "dd": round(st["dd"], 4), "sharpe": round(st["sharpe"], 2), "cum": round(st["cum"], 4)}
+    yrs = {}
+    for k in ("G15", "GARP", "SPY", "QQQ"):
+        r = series[k][0]
+        yrs[k] = {y: round(float(np.prod(1 + np.array([x for x, d in zip(r, D) if d[:4] == y])) - 1), 4) for y in years}
+    ideas.update({"from": D[0], "to": D[-1], "backtest": summ, "byYear": yrs,
+                  "rules": "Ventas +15% al año (3 años) y +10% el último; utilidad y flujo libre positivos; utilidad por acción creciendo; acciones +10% o menos en 3 años. GARP: además PEG <= 2."})
+    import json
+    with open("growth_ideas.json", "w") as fh:
+        json.dump(ideas, fh, ensure_ascii=False, indent=1)
+    print("\nIDEAS_JSON " + json.dumps(ideas, ensure_ascii=False))
     print("\nNotas: reglas fijadas antes de correr; la meseta (10/15/20%) muestra si el resultado depende del número exacto. "
           "Alpaca no tiene precios antes de 2016. Nada de esto es asesoría financiera.")
 
