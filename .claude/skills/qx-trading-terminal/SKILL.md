@@ -117,11 +117,12 @@ PWA en `docs/` (index.html, sw.js, manifest, `vendor/supabase.js` local). Entra 
 ## 12. Tablero fundamental (proyecto aparte)
 
 Javier lo pidió el 2026-11-13 separado del trading: no lo mezcles con el motor, Telegram, la terminal ni la app.
-- Página `docs/fundamental/` (index.html, calc.js, manifest); entra con la misma cuenta (`qx_allowed`). Pestañas Buscar empresa, Mi portafolio, Favoritos.
-- Edge Function `fundamentals` (verify_jwt apagado; revisa la sesión ella misma; `GET ?selftest=1` sin datos de usuarios). Acciones `company`, `history`, `brief`, `quotes`, `search`. Fuentes: Finnhub (`FINNHUB_KEY`), SEC EDGAR directo (respaldo Finnhub financials-reported), Alpaca (precios ajustados 5 años), FRED (T-bill 3 meses y bono 10 años). Caché en `fa_cache`.
+- Página `docs/fundamental/` (index.html, calc.js, manifest); entra con la misma cuenta (`qx_allowed`). Pestañas Mi perfil, Buscar empresa, Mi portafolio, Favoritos.
+- Edge Function `fundamentals` (verify_jwt apagado; revisa la sesión ella misma; `GET ?selftest=1` sin datos de usuarios). Acciones `company`, `history`, `brief`, `quotes`, `search`. Fuentes: Finnhub (`FINNHUB_KEY`), SEC EDGAR directo (respaldo Finnhub financials-reported), Alpaca (precios ajustados desde 2016-01; `history` acepta hasta 11 años), FRED (T-bill 3 meses y bono 10 años). Caché en `fa_cache`.
 - Tablas `fa_positions`, `fa_watchlist`, `fa_settings` (RLS por usuario + `qx_allowed`), SQL en `supabase/fundamental.sql`.
 - DCF base = método del backtest Buffett (flujo libre promedio 3 años, crecimiento de ventas 5 años entre 0 y 8%, descuento 10%, perpetuo 3%), menos deuda neta; editable en la página. Bancos y aseguradoras: sin DCF ni Altman.
 - Recomendaciones del portafolio: reglas fijas en `calc.js` (`recommendations`), educativas, nunca señales.
+- Mi perfil (`profile.js`, 2026-11-13): cuestionario -> capacidad, disposición y conocimiento; perfil = 0.75·mín + 0.25·máx con topes por plazo, retiros mensuales y fondo de emergencia. 3 portafolios modelo (Sencillo, Diversificado, Núcleo + satélite de calidad QUAL/MOAT máx. 20%, o Sencillo más defensivo para principiantes). Simulación: backtest mensual desde 2016 y Monte Carlo con vol/correlaciones reales y rendimientos esperados bajos a propósito (EXPECTED). Columnas `answers`, `result`, `profile_at`, `chosen_portfolio` en `fa_settings`.
 - Pruebas: `node tests/test_fundamental.js`. Para desplegar la función usa la herramienta MCP de Supabase con el archivo del repo.
 
 ## 11. Notas que no hay que olvidar

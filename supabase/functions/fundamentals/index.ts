@@ -4,7 +4,7 @@
 // y así GET ?selftest=1 (sin datos de nadie, sólo si cada fuente responde) se puede revisar desde fuera.
 //
 // POST { action: "company", symbol }       -> perfil, métricas Finnhub, analistas, próximo reporte, estados EDGAR, precios 5 años
-// POST { action: "history", symbols, years } -> cierres ajustados alineados con SPY + perfil corto de cada símbolo + tasa libre de riesgo
+// POST { action: "history", symbols, years (1-11) } -> cierres ajustados alineados con SPY + perfil corto de cada símbolo + tasa libre de riesgo
 // POST { action: "brief", symbols }        -> resumen ligero por símbolo (favoritos)
 // POST { action: "quotes", symbols }       -> último precio y cierre previo
 // POST { action: "search", q }             -> búsqueda de símbolo por nombre (Finnhub)
@@ -96,9 +96,10 @@ async function alpacaBars(symbols: string[], startISO: string) {
 }
 const nyToday = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 async function closes(sym: string, years: number) {
-  // un registro por símbolo y día: 5 años sirve para todo (portafolio pide 3)
-  const all = await cached(`bars:${sym}:${nyToday()}`, 12 * H, async () => {
-    const start = new Date(Date.now() - 5.05 * 365.25 * DAY).toISOString().slice(0, 10);
+  // un registro por símbolo y día desde dic-2015 (lo más viejo que da Alpaca): sirve para todo
+  // (empresa usa 5 años, portafolio 3, simulación del perfil hasta 11)
+  const all = await cached(`bars2:${sym}:${nyToday()}`, 12 * H, async () => {
+    const start = "2015-12-01";
     const b = (await alpacaBars([sym], start))[sym] ?? [];
     return { t: b.map((x) => x.t), c: b.map((x) => x.c) };
   });
@@ -353,7 +354,7 @@ async function brief(symbols: string[]) {
 }
 
 async function selftest() {
-  return await cached("selftest:v4", 10 * 60_000, async () => {
+  return await cached("selftest:v5", 10 * 60_000, async () => {
     const r: Record<string, string> = {};
     const t = async (n: string, f: () => Promise<string>) => {
       try { r[n] = await f(); } catch (e) { r[n] = "error: " + (e as Error).message; }
@@ -367,7 +368,7 @@ async function selftest() {
       const e: any = await edgar("AAPL");
       return e?.series ? `ok ${e.src} (ventas ${Object.keys(e.series.rev ?? {}).join(" ")}; flujo ${Object.keys(e.series.ocf ?? {}).length} años; acciones ${JSON.stringify(e.sharesOut)})` : "sin datos";
     });
-    await t("alpaca", async () => { const c = await closes("SPY", 5); return `ok (${c.t.length} días, último ${c.t[c.t.length - 1]})`; });
+    await t("alpaca", async () => { const c = await closes("SPY", 11); return `ok (${c.t.length} días, de ${c.t[0]} a ${c.t[c.t.length - 1]})`; });
     await t("rf", async () => JSON.stringify(await riskFree()));
     return r;
   });
@@ -401,7 +402,7 @@ Deno.serve(async (req) => {
       }
       case "history": {
         const syms = [...new Set((body.symbols ?? []).map(clean).filter((s: string) => SYM.test(s)))].slice(0, 40) as string[];
-        const years = Math.min(5, Math.max(1, Number(body.years) || 3));
+        const years = Math.min(11, Math.max(1, Number(body.years) || 3));
         return json(await history(syms, years));
       }
       case "brief": {
