@@ -15,11 +15,13 @@ on:
           - research_bias.py
           - research_portfolios.py
           - research_profiles.py
+          - research_buffett.py
+          - research_growth.py
 
 jobs:
   research:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
