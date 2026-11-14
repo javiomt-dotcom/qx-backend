@@ -14,21 +14,22 @@
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="icon" href="../icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap">
 <style>
 /* Misma identidad que la app QX: tema oscuro, cifras en monoespaciada, títulos condensados en ámbar. */
 :root{
   --ink:#0a0f1a; --panel:#0f1726; --panel-2:#142036; --rule:#22314d; --rule-soft:#1a2740;
-  --fg:#d7e1f0; --muted:#8a9bb6; --dim:#5f6f8c;
+  --fg:#e3eaf5; --muted:#9aabc6; --dim:#7f90ad;
   --amber:#f0b44c; --up:#33cf96; --down:#ff6f6f; --blue:#6cc4ff; --warn:#e9cf98;
   --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
   --safe-b:env(safe-area-inset-bottom,0px); --safe-t:env(safe-area-inset-top,0px);
   color-scheme:dark;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--ink);color:var(--fg)}
-body{font-family:var(--mono);font-size:12.5px;line-height:1.45;font-variant-numeric:tabular-nums;
+body{font-family:var(--sans);font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums;
   padding:calc(var(--safe-t) + 6px) 16px calc(var(--safe-b) + 80px);min-height:100vh}
 .wrap{max-width:1180px;margin:0 auto}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -234,6 +235,62 @@ nav.mob{display:none}
   nav.mob button[aria-selected="true"]{color:var(--amber);border-top-color:var(--amber)}
 }
 .honest{border:1px solid var(--rule-soft);border-left:3px solid #b48cff;background:var(--panel-2);padding:10px 12px;margin:8px 0 10px;font-size:13px;line-height:1.45;border-radius:6px}
+
+/* ---- Legibilidad (revisión de diseño): texto en sans, cifras en mono, tamaños y contraste ---- */
+table,.kpi .v,.hero .px b,.wp,.eqbig,input.in,.sym,.chip,.recent .chip{font-family:var(--mono)}
+td{font-size:13px}
+td.read{font-family:var(--sans);font-size:12.5px;color:var(--muted)}
+td.k,table.mt td:first-child{font-family:var(--sans);font-size:14px}
+th{font-size:11px}
+.note{font-size:13px}
+.mx .s,.tile .s,.pc .s,.kpi .s{font-size:12.5px}
+.kpi .s{font-size:11.5px}
+.sub{font-size:11.5px}
+.rec p,details.gl dd{font-size:13px}
+.hero .meta{font-size:13px}
+.disc{font-size:12px}
+.qt{font-size:14.5px}
+.opt{font-size:14px}
+.honest{font-size:14px}
+/* tarjetas de posiciones y favoritos (sólo en el teléfono) */
+.form.f3{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto}
+.form.f4{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,2fr) auto}
+@media (max-width:700px){.form.f3,.form.f4{grid-template-columns:repeat(2,minmax(0,1fr))}.form.f4 > div:nth-child(3){grid-column:1/-1}}
+.pcards{display:none}
+.pcard{border-bottom:1px solid var(--rule-soft);padding:12px 0}
+.pcard:last-child{border-bottom:0}
+.pc1{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:baseline}
+.pc1 .sym{font-size:16px}
+.pc1 b{font:600 16px var(--mono)}
+.pcn{color:var(--muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
+.pc3 span{display:block;font-size:11.5px;color:var(--dim)}
+.pc3 b{font:600 14px var(--mono)}
+.pc4{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:6px;font-size:12px;color:var(--muted)}
+.pc4 span:last-child{flex:none}
+@media (max-width:600px){
+  body{font-size:15px}
+  .dsrc{display:none}
+  .disc{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* tablas de métricas: una fila por métrica, explicación debajo */
+  table.mt tr{display:grid;grid-template-columns:minmax(0,1fr) auto auto;column-gap:14px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--rule-soft)}
+  table.mt tr:last-child{border-bottom:0}
+  table.mt th,table.mt td{border:0;padding:0;white-space:normal}
+  table.mt th.l{display:none}
+  table.mt td:first-child{color:var(--fg)}
+  table.mt td.read{grid-column:1/-1;min-width:0;margin-top:3px}
+  table.mt td.read:empty{display:none}
+  table.wide{display:none}
+  .pcards{display:block}
+  /* tamaño de dedo */
+  .x{min-width:40px;height:40px;font-size:15px}
+  .btn{min-height:44px}
+  .btn.sm{min-height:40px;padding:6px 12px;font-size:13px}
+  .recent .chip{padding:7px 11px;font-size:13px;margin:3px 6px 3px 0}
+  .seg button{padding:9px 13px;font-size:13px}
+  .badge{min-height:36px}
+  nav.mob button{font:500 11px var(--sans);letter-spacing:0;text-transform:none}
+}
 </style>
 </head>
 <body>
@@ -258,17 +315,17 @@ nav.mob{display:none}
   <div class="top">
     <div class="brand"><b>QX</b><span>Fundamental</span></div>
     <div class="tabs" role="tablist" id="tabs">
-      <button data-t="perfil">Mi perfil</button>
       <button data-t="buscar" aria-selected="true">Buscar empresa</button>
       <button data-t="port">Mi portafolio</button>
       <button data-t="fav">Favoritos</button>
+      <button data-t="perfil">Mi perfil</button>
     </div>
     <div style="display:flex;gap:6px;align-items:center;min-width:0">
       <button class="badge" id="pBadge" hidden></button>
       <button class="btn sm" id="bOut">Salir</button>
     </div>
   </div>
-  <div class="disc">Herramienta educativa. Nada de esto es una recomendación de compra o venta. Datos: SEC EDGAR, Finnhub, Alpaca y FRED.</div>
+  <div class="disc">Herramienta educativa: nada de esto es una recomendación de compra o venta.<span class="dsrc"> Datos: SEC EDGAR, Finnhub, Alpaca y FRED.</span></div>
   <div class="banner" id="pfBanner" hidden><span>Aún no contestas tu perfil de inversionista. Con él se ajustan las observaciones y te muestro 4 o 5 portafolios modelo.</span><button class="btn sm pri" id="pfBannerGo">Contestar</button></div>
 
   <section id="t-perfil" hidden>
@@ -291,7 +348,7 @@ nav.mob{display:none}
     <div class="p">
       <div class="ph"><h2>Tus posiciones</h2><small id="portAt"></small></div>
       <div class="pb">
-        <div class="form" style="grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto">
+        <div class="form f3">
           <div><span class="lbl">Tu perfil de inversionista <a href="#" id="profFrom" style="text-transform:none;letter-spacing:0"></a></span>
             <select class="in" id="prof">
               <option value="conservador">Conservador</option>
@@ -322,7 +379,7 @@ nav.mob{display:none}
     <div class="p">
       <div class="ph"><h2>Favoritos</h2><small id="favAt">acciones y ETFs que sigues sin tenerlos</small></div>
       <div class="pb">
-        <form class="form" id="favF" autocomplete="off" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,2fr) auto">
+        <form class="form f4" id="favF" autocomplete="off">
           <div><span class="lbl">Símbolo</span><input class="in" id="fSym" placeholder="MSFT" autocapitalize="characters" required></div>
           <div><span class="lbl">Precio que esperas</span><input class="in" id="fTgt" inputmode="decimal" placeholder="opcional"></div>
           <div><span class="lbl">Nota</span><input class="in" id="fNote" placeholder="por qué la sigues"></div>
@@ -338,10 +395,10 @@ nav.mob{display:none}
 </div>
 
 <nav class="mob" id="mob" hidden>
-  <button data-t="perfil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.2-4 4.3-6 8-6s6.8 2 8 6"/></svg>Perfil</button>
   <button data-t="buscar" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>Buscar</button>
   <button data-t="port"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M14 3.2A9 9 0 0 1 20.8 10H14z"/></svg>Portafolio</button>
   <button data-t="fav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>Favoritos</button>
+  <button data-t="perfil"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.2-4 4.3-6 8-6s6.8 2 8 6"/></svg>Perfil</button>
 </nav>
 
 <script src="../vendor/supabase.js"></script>
@@ -574,9 +631,9 @@ function chartSvg(px, spy, years){
   const lo = Math.min(...na, ...nb), hi = Math.max(...na, ...nb), span = hi - lo || 1;
   const X = (i) => P.l + i*(W-P.l-P.r)/(al.t.length-1), Y = (v) => P.t + (hi - v)*(H-P.t-P.b)/span;
   const path = (s) => s.map((v,i) => (i?"L":"M") + X(i).toFixed(1) + " " + Y(v).toFixed(1)).join("");
-  const ticks = [lo, lo+span/2, hi].map(v => `<text x="${P.l-6}" y="${Y(v)+3}" text-anchor="end" fill="#5f6f8c" font-size="10">${pct(v,0,true)}</text><line x1="${P.l}" x2="${W-P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#1a2740"/>`).join("");
+  const ticks = [lo, lo+span/2, hi].map(v => `<text x="${P.l-6}" y="${Y(v)+3}" text-anchor="end" fill="#7f90ad" font-size="10">${pct(v,0,true)}</text><line x1="${P.l}" x2="${W-P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#1a2740"/>`).join("");
   const zero = lo < 0 && hi > 0 ? `<line x1="${P.l}" x2="${W-P.r}" y1="${Y(0)}" y2="${Y(0)}" stroke="#22314d" stroke-dasharray="3 3"/>` : "";
-  const xl = [0, Math.floor(al.t.length/2), al.t.length-1].map((i,k) => `<text x="${X(i)}" y="${H-6}" text-anchor="${["start","middle","end"][k]}" fill="#5f6f8c" font-size="10">${al.t[i]}</text>`).join("");
+  const xl = [0, Math.floor(al.t.length/2), al.t.length-1].map((i,k) => `<text x="${X(i)}" y="${H-6}" text-anchor="${["start","middle","end"][k]}" fill="#7f90ad" font-size="10">${al.t[i]}</text>`).join("");
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Precio contra SPY">${ticks}${zero}
     <path d="${path(nb)}" fill="none" stroke="#6cc4ff" stroke-width="1.4" opacity=".8" vector-effect="non-scaling-stroke"/>
     <path d="${path(na)}" fill="none" stroke="#f0b44c" stroke-width="1.8" vector-effect="non-scaling-stroke"/>${xl}</svg>
@@ -688,7 +745,7 @@ function renderCompany(){
   if (risk){
     const s3 = risk.s3 || {}, sp = risk.spyS3 || {};
     const row = (k, a, b, read) => `<tr><td class="k">${k}</td><td>${a}</td><td class="mut">${b}</td><td class="read">${read||""}</td></tr>`;
-    h += `<div class="grid2">` + panel("Riesgo y rendimiento", "contra SPY", `<div class="scroll"><table><tr><th>Métrica</th><th>${esc(d.symbol)}</th><th>SPY</th><th class="l">Cómo leerlo</th></tr>
+    h += `<div class="grid2">` + panel("Riesgo y rendimiento", "contra SPY", `<div class="scroll"><table class="mt"><tr><th>Métrica</th><th>${esc(d.symbol)}</th><th>SPY</th><th class="l">Cómo leerlo</th></tr>
       ${row("Beta 5 años (mensual)", fx(risk.beta5m), "1.00", "Cuánto se mueve contra el mercado. 1 = igual; 1.5 = 50% más.")}
       ${row("Beta 1 año (diaria)", fx(risk.beta1d), "1.00", "La misma idea con datos recientes.")}
       ${row("Beta (Finnhub)", fx(m.beta), "1.00", "Cálculo del proveedor, para comparar.")}
@@ -707,7 +764,7 @@ function renderCompany(){
   if (f){
     const rd = (x, lo, hi, good, bad, mid) => !ok(x) ? "" : x <= lo ? good : x >= hi ? bad : mid;
     const vrow = (k, v, read) => `<tr><td class="k">${k}</td><td>${v}</td><td class="read">${read||""}</td></tr>`;
-    h += panel("Lo que el negocio te regresa", "rendimientos", `<div class="scroll"><table><tr><th>Métrica</th><th>Valor</th><th class="l">Cómo leerlo</th></tr>
+    h += panel("Lo que el negocio te regresa", "rendimientos", `<div class="scroll"><table class="mt"><tr><th>Métrica</th><th>Valor</th><th class="l">Cómo leerlo</th></tr>
       ${vrow("Rendimiento de flujo libre", `<span class="${cls(f.fcfYield)}">${pct(f.fcfYield,1)}</span>`, "Flujo libre del año entre el valor en bolsa. Como una «tasa» que genera el negocio. S&P ≈ 3–4%.")}
       ${vrow("Rendimiento de utilidades (EBIT/EV)", pct(f.earnYield,1), "La métrica de Greenblatt: más alto = más barato.")}
       ${vrow("Dividendo", pct(f.divYield,2), ok(f.payout) ? `Reparte ${pct(f.payout,0)} de su utilidad.` : "")}
@@ -728,7 +785,7 @@ function renderCompany(){
 
   if (f){
     const qrow = (k, v, read) => `<tr><td class="k">${k}</td><td>${v}</td><td class="read">${read||""}</td></tr>`;
-    h += `<div class="grid2">` + panel("Calidad y rentabilidad", `año fiscal ${esc(f.fy)}`, `<div class="scroll"><table><tr><th>Métrica</th><th>Valor</th><th class="l">Cómo leerlo</th></tr>
+    h += `<div class="grid2">` + panel("Calidad y rentabilidad", `año fiscal ${esc(f.fy)}`, `<div class="scroll"><table class="mt"><tr><th>Métrica</th><th>Valor</th><th class="l">Cómo leerlo</th></tr>
       ${qrow("ROIC", `<span class="${f.roic>=0.15?"up":f.roic<0.08?"down":""}">${pct(f.roic,1)}</span>`, "Rendimiento sobre todo el capital invertido. Arriba de 15% sostenido sugiere una ventaja competitiva.")}
       ${qrow("ROE", pct(f.roe,1), "Utilidad entre capital de los accionistas. Mucha deuda lo infla.")}
       ${qrow("ROA", pct(f.roa,1), "")}
@@ -741,7 +798,7 @@ function renderCompany(){
       ${qrow("Flujo libre: 5a", pct(f.fcf5,1), "")}
       ${qrow("Acciones en circulación: 5a", `<span class="${f.shChg5<0?"up":f.shChg5>0.05?"down":""}">${pct(f.shChg5,1,true)}</span>`, f.shChg5<0 ? "Bajan: recompra acciones (bueno para ti)." : f.shChg5>0.05 ? "Suben: diluye a los accionistas." : "")}
       </table></div>`)
-    + panel("Salud financiera", "", `<div class="scroll"><table><tr><th>Métrica</th><th>Valor</th><th class="l">Cómo leerlo</th></tr>
+    + panel("Salud financiera", "", `<div class="scroll"><table class="mt"><tr><th>Métrica</th><th>Valor</th><th class="l">Cómo leerlo</th></tr>
       ${qrow("Deuda total", big(f.debt), "")}
       ${qrow("Efectivo e inversiones", big(f.cash), "")}
       ${qrow("Deuda neta / EBITDA", ok(f.ndEbitda) ? (f.ndEbitda<0 ? "efectivo neto" : f.ndEbitda.toFixed(1)+"×") : "—", "Años de utilidad operativa para pagar la deuda. Abajo de 2× es cómodo; arriba de 4× es mucho.")}
@@ -790,6 +847,7 @@ function renderCompany(){
   }
   if (d.errors && d.errors.length) h += `<p class="note">Algunas fuentes no respondieron: ${esc(d.errors.join("; "))}</p>`;
   h += panel("Cómo leer cada métrica", "glosario", glossary());
+  h += `<p class="note">Herramienta educativa. Nada de esto es una recomendación de compra o venta. Datos: SEC EDGAR, Finnhub, Alpaca y FRED.</p>`;
   $("co").innerHTML = h;
 
   $("bFav").onclick = () => addFav(d.symbol);
@@ -966,7 +1024,15 @@ function renderPosTable(){
       <td>${money(val,0)}</td><td>${tot && val ? pct(val/tot,1) : "—"}</td><td class="${cls(pl)}">${pct(pl,1,true)}${pl!=null ? `<span class="sub ${cls(pl)}">${money((price-p.cost)*p.shares,0)}</span>` : ""}</td>
       <td><button class="x" data-ed="${p.id}" title="Editar">✎</button> <button class="x" data-del="${p.id}" title="Borrar">✕</button></td></tr>`;
   }).join("");
-  $("posT").innerHTML = `<table><tr><th>Símbolo</th><th>Acciones</th><th>Compra</th><th>Precio</th><th>Valor</th><th>Peso</th><th>Ganancia</th><th></th></tr>${rows}
+  // En el teléfono: una tarjeta por posición (la tabla no cabe)
+  const cards = POS.map(p => {
+    const h = hs?.find(x => x.symbol === p.symbol);
+    const price = h?.price, val = price ? price * p.shares : null, pl = price && p.cost ? price / p.cost - 1 : null;
+    return `<div class="pcard"><div class="pc1"><a href="#${esc(p.symbol)}" class="sym" data-an="${esc(p.symbol)}">${esc(p.symbol)}</a><span class="pcn">${esc(h?.prof?.name || h?.bucket?.label || "")}</span><b>${money(val,0)}</b></div>
+      <div class="pc3"><div><span>Ganancia</span><b class="${cls(pl)}">${pct(pl,1,true)}</b></div><div><span>Peso</span><b>${tot && val ? pct(val/tot,1) : "—"}</b></div><div><span>Hoy</span><b class="${cls(h?.chg)}">${pct(h?.chg,2,true)}</b></div></div>
+      <div class="pc4"><span>${fx(+p.shares, p.shares % 1 ? 3 : 0)} acciones · compra ${money(p.cost)} · precio ${money(price)}</span><span><button class="x" data-ed="${p.id}" title="Editar" aria-label="Editar ${esc(p.symbol)}">✎</button> <button class="x" data-del="${p.id}" title="Borrar" aria-label="Borrar ${esc(p.symbol)}">✕</button></span></div></div>`;
+  }).join("") + (+SET.cash ? `<div class="pcard"><div class="pc1"><span class="mut">Efectivo / CETES</span><span class="pcn"></span><b>${money(+SET.cash,0)}</b></div><div class="pc4"><span>Peso ${tot ? pct(SET.cash/tot,1) : "—"}</span></div></div>` : "");
+  $("posT").innerHTML = `<div class="pcards">${cards}</div><table class="wide"><tr><th>Símbolo</th><th>Acciones</th><th>Compra</th><th>Precio</th><th>Valor</th><th>Peso</th><th>Ganancia</th><th></th></tr>${rows}
     ${+SET.cash ? `<tr><td class="mut">Efectivo / CETES</td><td></td><td></td><td></td><td>${money(+SET.cash,0)}</td><td>${tot ? pct(SET.cash/tot,1) : "—"}</td><td></td><td></td></tr>` : ""}</table>`;
   for (const b of $("posT").querySelectorAll("[data-del]")) b.onclick = async () => {
     if (!confirm("¿Borrar esta posición?")) return;
@@ -1026,13 +1092,13 @@ function renderPortfolio(){
       return `<tr><td class="k">${L[k]}</td><td>${pct(cur[k]||0,0)}</td><td class="mut">${pct(tgt.mix[k]||0,0)}</td><td class="read">${read}</td></tr>`;
     }).join("");
     h += panel("Tu mezcla contra tu portafolio modelo", `${esc(tgt.name)} · perfil ${esc(PLABEL(EV.profile))}`,
-      `<div class="scroll"><table><tr><th>Clase</th><th>Tienes</th><th>Modelo</th><th class="l">Lectura</th></tr>${rows}</table></div>
+      `<div class="scroll"><table class="mt"><tr><th>Clase</th><th>Tienes</th><th>Modelo</th><th class="l">Lectura</th></tr>${rows}</table></div>
       <p class="note">El modelo sale de tu cuestionario (pestaña Mi perfil). Diferencias menores a 5 puntos no importan. Para acercarte al modelo, lo más sencillo es dirigir tus nuevos aportes a lo que falta en vez de vender.</p>`);
   }
 
   // tabla comparativa y composición
   const row = (k, a, b, read) => `<tr><td class="k">${k}</td><td>${a}</td><td class="mut">${b}</td><td class="read">${read}</td></tr>`;
-  h += `<div class="grid2">` + panel("Tu portafolio contra el S&P 500", st ? `${st.years.toFixed(1)} años con los pesos de hoy` : "", st ? `<div class="scroll"><table><tr><th>Métrica</th><th>Tú</th><th>SPY</th><th class="l">Cómo leerlo</th></tr>
+  h += `<div class="grid2">` + panel("Tu portafolio contra el S&P 500", st ? `${st.years.toFixed(1)} años con los pesos de hoy` : "", st ? `<div class="scroll"><table class="mt"><tr><th>Métrica</th><th>Tú</th><th>SPY</th><th class="l">Cómo leerlo</th></tr>
     ${row("Rendimiento anual", `<span class="${cls(st.ann)}">${pct(st.ann,1,true)}</span>`, pct(sp.ann,1,true), "Como si hubieras tenido estos pesos todo el periodo (no es tu rendimiento real).")}
     ${row("Rendimiento acumulado", pct(st.total,1,true), pct(sp.total,1,true), "")}
     ${row("Volatilidad", pct(st.vol,1), pct(sp.vol,1), "")}
@@ -1280,9 +1346,9 @@ function svgChart(labels, lines, band, fmt){
   const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
   const X = (i) => P.l + i * (W - P.l - P.r) / Math.max(1, n - 1), Y = (v) => P.t + (hi - v) * (H - P.t - P.b) / span;
   const pts = (s) => s.map((v, i) => X(i).toFixed(1) + " " + Y(v).toFixed(1));
-  const ticks = [lo, lo + span / 2, hi].map(v => `<text x="${P.l-6}" y="${Y(v)+3}" text-anchor="end" fill="#5f6f8c" font-size="10">${fmt(v)}</text><line x1="${P.l}" x2="${W-P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#1a2740"/>`).join("");
+  const ticks = [lo, lo + span / 2, hi].map(v => `<text x="${P.l-6}" y="${Y(v)+3}" text-anchor="end" fill="#7f90ad" font-size="10">${fmt(v)}</text><line x1="${P.l}" x2="${W-P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#1a2740"/>`).join("");
   const xi = [...new Set([0, Math.floor((n - 1) / 2), n - 1])];
-  const xl = xi.map(i => `<text x="${X(i)}" y="${H-6}" text-anchor="${i === 0 ? "start" : i === n - 1 ? "end" : "middle"}" fill="#5f6f8c" font-size="10">${esc(labels[i])}</text>`).join("");
+  const xl = xi.map(i => `<text x="${X(i)}" y="${H-6}" text-anchor="${i === 0 ? "start" : i === n - 1 ? "end" : "middle"}" fill="#7f90ad" font-size="10">${esc(labels[i])}</text>`).join("");
   const area = band ? `<path d="M${pts(band.hi).join("L")}L${pts(band.lo).reverse().join("L")}Z" fill="${band.color}" opacity=".16"/>` : "";
   const ls = lines.map(l => `<path d="M${pts(l.v).join("L")}" fill="none" stroke="${l.color}" stroke-width="${l.w || 1.6}"${l.dash ? ` stroke-dasharray="${l.dash}"` : ""} vector-effect="non-scaling-stroke"/>`).join("");
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img">${ticks}${area}${ls}${xl}</svg>`;
@@ -1324,8 +1390,8 @@ function renderSim(){
         ${kpi("Diferencia al año", pct(bt.cagr - spy.cagr,1,true), "contra el S&P 500", cls(bt.cagr - spy.cagr))}
         ${kpi("Acciones en el portafolio", pct(p.mix.eq,0), "el S&P 500 es 100% acciones")}
       </div>` : ""}
-      ${svgChart(bt.path.map(x => x.m), [{v: bt.path.map(x => x.contrib), color:"#5f6f8c", w:1.2, dash:"4 4"}, {v: bt.path.map(x => x.vs), color:"#6cc4ff", w:1.3}, ...(refAt && bt.path.every(x => refAt.has(x.m)) ? [{v: bt.path.map(x => refAt.get(x.m)), color:"#b48cff", w:1.3, dash:"6 3"}] : []), {v: bt.path.map(x => x.v), color:"#f0b44c", w:2}], null, kmoney)}
-      <div class="legend"><span><i style="background:#f0b44c"></i>${esc(p.name)}</span><span><i style="background:#b48cff"></i>Tu referencia</span><span><i style="background:#6cc4ff"></i>Sólo S&P 500</span><span><i style="background:#5f6f8c"></i>Lo que aportaste</span></div>
+      ${svgChart(bt.path.map(x => x.m), [{v: bt.path.map(x => x.contrib), color:"#7f90ad", w:1.2, dash:"4 4"}, {v: bt.path.map(x => x.vs), color:"#6cc4ff", w:1.3}, ...(refAt && bt.path.every(x => refAt.has(x.m)) ? [{v: bt.path.map(x => refAt.get(x.m)), color:"#b48cff", w:1.3, dash:"6 3"}] : []), {v: bt.path.map(x => x.v), color:"#f0b44c", w:2}], null, kmoney)}
+      <div class="legend"><span><i style="background:#f0b44c"></i>${esc(p.name)}</span><span><i style="background:#b48cff"></i>Tu referencia</span><span><i style="background:#6cc4ff"></i>Sólo S&P 500</span><span><i style="background:#7f90ad"></i>Lo que aportaste</span></div>
       <div class="scroll" style="margin-top:10px"><table><tr><th>Portafolio</th><th>Desde</th><th>Rend. anual</th><th>% de la ganancia del S&P</th><th>Volatilidad</th><th>Sharpe</th><th>Peor caída</th><th>Peor año</th><th>Terminarías con</th></tr>
         ${bts.map((b, i) => b ? `<tr${i === PSEL ? ' style="background:var(--panel-2)"' : ""}><td class="k">${i+1}. ${esc(PFS[i].name)}</td><td class="mut">${ym(b.start)}</td><td class="${cls(b.cagr)}">${pct(b.cagr,1,true)}</td><td class="wp" style="text-align:left">${spy ? pct(gainShare(b, spy),0) : "—"}</td><td>${pct(b.vol,1)}</td><td>${fx(b.sharpe)}</td><td class="down">${pct(b.maxDD,1)}</td><td>${pct(b.worstYear.r,1,true)} <span class="mut">${b.worstYear.y}</span></td><td>${money(b.final,0)}</td></tr>` : "").join("")}
         ${ref ? `<tr><td class="k mut">Tu referencia (${esc(Object.entries(QXP.referenceWeights(EV, SET.answers || ANS || {})).map(([s, w]) => pct(w,0) + " " + s).join(" / "))})</td><td class="mut">${ym(ref.start)}</td><td>${pct(ref.cagr,1,true)}</td><td class="mut">${spy ? pct(gainShare(ref, spy),0) : "—"}</td><td>${pct(ref.vol,1)}</td><td>${fx(ref.sharpe)}</td><td class="down">${pct(ref.maxDD,1)}</td><td>${pct(ref.worstYear.r,1,true)} <span class="mut">${ref.worstYear.y}</span></td><td>${money(ref.final,0)}</td></tr>` : ""}
@@ -1355,8 +1421,8 @@ function renderSim(){
       ${kpi("Escenario bueno", money(mc.real.p90,0), mxn(mc.real.p90), "up")}
       ${kpi("Lo aportado, en dinero de hoy", money(mc.real.contributedReal,0), "la inflación le quita poder de compra")}
     </div>
-    ${svgChart(yl, [{v: mc.bands.map(b => o.initial + o.monthly * 12 * b.y), color:"#5f6f8c", w:1.2, dash:"4 4"}, {v: mc.bands.map(b => b.p50), color:"#f0b44c", w:2}, {v: mc.bands.map(b => b.p10), color:"#ff6f6f", w:1.1}, {v: mc.bands.map(b => b.p90), color:"#33cf96", w:1.1}], {lo: mc.bands.map(b => b.p10), hi: mc.bands.map(b => b.p90), color:"#f0b44c"}, kmoney)}
-    <div class="legend" style="flex-wrap:wrap"><span><i style="background:#33cf96"></i>Bueno (90)</span><span><i style="background:#f0b44c"></i>Típico (50)</span><span><i style="background:#ff6f6f"></i>Malo (10)</span><span><i style="background:#5f6f8c"></i>Lo aportado</span></div>
+    ${svgChart(yl, [{v: mc.bands.map(b => o.initial + o.monthly * 12 * b.y), color:"#7f90ad", w:1.2, dash:"4 4"}, {v: mc.bands.map(b => b.p50), color:"#f0b44c", w:2}, {v: mc.bands.map(b => b.p10), color:"#ff6f6f", w:1.1}, {v: mc.bands.map(b => b.p90), color:"#33cf96", w:1.1}], {lo: mc.bands.map(b => b.p10), hi: mc.bands.map(b => b.p90), color:"#f0b44c"}, kmoney)}
+    <div class="legend" style="flex-wrap:wrap"><span><i style="background:#33cf96"></i>Bueno (90)</span><span><i style="background:#f0b44c"></i>Típico (50)</span><span><i style="background:#ff6f6f"></i>Malo (10)</span><span><i style="background:#7f90ad"></i>Lo aportado</span></div>
     <p class="note">Cómo se calcula: cada ETF se mueve con su volatilidad y su correlación reales desde 2016, pero con rendimientos esperados más bajos que los de la última década, a propósito: acciones de EE. UU. 6.5% al año, internacionales 7%, emergentes 7.5%, bonos 4.3%, oro 4% y efectivo a la tasa de hoy (${pct(rf,1)}). A eso se le resta la comisión anual de cada ETF (${pct(mc.fee,2)} en promedio para este portafolio), así que supone ${pct(mc.expRet,1)} al año antes de inflación. Son escenarios para entender el rango posible, no un pronóstico: la realidad puede salir fuera de la banda.</p>
     <p class="note"><b>«Lo que te quedaría de verdad»</b> resta un ISR aproximado de ${pct(mc.real.isr,0)} sobre la ganancia al vender y una inflación de ${pct(mc.real.inflation,1)} al año en dólares. El ISR de un residente en México que invierte con un broker del extranjero depende de su caso (puede ser 10% o la tasa de tu declaración anual, y los dividendos pagan aparte): confírmalo con un contador. ${usdmxn ? `Los pesos usan el tipo de cambio de hoy (${fx(usdmxn,2)} por dólar, Reserva Federal vía FRED, dato al ${esc(SIMD.rf.usdmxnDate || "")}). A largo plazo el peso suele perder contra el dólar más o menos lo que México tiene de inflación extra, así que en pesos de hoy el resultado se parece; en plazos cortos el tipo de cambio puede mover el resultado 20% o más para cualquier lado.` : "No tengo el tipo de cambio de hoy, así que no muestro pesos."} No incluye la comisión de tu broker ni el costo de comprar y vender.</p>`;
   if (SIMD.errors?.length) h += `<p class="note">Avisos de datos: ${esc(SIMD.errors.join("; "))}</p>`;
@@ -1387,6 +1453,7 @@ async function loadFav(force){
   catch(e){ $("favT").innerHTML = `<div class="err">${esc(e.message)}</div>`; }
 }
 function renderFav(){
+  const MOS = {};
   const rows = FAV.map(f => {
     const it = FB?.items?.[f.symbol] || {}, m = it.metric || {}, q = FB?.quotes?.[f.symbol] || {};
     const price = q.last, isEtf = it.profile?.etf || QX.etfClass(f.symbol);
@@ -1395,6 +1462,7 @@ function renderFav(){
       const fu = QX.fundamentals(it.sec, price, m, it.profile?.sector);
       if (fu){ const v = QX.dcfValue(QX.dcfDefaults(it.sec, fu, {beta: m.beta})); if (v && v.perShare > 0) mos = 1 - price / v.perShare; }
     }
+    MOS[f.symbol] = mos;
     const lo = m["52WeekLow"], hi = m["52WeekHigh"], pos = ok(lo) && ok(hi) && hi>lo && price ? (price-lo)/(hi-lo) : null;
     const toT = f.target && price ? f.target / price - 1 : null;
     return `<tr><td><a href="#${esc(f.symbol)}" class="sym" data-an="${esc(f.symbol)}">${esc(f.symbol)}</a><span class="sub">${esc(it.profile?.name || (isEtf ? QX.ETF_LABEL[QX.etfClass(f.symbol)] || "ETF" : ""))}</span></td>
@@ -1405,7 +1473,15 @@ function renderFav(){
       <td class="read" style="min-width:120px">${esc(f.note||"")}</td>
       <td><button class="x" data-del="${f.id}" title="Quitar">✕</button></td></tr>`;
   }).join("");
-  $("favT").innerHTML = `<table><tr><th>Símbolo</th><th>Precio</th><th>Hoy</th><th>1 año</th><th title="Dónde está en su rango de 52 semanas (0% = mínimo, 100% = máximo)">Rango 52s</th><th>P/U</th><th>Beta</th><th>Div.</th><th>Margen DCF</th><th title="Precio al que te gustaría comprar">Tu precio</th><th class="l">Nota</th><th></th></tr>${rows}</table>`
+  const cards = FAV.map(f => {
+    const it = FB?.items?.[f.symbol] || {}, m = it.metric || {}, q = FB?.quotes?.[f.symbol] || {};
+    const price = q.last, mos = MOS[f.symbol];
+    const toT = f.target && price ? f.target / price - 1 : null;
+    return `<div class="pcard"><div class="pc1"><a href="#${esc(f.symbol)}" class="sym" data-an="${esc(f.symbol)}">${esc(f.symbol)}</a><span class="pcn">${esc(it.profile?.name || "")}</span><b>${money(price)}</b></div>
+      <div class="pc3"><div><span>Hoy</span><b class="${cls(q.chg)}">${pct(q.chg,2,true)}</b></div><div><span>Margen DCF</span><b class="${mos==null?"mut":mos>=0.25?"up":mos>=-0.1?"amb":"down"}">${pct(mos,0)}</b></div><div><span>P/U</span><b>${mult(m.peTTM)}</b></div></div>
+      <div class="pc4"><span>${f.target ? `Tu precio ${money(f.target)}${toT!=null ? (price<=f.target ? " · ¡ya está ahí!" : " · falta " + pct(toT,1,true)) : ""}` : "Sin precio objetivo"}${f.note ? " · " + esc(f.note) : ""}</span><span><button class="x" data-del="${f.id}" title="Quitar" aria-label="Quitar ${esc(f.symbol)}">✕</button></span></div></div>`;
+  }).join("");
+  $("favT").innerHTML = `<div class="pcards">${cards}</div><table class="wide"><tr><th>Símbolo</th><th>Precio</th><th>Hoy</th><th>1 año</th><th title="Dónde está en su rango de 52 semanas (0% = mínimo, 100% = máximo)">Rango 52s</th><th>P/U</th><th>Beta</th><th>Div.</th><th>Margen DCF</th><th title="Precio al que te gustaría comprar">Tu precio</th><th class="l">Nota</th><th></th></tr>${rows}</table>`
     + (FB?.errors?.length ? `<p class="note">Algunos datos no llegaron (límite de consultas); toca Favoritos de nuevo en un minuto. ${esc(FB.errors.join("; "))}</p>` : "");
   $("favAt").textContent = FB ? "Precios " + new Date(FB.at).toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"}) : "";
   for (const b of $("favT").querySelectorAll("[data-del]")) b.onclick = async () => {
