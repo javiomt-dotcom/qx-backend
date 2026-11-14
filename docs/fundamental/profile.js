@@ -208,7 +208,7 @@
     {
       const w = round({ VOO: m.eq, BND: m.bond, BIL: m.cash, GLD: m.gold });
       out.push({ id: "sp", name: "Pegado al S&P 500", rec: true, tag: m.eq >= 0.995 ? "100% en el S&P 500: es el índice mismo" : `${Math.round(m.eq * 100)}% en el S&P 500, el resto en bonos y efectivo`,
-        why: `Toda la parte de acciones va al S&P 500 (VOO). Es lo más parecido al S&P 500 que permite tu perfil: sube y baja con él en proporción a tu ${Math.round(m.eq * 100)}% de acciones. Para pegarse todavía más hay que subir de perfil (más acciones), lo que también trae caídas más grandes. Es el recomendado: en nuestra investigación ningún fondo de factores le ganó al índice con significancia, así que lo más simple y barato es la mejor base; los demás son alternativas.`, w });
+        why: `Toda la parte de acciones va al S&P 500 (VOO). Es lo más parecido al S&P 500 que permite tu perfil: sube y baja con él en proporción a tu ${Math.round(m.eq * 100)}% de acciones. Para pegarse todavía más hay que subir de perfil (más acciones), lo que también trae caídas más grandes. Es el más simple: en nuestra investigación ningún fondo de factores le ganó al índice con significancia, por eso lo ponemos primero; los demás son alternativas.`, w });
     }
 
     // 1. Sencillo: 3 o 4 fondos
@@ -332,6 +332,14 @@
   const EXPECTED = { us: 0.065, usdiv: 0.065, usq: 0.065, uslv: 0.06, usgrowth: 0.065, ussmall: 0.07, intl: 0.07, em: 0.075, mx: 0.075, bond: 0.043, tips: 0.042, cash: null, gold: 0.04 };
   const VOL_FALLBACK = { us: 0.16, usdiv: 0.15, usq: 0.15, uslv: 0.12, usgrowth: 0.21, ussmall: 0.21, intl: 0.16, em: 0.2, mx: 0.24, bond: 0.06, tips: 0.06, cash: 0.005, gold: 0.15 };
 
+  // Comisión anual de cada ETF (expense ratio, aprox. 2026). Los precios históricos ya la traen descontada,
+  // pero los rendimientos esperados de arriba son de la clase de activo, así que en la simulación se resta.
+  const TER = { VTI: 0.0003, VOO: 0.0003, ESGV: 0.0009, SCHD: 0.0006, QUAL: 0.0015, MOAT: 0.0046, JQUA: 0.0012, USMV: 0.0015, QQQ: 0.002, VB: 0.0005,
+    VXUS: 0.0005, VEA: 0.0003, VSGX: 0.0012, VWO: 0.0007, EWW: 0.005, BND: 0.0003, IEF: 0.0015, TIP: 0.0018, BIL: 0.0014, GLD: 0.004, SPY: 0.0009 };
+  // Supuestos para «lo que te quedaría de verdad»: inflación de largo plazo en dólares e ISR aproximado sobre la ganancia al vender.
+  // El ISR de un residente en México con broker extranjero depende de su caso (10% o tasa progresiva): confírmalo con un contador.
+  const REAL = { inflation: 0.025, isr: 0.10 };
+
   function mulberry(seed) { return function () { seed |= 0; seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   function gauss(rnd) { let u = 0, v = 0; while (u === 0) u = rnd(); while (v === 0) v = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
   function cholesky(A) {
@@ -370,12 +378,15 @@
     }));
     const L = cholesky(C);
     // media mensual logarítmica para que el rendimiento anual esperado sea EXPECTED
-    const mu = syms.map((s, i) => { const a = ASSET[s], e = a === "cash" ? rf : EXPECTED[a] ?? 0.06; return Math.log(1 + e) / 12 - (sd[i] ** 2) / 2; });
+    const fee = (s) => (opts.fees === false ? 0 : TER[s] ?? 0.002);
+    const mu = syms.map((s, i) => { const a = ASSET[s], e = (a === "cash" ? rf : EXPECTED[a] ?? 0.06) - fee(s); return Math.log(1 + e) / 12 - (sd[i] ** 2) / 2; });
     const w = syms.map((s) => weights[s]);
     const rnd = mulberry(opts.seed || 42);
     const T = years * 12, finals = [], byYear = Array.from({ length: years + 1 }, () => []);
     let below = 0, lostHalf = 0;
     const contributed = init + add * T;
+    const infl = opts.inflation ?? REAL.inflation, isr = opts.isr ?? REAL.isr, deflate = Math.pow(1 + infl, years);
+    const nets = [];
     for (let p = 0; p < N; p++) {
       let v = init, peak = 1, unit = 1, worst = 0;
       byYear[0].push(v);
@@ -387,12 +398,16 @@
         if (t % 12 === 0) byYear[t / 12].push(v);
       }
       finals.push(v); if (v < contributed) below++; if (worst <= -0.3) lostHalf++;
+      nets.push((v - Math.max(0, v - contributed) * isr) / deflate);   // después de ISR y en dinero de hoy
     }
     const pct = (arr, q) => { const b = [...arr].sort((x, y) => x - y); return b[Math.min(b.length - 1, Math.floor(q * b.length))]; };
     const bands = byYear.map((a, y) => ({ y, p10: pct(a, 0.1), p50: pct(a, 0.5), p90: pct(a, 0.9) }));
-    const expRet = syms.reduce((s, sym, i) => s + w[i] * (ASSET[sym] === "cash" ? rf : EXPECTED[ASSET[sym]] ?? 0.06), 0);
+    const expGross = syms.reduce((s, sym, i) => s + w[i] * (ASSET[sym] === "cash" ? rf : EXPECTED[ASSET[sym]] ?? 0.06), 0);
+    const feeW = syms.reduce((s, sym, i) => s + w[i] * fee(sym), 0);
     return { years, contributed, bands, p10: pct(finals, 0.1), p50: pct(finals, 0.5), p90: pct(finals, 0.9),
-             probBelow: below / N, probDD30: lostHalf / N, expRet, paths: N };
+             probBelow: below / N, probDD30: lostHalf / N, expRet: expGross - feeW, expGross, fee: feeW, paths: N,
+             real: { p10: pct(nets, 0.1), p50: pct(nets, 0.5), p90: pct(nets, 0.9), inflation: infl, isr, contributedReal: contributed / deflate,
+                     probBelowReal: nets.filter((x) => x < contributed).length / N } };
   }
 
   // Pesos actuales por clase de activo contra la mezcla del portafolio recomendado
@@ -407,6 +422,6 @@
     return mix;
   }
 
-  const QXP = { SECTIONS, QUESTIONS, PROFILE_ORDER, PROFILE_TEXT, MIX, ASSET, NAMES, KIND, EXPECTED, evaluate, withProfile, missing, buildPortfolios, referenceWeights, monthly, backtest, monteCarlo, mixOf };
+  const QXP = { SECTIONS, QUESTIONS, PROFILE_ORDER, PROFILE_TEXT, MIX, ASSET, NAMES, KIND, EXPECTED, TER, REAL, evaluate, withProfile, missing, buildPortfolios, referenceWeights, monthly, backtest, monteCarlo, mixOf };
   if (typeof module !== "undefined" && module.exports) module.exports = QXP; else root.QXP = QXP;
 })(typeof self !== "undefined" ? self : this);

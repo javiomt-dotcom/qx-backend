@@ -196,6 +196,25 @@
       out.rows[y] = { rev: r, ni: n, fcf: o != null ? o - c : null, netM: r && n != null ? n / r : null, roe: e > 0 && n != null ? n / e : null, sh: val(sh, y) };
     }
     out.fcfSeries = fcfS;
+    out.sbc = g("sbc");
+    // Múltiplos de los últimos 12 meses con cifras de la SEC (misma fuente y definición que la historia de 10-K)
+    const T = sec && sec.ttm;
+    if (T && mcap) {
+      const tv = (k) => (T[k] && num(T[k].v) != null ? T[k].v : null);
+      const tRev = tv("rev"), tNi = tv("ni"), tOcf = tv("ocf"), tCap = tv("capex") || 0, tEbit = tv("ebit"), tDa = tv("da");
+      const tDebt = (tv("ltd") ?? g("ltd") ?? 0) + (tv("std") ?? g("std") ?? 0), tCash = (tv("cash") ?? g("cash") ?? 0) + (tv("sti") ?? g("sti") ?? 0);
+      const tEv = mcap + tDebt - tCash, tFcf = tOcf != null ? tOcf - tCap : null, tEbitda = tEbit != null ? tEbit + (tDa || 0) : null;
+      const sameEnd = (k) => T[k] && T.rev && T[k].end === T.rev.end;
+      out.ttmMult = {
+        end: T.rev ? T.rev.end : null,
+        pe: tNi > 0 && sameEnd("ni") ? mcap / tNi : null,
+        ps: tRev > 0 ? mcap / tRev : null,
+        evSales: tRev > 0 ? tEv / tRev : null,
+        pfcf: tFcf > 0 && sameEnd("ocf") ? mcap / tFcf : null,
+        evEbitda: tEbitda > 0 && tEv > 0 && sameEnd("ebit") ? tEv / tEbitda : null,
+        pb: tv("eq") > 0 ? mcap / tv("eq") : null,
+      };
+    }
     out.splitAdjShares = sh;
     out.financial = isFinancial(sector);
     return out;
@@ -305,15 +324,27 @@
     opts = opts || {};
     const S = (sec && sec.series) || {}, T = (sec && sec.ttm) || null;
     const ys = years(S.ocf).filter((y) => S.rev && S.rev[y] > 0).slice(-3);
-    const margins = ys.map((y) => (S.ocf[y] - ((S.capex || {})[y] || 0)) / S.rev[y]);
+    // Flujo libre = flujo operativo − inversión − pagos a empleados en acciones (SBC). El SBC es un gasto real
+    // (diluye al accionista) que el flujo operativo suma de vuelta; sin restarlo el DCF infla a las tecnológicas.
+    const sbcOf = (y) => num((S.sbc || {})[y]) ?? 0;
+    const hasSbc = !!(S.sbc && Object.keys(S.sbc).length);
+    const margins = ys.map((y) => (S.ocf[y] - ((S.capex || {})[y] || 0) - sbcOf(y)) / S.rev[y]);
+    const marginsGross = ys.map((y) => (S.ocf[y] - ((S.capex || {})[y] || 0)) / S.rev[y]);
+    const sbcPct = ys.map((y) => sbcOf(y) / S.rev[y]);
     const marginFrom = ys.slice();
     let rev0 = lastV(S.rev), revFrom = lastY(S.rev) ? `año fiscal ${lastY(S.rev)}` : "";
     const ttm = T && T.rev && T.rev.v > 0 && T.rev.end > (T.rev.fyEnd || "") ? T : null;
     if (ttm) {
       rev0 = ttm.rev.v; revFrom = `últimos 12 meses al ${ttm.rev.end}`;
-      if (ttm.ocf && ttm.ocf.end === ttm.rev.end) { margins.push((ttm.ocf.v - ((ttm.capex && ttm.capex.v) || 0)) / ttm.rev.v); marginFrom.push("12m"); }
+      if (ttm.ocf && ttm.ocf.end === ttm.rev.end) {
+        const sb = hasSbc ? (ttm.sbc && ttm.sbc.end === ttm.rev.end ? ttm.sbc.v : (median(sbcPct) || 0) * ttm.rev.v) : 0;
+        const g0 = ttm.ocf.v - ((ttm.capex && ttm.capex.v) || 0);
+        margins.push((g0 - sb) / ttm.rev.v); marginsGross.push(g0 / ttm.rev.v); sbcPct.push(sb / ttm.rev.v); marginFrom.push("12m");
+      }
     }
     const margin = margins.length ? median(margins) : null;
+    const marginNoSbc = marginsGross.length ? median(marginsGross) : null;
+    const sbcShare = hasSbc && sbcPct.length ? median(sbcPct) : null;   // SBC como % de las ventas
     const ry = years(S.rev), gr = (n) => (ry.length > n && S.rev[ry[ry.length - 1 - n]] > 0 && S.rev[ry[ry.length - 1]] > 0 ? cagr(S.rev[ry[ry.length - 1 - n]], S.rev[ry[ry.length - 1]], n) : null);
     const g3 = gr(3), g5 = gr(5);
     let hist = [g3, g5].filter((x) => x != null), gYears = hist.length ? null : Math.min(ry.length - 1, 2);
@@ -331,7 +362,7 @@
         netDebt = pick("ltd") + pick("std") - pick("cash") - pick("sti"); ndFrom = `balance al ${ttm.end}`;
       }
     }
-    return { rev0, revFrom, margin, marginFrom, g: clip(gAdj, 0, 0.25), gRaw, g3, g5, gYears, r: dr.r, rHow: dr.how, rRaw: dr.raw,
+    return { rev0, revFrom, margin, marginNoSbc, sbcShare, hasSbc, marginFrom, g: clip(gAdj, 0, 0.25), gRaw, g3, g5, gYears, r: dr.r, rHow: dr.how, rRaw: dr.raw,
              gt: 0.03, years: 10, stage1: 5, netDebt, ndFrom, shares: f ? f.shares : null };
   }
   // Método conservador del backtest Buffett (PR #7): flujo libre promedio de 3 años, crecimiento de ventas 0–8%, 10%, 3%.
@@ -555,7 +586,8 @@
     const S = (sec && sec.series) || {};
     if (!px || !px.t || !px.t.length || !(S.rev || S.ni)) return null;
     const sh = normSplits(S.sh || {});
-    const endPx = (y) => { let v = null; for (let i = 0; i < px.t.length; i++) { const d = px.t[i]; if (d.slice(0, 4) === y) v = px.c[i]; else if (d.slice(0, 4) > y) break; } return v; };
+    // Precio al cierre del AÑO FISCAL de cada 10-K (NVDA cierra en enero, AAPL en septiembre), no al 31 de diciembre
+    const endPx = (y) => { const e = fiscalEnd(sec, y); if (!e || px.t[0] > e) return null; let v = null; for (let i = 0; i < px.t.length; i++) { if (px.t[i] <= e) v = px.c[i]; else break; } return v; };
     const ys = years(sh).filter((y) => endPx(y) != null);
     const out = { years: [], pe: {}, ps: {}, pb: {}, pfcf: {}, evEbitda: {}, peg: {}, evSales: {} };
     if (!ys.length) return out;
@@ -583,15 +615,31 @@
     }
     return out;
   }
+  // Fecha de cierre del año fiscal y (misma etiqueta que la función: año de la fecha de cierre menos 180 días).
+  // 1) la que manda la función; 2) el mes y día del último cierre conocido; 3) 31 de diciembre.
+  function fiscalEnd(sec, y) {
+    const E = sec && sec.fyEnds;
+    if (E && E[y]) return E[y];
+    const known = (E && lastV2(E)) || (sec && sec.ttm && sec.ttm.rev && sec.ttm.rev.fyEnd) || null;
+    if (!known) return `${y}-12-31`;
+    const md = known.slice(5, 10);
+    for (const yy of [Number(y), Number(y) + 1]) {
+      const d = `${yy}-${md}`, t = Date.parse(d + "T00:00:00Z") - 180 * 864e5;
+      if (String(new Date(t).getUTCFullYear()) === String(y)) return d;
+    }
+    return `${y}-12-31`;
+  }
+  function lastV2(o) { const y = lastY(o); return y ? o[y] : null; }
+
   // Resumen de un múltiplo: actual contra la mediana y el rango de su propia historia
   function multipleStat(hist, cur) {
     const v = Object.values(hist || {}).filter((x) => num(x) != null && x > 0);
     if (v.length < 3 || !(cur > 0)) return { n: v.length, cur: cur > 0 ? cur : null };
     const med = median(v), lo = Math.min(...v), hi = Math.max(...v), ratio = cur / med;
-    return { n: v.length, cur, med, lo, hi, ratio, verdict: ratio < 0.85 ? "barato" : ratio > 1.15 ? "caro" : "normal" };
+    return { n: v.length, cur, med, lo, hi, ratio, verdict: ratio < 0.85 ? "bajo" : ratio > 1.15 ? "alto" : "normal" };
   }
 
-  const QX = { multiplesHistory, multipleStat, num, years, lastY, lastV, mean, median, std, cov, corr, cagr, clip, normSplits, returns, maxDrawdown, align, monthEnds, sliceYears,
+  const QX = { multiplesHistory, multipleStat, fiscalEnd, num, years, lastY, lastV, mean, median, std, cov, corr, cagr, clip, normSplits, returns, maxDrawdown, align, monthEnds, sliceYears,
     riskStats, stockRisk, fundamentals, piotroski, altman, buffett, profitability, dcfDefaults, dcfConservative, dcfValue, dcfScenarios, dcfGrid, impliedGrowth, discountRate, capm, isFinancial,
     etfClass, ETF_LABEL, broadSector, assetBucket, PROFILES, portfolioSeries, riskContrib, recommendations, fmtBig };
   if (typeof module !== "undefined" && module.exports) module.exports = QX; else root.QX = QX;

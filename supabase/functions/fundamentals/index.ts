@@ -33,7 +33,9 @@ const APCA = { "APCA-API-KEY-ID": AK, "APCA-API-SECRET-KEY": AS };
 
 // ---------- caché ----------
 const mem = new Map<string, { t: number; d: unknown }>();
-async function cached<T>(key: string, ttl: number, fn: () => Promise<T>): Promise<T> {
+// onStale: si la fuente falla y se usa lo guardado, avisa con la fecha de ese dato (la página lo muestra)
+type Stale = (key: string, at: string) => void;
+async function cached<T>(key: string, ttl: number, fn: () => Promise<T>, onStale?: Stale): Promise<T> {
   const m = mem.get(key);
   if (m && Date.now() - m.t < ttl) return m.d as T;
   const { data } = await sbAdmin.from("fa_cache").select("data,fetched_at").eq("key", key).maybeSingle();
@@ -50,7 +52,7 @@ async function cached<T>(key: string, ttl: number, fn: () => Promise<T>): Promis
     }
     return d;
   } catch (e) {
-    if (data) return data.data as T;   // si la fuente falla, mejor lo viejo que nada
+    if (data) { onStale?.(key, data.fetched_at); return data.data as T; }   // si la fuente falla, mejor lo viejo que nada (avisando)
     throw e;
   }
 }
@@ -95,14 +97,14 @@ async function alpacaBars(symbols: string[], startISO: string) {
   throw new Error("alpaca_bars");
 }
 const nyToday = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-async function closes(sym: string, years: number) {
+async function closes(sym: string, years: number, onStale?: Stale) {
   // un registro por símbolo y día desde dic-2015 (lo más viejo que da Alpaca): sirve para todo
   // (empresa usa 5 años, portafolio 3, simulación del perfil hasta 11)
   const all = await cached(`bars2:${sym}:${nyToday()}`, 12 * H, async () => {
     const start = "2015-12-01";
     const b = (await alpacaBars([sym], start))[sym] ?? [];
     return { t: b.map((x) => x.t), c: b.map((x) => x.c) };
-  });
+  }, onStale);
   const from = new Date(Date.now() - years * 365.25 * DAY).toISOString().slice(0, 10);
   const i = all.t.findIndex((d: string) => d >= from);
   return i < 0 ? { t: [], c: [] } : { t: all.t.slice(i), c: all.c.slice(i) };
@@ -138,12 +140,13 @@ async function fred() {
     const x = rows[rows.length - 1];
     return x ? { v: Number(x[1]) / 100, d: x[0] } : null;
   };
-  const [t3, t10] = await Promise.all([last("DGS3MO"), last("DGS10")]);
-  return t3 ? { t3m: t3.v, t10y: t10?.v ?? null, date: t3.d, src: "FRED (Tesoro EE. UU.)" } : null;
+  const [t3, t10, mx] = await Promise.all([last("DGS3MO"), last("DGS10"), last("DEXMXUS")]);
+  // DEXMXUS viene en pesos por dólar; last() lo divide entre 100 como a las tasas, así que se regresa
+  return t3 ? { t3m: t3.v, t10y: t10?.v ?? null, date: t3.d, usdmxn: mx ? mx.v * 100 : null, usdmxnDate: mx?.d ?? null, src: "FRED (Tesoro EE. UU.)" } : null;
 }
 async function riskFree() {
   try {
-    return await cached(`rf:${nyToday()}`, DAY, async () => {
+    return await cached(`rf2:${nyToday()}`, DAY, async () => {
       try { const t = await fred(); if (t) return t; } catch { /* sigue Alpha Vantage */ }
       if (!AV) return null;
       const get = async (m: string) => {
@@ -175,6 +178,8 @@ const CONCEPTS: Record<string, string[]> = {
   capex: ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets"],
   div: ["PaymentsOfDividends", "PaymentsOfDividendsCommonStock"],
   buyback: ["PaymentsForRepurchaseOfCommonStock"],
+  // pagos a empleados en acciones: gasto real que el flujo operativo suma de vuelta; el DCF lo resta
+  sbc: ["ShareBasedCompensation", "AllocatedShareBasedCompensationExpense"],
   sh: ["WeightedAverageNumberOfDilutedSharesOutstanding"],
   // saldos (instantes)
   assets: ["Assets"],
@@ -225,7 +230,7 @@ function annualSeries(facts: any, key: string) {
 
 // Últimos 12 meses (TTM) con los 10-Q: último año fiscal + lo que va del año actual − mismo periodo del año anterior.
 // Importa en empresas que crecen rápido: el último 10-K puede tener casi un año de atraso.
-const FLOW_TTM = ["rev", "ocf", "capex", "ni"], INST_TTM = ["cash", "sti", "ltd", "std"];
+const FLOW_TTM = ["rev", "ocf", "capex", "ni", "sbc", "ebit", "da"], INST_TTM = ["cash", "sti", "ltd", "std", "eq"];
 function ttmFlow(facts: any, key: string) {
   const gaap = facts?.facts?.["us-gaap"] ?? {};
   const dur = (x: any) => (Date.parse(x.end) - Date.parse(x.start)) / DAY;
@@ -266,6 +271,23 @@ function ttmOf(facts: any) {
   return out.rev ? { ...out, end: out.rev.end } : null;
 }
 
+// Fecha de cierre de cada año fiscal (misma etiqueta de año que annualSeries): sirve para tomar el precio
+// de ese día en los múltiplos históricos (NVDA cierra en enero, AAPL en septiembre).
+function fiscalEnds(facts: any) {
+  const gaap = facts?.facts?.["us-gaap"] ?? {};
+  const out: Record<string, { e: string; f: string }> = {};
+  for (const concept of [...CONCEPTS.ni, ...CONCEPTS.rev]) {
+    for (const x of (gaap[concept]?.units?.USD ?? []) as any[]) {
+      if (!String(x.form ?? "").startsWith("10-K") || !x.start || !x.end || !x.filed) continue;
+      const days = (Date.parse(x.end) - Date.parse(x.start)) / DAY;
+      if (days < 340 || days > 390) continue;
+      const fy = String(new Date(Date.parse(x.end) - 180 * DAY).getUTCFullYear());
+      if (!out[fy] || x.filed > out[fy].f) out[fy] = { e: x.end, f: x.filed };
+    }
+  }
+  return Object.fromEntries(Object.keys(out).sort().slice(-12).map((fy) => [fy, out[fy].e]));
+}
+
 const cikMap = () => cached("sec:tickers", 7 * DAY, async () => {
   const r = await fetch("https://www.sec.gov/files/company_tickers.json", { headers: UA });
   if (!r.ok) throw new Error(`sec_tickers_${r.status}`);
@@ -288,7 +310,8 @@ async function secDirect(sym: string) {
   const cover = (facts?.facts?.dei?.EntityCommonStockSharesOutstanding?.units?.shares ?? [])
     .filter((x: any) => x.end && x.filed).sort((a: any, b: any) => (a.filed < b.filed ? -1 : 1));
   const last = cover[cover.length - 1];
-  return { cik, name: facts.entityName, series, ttm: ttmOf(facts), sharesOut: last ? { v: Number(last.val), d: last.end } : null, src: "SEC EDGAR" };
+  return { cik, name: facts.entityName, series, ttm: ttmOf(facts), fyEnds: fiscalEnds(facts),
+           sharesOut: last ? { v: Number(last.val), d: last.end } : null, src: "SEC EDGAR" };
 }
 
 // Respaldo: Finnhub "financials as reported" (los mismos 10-K de la SEC, ya en XBRL)
@@ -299,8 +322,10 @@ async function secViaFinnhub(sym: string) {
   const series: Record<string, Record<string, number>> = {};
   for (const k of Object.keys(CONCEPTS)) series[k] = {};
   let sharesOut: { v: number; d: string } | null = null;
+  const fyEnds: Record<string, string> = {};
   for (const d of data) {
     const fy = String(d.year);
+    if (d.endDate && !fyEnds[fy]) fyEnds[fy] = String(d.endDate).slice(0, 10);
     const items: Record<string, number> = {};
     for (const part of ["bs", "ic", "cf"]) for (const it of d.report?.[part] ?? []) {
       const c = String(it.concept ?? "").replace(/^us-gaap[_:]/, "").replace(/^dei[_:]/, "");
@@ -317,17 +342,17 @@ async function secViaFinnhub(sym: string) {
     for (const fy of Object.keys(series[k]).sort().slice(-11)) keep[fy] = series[k][fy];
     series[k] = keep;
   }
-  return { cik: js?.cik ?? null, name: null, series, sharesOut, src: "SEC vía Finnhub" };
+  return { cik: js?.cik ?? null, name: null, series, sharesOut, fyEnds, src: "SEC vía Finnhub" };
 }
 
-async function edgar(sym: string) {
-  return await cached(`sec3:facts:${sym}`, 3 * DAY, async () => {
+async function edgar(sym: string, onStale?: Stale) {
+  return await cached(`sec4:facts:${sym}`, 3 * DAY, async () => {
     try {
       const d: any = await secDirect(sym);
       if (!d.none) return d;
     } catch { /* la SEC a veces bloquea servidores en la nube: usa Finnhub */ }
     return await secViaFinnhub(sym);
-  });
+  }, onStale);
 }
 
 // ---------- acciones ----------
@@ -336,6 +361,8 @@ async function company(sym: string) {
   const safe = async <T>(name: string, p: Promise<T>): Promise<T | null> => {
     try { return await p; } catch (e) { errors.push(`${name}: ${(e as Error).message}`); return null; }
   };
+  const stale: { what: string; at: string }[] = [];
+  const st = (what: string): Stale => (_k, at) => stale.push({ what, at });
   const today = nyToday();
   const to = new Date(Date.now() + 120 * DAY).toISOString().slice(0, 10);
   const [prof, metric, rec, earn, sec, px, spy, q, rf] = await Promise.all([
@@ -343,29 +370,30 @@ async function company(sym: string) {
     safe("métricas", cached(`fh:metric:${sym}`, 12 * H, async () => {
       const m = await fh(`stock/metric?symbol=${encodeURIComponent(sym)}&metric=all`);
       return m?.metric ?? {};
-    })),
+    }, st("métricas Finnhub"))),
     safe("analistas", cached(`fh:rec:${sym}`, DAY, () => fh(`stock/recommendation?symbol=${encodeURIComponent(sym)}`))),
     safe("reportes", cached(`fh:earn:${sym}:${today}`, DAY, async () =>
       (await fh(`calendar/earnings?from=${today}&to=${to}&symbol=${encodeURIComponent(sym)}`))?.earningsCalendar ?? [])),
-    safe("EDGAR", edgar(sym)),
-    safe("precios", closes(sym, 5)),
-    safe("precios SPY", closes("SPY", 5)),
+    safe("EDGAR", edgar(sym, st("estados SEC"))),
+    safe("precios", closes(sym, 5, st("precios"))),
+    safe("precios SPY", closes("SPY", 5, st("precios SPY"))),
     safe("cotización", snapshots([sym])),
     riskFree(),
   ]);
   return {
     symbol: sym, profile: prof, metric, recommendation: Array.isArray(rec) ? rec.slice(0, 4) : [],
-    earnings: earn ?? [], sec, prices: px, spy, quote: q?.[sym] ?? null, rf, errors, at: new Date().toISOString(),
+    earnings: earn ?? [], sec, prices: px, spy, quote: q?.[sym] ?? null, rf, errors, stale, at: new Date().toISOString(),
   };
 }
 
 async function history(symbols: string[], years: number) {
   const errors: string[] = [];
+  const stale: { what: string; at: string }[] = [];
   const all = [...new Set(["SPY", ...symbols])];
   const series: Record<string, { t: string[]; c: number[] }> = {};
   const profiles: Record<string, unknown> = {};
   await Promise.all(all.map(async (s) => {
-    try { series[s] = await closes(s, years); } catch (e) { errors.push(`${s}: ${(e as Error).message}`); }
+    try { series[s] = await closes(s, years, (_k, at) => stale.push({ what: `precios ${s}`, at })); } catch (e) { errors.push(`${s}: ${(e as Error).message}`); }
   }));
   for (const s of symbols) {   // de uno en uno: cuida el límite de Finnhub
     try {
@@ -375,7 +403,7 @@ async function history(symbols: string[], years: number) {
     } catch (e) { profiles[s] = { etf: null }; errors.push(`perfil ${s}: ${(e as Error).message}`); }
   }
   const [quotes, rf] = await Promise.all([snapshots(symbols), riskFree()]);
-  return { series, profiles, quotes, rf, errors, at: new Date().toISOString() };
+  return { series, profiles, quotes, rf, errors, stale, at: new Date().toISOString() };
 }
 
 // Resumen ligero para la lista de favoritos: perfil, métricas clave, estados (para el DCF rápido) y precio
@@ -392,7 +420,7 @@ async function brief(symbols: string[]) {
       const m: any = await cached(`fh:metric:${s}`, 12 * H, async () => (await fh(`stock/metric?symbol=${encodeURIComponent(s)}&metric=all`))?.metric ?? {});
       row.metric = Object.fromEntries(BRIEF_KEYS.map((k) => [k, m?.[k] ?? null]));
       if (!p.empty) {
-        try { const e: any = await edgar(s); if (e && !e.none) row.sec = { series: e.series, ttm: e.ttm ?? null, sharesOut: e.sharesOut }; } catch { /* sin DCF */ }
+        try { const e: any = await edgar(s); if (e && !e.none) row.sec = { series: e.series, ttm: e.ttm ?? null, sharesOut: e.sharesOut, fyEnds: e.fyEnds ?? null }; } catch { /* sin DCF */ }
       }
     } catch (e) { errors.push(`${s}: ${(e as Error).message}`); }
     out[s] = row;
@@ -402,7 +430,7 @@ async function brief(symbols: string[]) {
 }
 
 async function selftest() {
-  return await cached("selftest:v6", 10 * 60_000, async () => {
+  return await cached("selftest:v7", 10 * 60_000, async () => {
     const r: Record<string, string> = {};
     const t = async (n: string, f: () => Promise<string>) => {
       try { r[n] = await f(); } catch (e) { r[n] = "error: " + (e as Error).message; }
@@ -416,7 +444,7 @@ async function selftest() {
       const e: any = await edgar("AAPL");
       return e?.series ? `ok ${e.src} (ventas ${Object.keys(e.series.rev ?? {}).join(" ")}; flujo ${Object.keys(e.series.ocf ?? {}).length} años; acciones ${JSON.stringify(e.sharesOut)})` : "sin datos";
     });
-    await t("ttm_nvda", async () => JSON.stringify((await edgar("NVDA") as any)?.ttm ?? null));
+    await t("ttm_nvda", async () => { const e: any = await edgar("NVDA"); return JSON.stringify({ ttm: e?.ttm ?? null, fyEnds: e?.fyEnds ?? null }); });
     await t("alpaca", async () => { const c = await closes("SPY", 11); return `ok (${c.t.length} días, de ${c.t[0]} a ${c.t[c.t.length - 1]})`; });
     await t("rf", async () => JSON.stringify(await riskFree()));
     return r;
