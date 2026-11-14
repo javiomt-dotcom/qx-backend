@@ -269,7 +269,7 @@ nav.mob{display:none}
     </div>
   </div>
   <div class="disc">Herramienta educativa. Nada de esto es una recomendación de compra o venta. Datos: SEC EDGAR, Finnhub, Alpaca y FRED.</div>
-  <div class="banner" id="pfBanner" hidden><span>Aún no contestas tu perfil de inversionista. Con él se ajustan las recomendaciones y te armo 4 o 5 portafolios modelo.</span><button class="btn sm pri" id="pfBannerGo">Contestar</button></div>
+  <div class="banner" id="pfBanner" hidden><span>Aún no contestas tu perfil de inversionista. Con él se ajustan las observaciones y te muestro 4 o 5 portafolios modelo.</span><button class="btn sm pri" id="pfBannerGo">Contestar</button></div>
 
   <section id="t-perfil" hidden>
     <div id="perfOut"></div>
@@ -519,6 +519,19 @@ function build(d){
            alt: f && !f.financial ? QX.altman(d.sec, f.mcap) : null };
 }
 
+// De qué fecha es cada dato, y aviso cuando la fuente falló y se usa lo guardado
+function dataDates(C){
+  const d = C.d, f = C.f, bits = [], warn = [];
+  const qd = d.quote?.day, pd = d.prices?.t?.length ? d.prices.t[d.prices.t.length - 1] : null;
+  if (qd || pd) bits.push(`precio de la sesión ${esc(qd || pd)}`);
+  if (f?.fy) bits.push(`estados: año fiscal ${esc(f.fy)}${d.sec?.ttm?.end ? ` y 12 meses al ${esc(d.sec.ttm.end)}` : ""} (${esc(d.sec?.src || "SEC")})`);
+  if (d.rf?.date) bits.push(`tasas del Tesoro al ${esc(d.rf.date)}`);
+  const day = qd || pd;
+  if (day && (Date.now() - Date.parse(day + "T21:00:00Z")) / 864e5 > 4) warn.push(`el último precio es del ${esc(day)}`);
+  for (const x of d.stale || []) warn.push(`no pude actualizar ${esc(x.what)}; uso lo guardado el ${esc(String(x.at).slice(0, 10))}`);
+  return `<p class="note" style="margin:6px 0">Datos: ${bits.join(" · ") || "—"}.${warn.length ? ` <b class="amb">⚠ Ojo: ${warn.join("; ")}.</b>` : ""}</p>`;
+}
+
 function verdicts(C, dv){
   const {f, risk, price} = C, out = [];
   // valuación
@@ -527,7 +540,7 @@ function verdicts(C, dv){
   else if (dv && dv.perShare){
     const mos = 1 - price / dv.perShare;
     const ig = QX.impliedGrowth(DCF, price);
-    out.push({k:"Valuación (DCF)", v: mos >= 0.25 ? "Barata" : mos >= -0.1 ? "Cerca de su valor" : "Cara", c: mos >= 0.25 ? "up" : mos >= -0.1 ? "amb" : "down",
+    out.push({k:"Valuación (DCF)", v: mos >= 0.25 ? "Abajo de su valor estimado" : mos >= -0.1 ? "Cerca de su valor estimado" : "Arriba de su valor estimado", c: mos >= 0.25 ? "up" : mos >= -0.1 ? "amb" : "down",
       s: `Valor estimado ${money(dv.perShare)} vs precio ${money(price)} (margen ${pct(mos,0)}).` + (ig && ig.g!=null && !ig.above && !ig.below ? ` El precio supone que sus ventas crecen ${pct(ig.g,1)} al año los próximos 5 años.` : "")});
   } else out.push({k:"Valuación (DCF)", v:"No aplica", c:"mut", s:"Flujo libre negativo o sin datos suficientes: el DCF no da un valor confiable."});
   // calidad
@@ -587,7 +600,7 @@ function mxBar(st, sp){
   const vals = [st.lo, st.hi, st.cur, sp].filter(x => ok(x) && x > 0);
   let a = Math.min(...vals), b = Math.max(...vals); const pad = (b - a) * 0.08 || 1; a = Math.max(0, a - pad); b += pad;
   const X = (x) => ((x - a) / (b - a) * 100).toFixed(1) + "%";
-  const col = st.verdict === "barato" ? "var(--up)" : st.verdict === "caro" ? "var(--down)" : "var(--amber)";
+  const col = st.verdict === "bajo" ? "var(--up)" : st.verdict === "alto" ? "var(--down)" : "var(--amber)";
   return `<div class="mxbar" role="img" aria-label="Actual ${fx(st.cur,1)}, mediana ${fx(st.med,1)}, rango ${fx(st.lo,1)} a ${fx(st.hi,1)}">
     <div class="tr"></div><div class="rg" style="left:${X(st.lo)};width:calc(${X(st.hi)} - ${X(st.lo)})"></div>
     <div class="md" style="left:${X(st.med)}"></div><span class="lb" style="left:${X(st.med)}">med ${fx(st.med,1)}</span>
@@ -599,17 +612,23 @@ function mxSpark(hist){
   const v = ys.map(y => hist[y]), lo = Math.min(...v), hi = Math.max(...v), W = 220, H = 34;
   const pts = v.map((x, i) => `${(i / (v.length - 1) * W).toFixed(1)},${(H - 3 - (hi > lo ? (x - lo) / (hi - lo) : 0.5) * (H - 6)).toFixed(1)}`).join(" ");
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" aria-hidden="true" style="display:block;margin-top:6px"><polyline points="${pts}" fill="none" stroke="#5f7fb0" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>
-    <div class="meta" style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--dim)"><span>${ys[0]}</span><span>al cierre de cada año</span><span>${ys[ys.length-1]}</span></div>`;
+    <div class="meta" style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--dim)"><span>${ys[0]}</span><span>al cierre de cada año fiscal</span><span>${ys[ys.length-1]}</span></div>`;
+}
+// Múltiplo de hoy con la misma base que la historia: cifras de la SEC de los últimos 12 meses; si faltan, el dato de Finnhub
+function curMult(f, key){
+  const t = f.ttmMult || {};
+  let cur = ok(t[key]) ? t[key] : f[key];
+  if (key === "peg") { cur = ok(t.pe) && f.eps5 > 0 ? t.pe / (f.eps5 * 100) : f[key]; if (!(cur > 0) && f.pe > 0 && f.eps5 > 0) cur = f.pe / (f.eps5 * 100); }
+  return cur;
 }
 function multiplesHtml(C){
   const f = C.f, mh = C.mh;
   if (C.mhErr) {} else if (!mh) setTimeout(loadMultHist, 0);
   const cards = MULTS.map(([key, name, hk, read]) => {
-    let cur = f[key];
-    if (key === "peg" && !(cur > 0) && f.pe > 0 && f.eps5 > 0) cur = f.pe / (f.eps5 * 100);
+    const cur = curMult(f, key);
     if (key === "evEbitda" && f.financial) return "";
     const st = hk && mh ? QX.multipleStat(mh[hk], cur) : null, sp = SPX_MULT[key];
-    const chip = !ok(cur) ? "" : cur <= 0 ? `<span class="chip neg">negativo</span>` : st?.verdict === "barato" ? `<span class="chip pos">barato vs su historia</span>` : st?.verdict === "caro" ? `<span class="chip neg">caro vs su historia</span>` : st?.verdict ? `<span class="chip amb">en su rango normal</span>` : "";
+    const chip = !ok(cur) ? "" : cur <= 0 ? `<span class="chip neg">negativo</span>` : st?.verdict === "bajo" ? `<span class="chip pos">bajo vs su historia</span>` : st?.verdict === "alto" ? `<span class="chip neg">alto vs su historia</span>` : st?.verdict ? `<span class="chip amb">en su rango normal</span>` : "";
     const vsSp = ok(cur) && cur > 0 && ok(sp) ? `${cur < sp ? pct(1 - cur/sp,0) + " abajo" : pct(cur/sp - 1,0) + " arriba"} del S&P 500 (≈${fx(sp,1)}×)` : "";
     return `<div class="c"><div class="k"><span>${name}</span>${chip}</div>
       <div class="v">${!ok(cur) ? "—" : cur <= 0 ? "neg." : fx(cur,1) + "×"}${st?.med ? `<small>mediana ${fx(st.med,1)}×</small>` : ""}</div>
@@ -618,15 +637,15 @@ function multiplesHtml(C){
       <div class="s">${vsSp ? `<b>${vsSp}</b>. ` : ""}${read}</div></div>`;
   }).join("");
   // resumen: cuántos múltiplos están caros, normales o baratos contra su historia
-  const vs = mh ? MULTS.filter(x => x[2]).map(([key, , hk]) => { let cur = f[key]; if (key === "peg" && !(cur > 0) && f.pe > 0 && f.eps5 > 0) cur = f.pe / (f.eps5 * 100); return QX.multipleStat(mh[hk], cur).verdict; }).filter(Boolean) : [];
-  const nC = vs.filter(v => v === "caro").length, nN = vs.filter(v => v === "normal").length, nB = vs.filter(v => v === "barato").length;
+  const vs = mh ? MULTS.filter(x => x[2]).map(([key, , hk]) => QX.multipleStat(mh[hk], curMult(f, key)).verdict).filter(Boolean) : [];
+  const nC = vs.filter(v => v === "alto").length, nN = vs.filter(v => v === "normal").length, nB = vs.filter(v => v === "bajo").length;
   const sum = vs.length ? `<div class="c" style="background:var(--panel-2)"><div class="k"><span>En resumen</span></div>
-    <div class="v" style="font-size:22px">${nC > vs.length / 2 ? `<span class="down">Caro</span>` : nB > vs.length / 2 ? `<span class="up">Barato</span>` : `<span class="amb">Mixto</span>`}<small>contra su propia historia</small></div>
-    <div class="s"><span class="down">${nC} caro${nC === 1 ? "" : "s"}</span> · <span class="amb">${nN} en su rango</span> · <span class="up">${nB} barato${nB === 1 ? "" : "s"}</span> de ${vs.length} múltiplos con historia.</div>
+    <div class="v" style="font-size:22px">${nC > vs.length / 2 ? `<span class="down">Arriba de lo usual</span>` : nB > vs.length / 2 ? `<span class="up">Abajo de lo usual</span>` : `<span class="amb">Mixto</span>`}<small>contra su propia historia</small></div>
+    <div class="s"><span class="down">${nC} alto${nC === 1 ? "" : "s"}</span> · <span class="amb">${nN} en su rango</span> · <span class="up">${nB} bajo${nB === 1 ? "" : "s"}</span> de ${vs.length} múltiplos con historia.</div>
     <div class="s">Úsalo junto con el DCF de abajo y la calidad del negocio: el precio sólo dice cuánto pagas, no si el negocio vale la pena.</div></div>` : "";
   return `<div class="mx">${cards}${sum}</div>
     <div class="mxleg"><span><i style="width:10px;height:10px;border-radius:50%;background:var(--amber)"></i>hoy</span><span><i style="width:2px;height:10px;background:var(--muted)"></i>mediana de sus años</span><span><i style="width:18px;height:6px;background:#2b4166;border-radius:3px"></i>su rango (mín. a máx.)</span><span><i style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:7px solid var(--blue)"></i>S&P 500 aprox.</span></div>
-    <p class="note">Historia: valor en bolsa al cierre de cada año (precios desde 2016) entre las cifras de su 10-K. «Barato» o «caro» es sólo contra su propio pasado: una empresa que crece más rápido suele merecer múltiplos más altos, y un múltiplo bajo puede ser una trampa si el negocio se está achicando. El S&P 500 es una referencia redonda de 2026. ${C.mhErr ? `<span class="down">No pude bajar la historia de precios (${esc(C.mhErr)}).</span>` : ""}</p>`;
+    <p class="note">Historia: valor en bolsa el día que cerró cada año fiscal (precios desde 2016) entre las cifras de ese 10-K. Hoy: valor en bolsa entre las cifras de la SEC de los últimos 12 meses${f.ttmMult?.end ? ` (al ${esc(f.ttmMult.end)})` : ""}, para comparar con la misma base. «Alto» o «bajo» es sólo contra su propio pasado y no dice si conviene comprar: una empresa que crece más rápido suele merecer múltiplos más altos, y un múltiplo bajo puede ser una trampa si el negocio se está achicando. El S&P 500 es una referencia redonda de 2026. ${C.mhErr ? `<span class="down">No pude bajar la historia de precios (${esc(C.mhErr)}).</span>` : ""}</p>`;
 }
 async function loadMultHist(){
   const C = CUR; if (!C || !C.f || C.mh || C.mhLoading) return;
@@ -658,6 +677,7 @@ function renderCompany(){
       <div class="acts"><button class="btn sm" id="bFav">${inFav ? "★ En favoritos" : "☆ Favorito"}</button><button class="btn sm" id="bAddPos">+ Portafolio</button></div>
     </div></div></div>`;
 
+  h += dataDates(C);
   h += `<div class="tiles">${verdicts(C, dv).map(v => `<div class="tile"><div class="k">${v.k}</div><div class="v ${v.c}">${esc(v.v)}</div><div class="s">${esc(v.s)}</div></div>`).join("")}</div>`;
   if (f) h += profitHtml(C);
 
@@ -828,6 +848,7 @@ function dcfHtml(dv){
         ${scv("Optimista", sc.bull, `crec. ${pct(Math.min(p.g*1.5,p.g+0.15),0)}, margen +10%, tasa −1`)}
       </div>
       <p class="note">${dv ? `Flujos de 10 años ${big(dv.pv)} + valor terminal ${big(dv.tv)} (${pct(dv.tvShare,0)} del total) ${p.netDebt >= 0 ? "− deuda neta " + big(p.netDebt) : "+ efectivo neto " + big(-p.netDebt)} = ${big(dv.equity)}, entre ${(p.shares/1e6).toFixed(0)} M acciones.` : "Con estos supuestos el flujo base es negativo o la tasa es menor que el crecimiento perpetuo: el DCF no da un valor confiable."}</p>
+      ${p.hasSbc && p.sbcShare > 0.005 ? `<p class="note"><b>Pagos en acciones:</b> la empresa paga a sus empleados con acciones por ~${pct(p.sbcShare,1)} de sus ventas. Es un gasto real (diluye a los accionistas), así que el flujo libre aquí ya lo resta: margen ${pct(p.margin,1)} en vez de ${pct(p.marginNoSbc,1)}.${(() => { const g = QX.dcfValue({ ...p, margin: p.marginNoSbc }); return g && g.perShare && dv && dv.perShare ? ` Sin restarlo, como hacen muchas páginas, el valor sería ${money(g.perShare)}.` : ""; })()}</p>` : (p.hasSbc ? "" : `<p class="note">No encontré en la SEC el dato de pagos en acciones de esta empresa; si los tiene, este valor sale algo alto.</p>`)}
       <p class="note"><b class="amb">DCF al revés:</b> ${ig && ig.g!=null ? (ig.above ? "ni con 80% de crecimiento anual se justifica el precio." : ig.below ? "el precio se justifica aun si las ventas se encogen." : `para valer ${money(price)}, sus ventas tendrían que crecer <b>${pct(ig.g,1)}</b> al año los próximos 5 años (y luego bajar poco a poco a ${pct(p.gt,0)}). Sus ventas crecieron ${pct(p.g3,0)} al año en 3 años y ${pct(p.g5,0)} en 5.`) : "—"}</p>
     </div><div>
       <div class="lbl">Sensibilidad: valor por acción</div>
@@ -991,7 +1012,7 @@ function renderPortfolio(){
   // recomendaciones
   const recs = QX.recommendations({holdings: hs, total, cash, stats: st, spyStats: sp, profile: SET.profile, risk});
   const icon = {alerta:`<span class="lvl down">⚠</span>`, considera:`<span class="lvl amb">◆</span>`, bien:`<span class="lvl up">✓</span>`};
-  h += panel("Recomendaciones sobre tu portafolio", `perfil ${esc(QX.PROFILES[SET.profile]?.label || "")}`,
+  h += panel("Observaciones sobre tu portafolio", `perfil ${esc(QX.PROFILES[SET.profile]?.label || "")}`,
     recs.map(r => `<div class="rec">${icon[r.level]}<div><b>${esc(r.title)}</b><p>${esc(r.text)}</p></div></div>`).join("")
     + `<p class="note">Reglas claras y educativas (concentración, sector, región, renta fija, beta según tu perfil, correlación, riesgo por posición y comparación honesta contra el S&P 500). No son señales de compra o venta.</p>`);
 
@@ -1040,6 +1061,7 @@ function renderPortfolio(){
       </table></div><p class="note">1 = se mueven igual; 0 = sin relación; negativo = se compensan. Cuanto más bajas, mejor diversifican.</p>`);
   }
   if (PH.errors?.length) h += `<p class="note">Avisos: ${esc(PH.errors.join("; "))}</p>`;
+  if (PH.stale?.length) h += `<p class="note"><b class="amb">⚠ Ojo:</b> no pude actualizar ${esc(PH.stale.map(x => x.what + " (uso lo guardado el " + String(x.at).slice(0,10) + ")").join("; "))}.</p>`;
   $("portOut").innerHTML = h;
 }
 
@@ -1200,7 +1222,7 @@ function renderResult(){
        ${ev.manual && ev.quizProfile ? `<button class="btn sm" id="pfAuto" style="margin-top:6px">Usar el de mi cuestionario (${esc(PLABEL(ev.quizProfile))})</button>` : ""}
        <div class="err" id="pfMsg"></div></div></div>
      ${ev.manual ? `<p class="note" style="margin-top:8px">${ev.noQuiz ? "No has contestado el cuestionario, así que los portafolios usan supuestos generales: experiencia básica, 25% fuera de EE. UU. y $10,000 sin aportes. Contestarlo los ajusta a ti." : riskier ? `<b class="amb">Elegiste más riesgo del que sugiere tu cuestionario (${esc(PLABEL(ev.quizProfile))}).</b> Está bien si es a propósito, pero recuerda que un portafolio que no aguantas suele venderse en el peor momento.` : `Elegiste menos riesgo del que sugiere tu cuestionario (${esc(PLABEL(ev.quizProfile))}). Es más tranquilo, pero con el tiempo suele crecer menos.`} Los portafolios, la simulación, «Mi portafolio» y «Buscar» ya usan el perfil que elegiste.</p>` : ""}
-     <p class="note">${ev.noQuiz ? "" : `Experiencia: <b>${LEVELS[ev.level]}</b>. Capacidad es lo que tu plazo, ingresos y ahorros permiten; disposición es lo que aguantarías sin vender. Pesa más la más baja de las dos. `}Con este perfil, tu portafolio debería tener una beta de ${P.beta[0]} a ${P.beta[1]}${P.minBonds > 0 ? `, al menos ${pct(P.minBonds,0)} en renta fija` : ""} y no más de ${pct(P.maxStock,0)} en una sola acción. Así se configuran las recomendaciones de «Mi portafolio» y la lectura de riesgo en «Buscar».</p>
+     <p class="note">${ev.noQuiz ? "" : `Experiencia: <b>${LEVELS[ev.level]}</b>. Capacidad es lo que tu plazo, ingresos y ahorros permiten; disposición es lo que aguantarías sin vender. Pesa más la más baja de las dos. `}Con este perfil, tu portafolio debería tener una beta de ${P.beta[0]} a ${P.beta[1]}${P.minBonds > 0 ? `, al menos ${pct(P.minBonds,0)} en renta fija` : ""} y no más de ${pct(P.maxStock,0)} en una sola acción. Así se configuran las observaciones de «Mi portafolio» y la lectura de riesgo en «Buscar».</p>
      ${ev.caps.length ? `<div class="lbl" style="margin-top:10px">Límites que aplican</div>` + ev.caps.map(c => item(`<span class="lvl amb">◆</span>`, c)).join("") : ""}
      ${ev.notes.length ? `<div class="lbl" style="margin-top:10px">Para tomar en cuenta</div>` + ev.notes.map(c => item(`<span class="lvl blue">i</span>`, c)).join("") : ""}
      <div style="margin-top:10px"><button class="btn sm" id="pfRedo">${ev.noQuiz ? "Contestar el cuestionario" : "Volver a contestar"}</button></div>`);
@@ -1208,7 +1230,7 @@ function renderResult(){
   h += `<div class="p" style="border:0;background:none"><div class="ph" style="background:none;border:0;padding:8px 0 0"><h2>${PFS.length} portafolios modelo para tu perfil</h2><small>montos para ${money(SIMIN.amount,0)}</small></div></div>`;
   const REF = QXP.referenceWeights(ev, SET.answers || ANS || {});
   h += `<div class="honest"><b>Antes de elegir:</b> probamos 30 fondos reales (valor, calidad, momentum, baja volatilidad, multifactor, peso igual) contra el S&P 500 desde que existe cada uno, y ninguno le ganó con significancia estadística. Por eso el núcleo de todos los portafolios son índices baratos. Tu meta realista no es el S&P 500 solo, sino <b>tu referencia</b>: la misma mezcla de tu perfil hecha sólo con índices (${Object.entries(REF).sort((a, b) => b[1] - a[1]).map(([s, w]) => pct(w,0) + " " + s).join(" + ")}).${ev.profile === "agresivo" ? " Tu perfil va 100% en acciones: el portafolio Pegado al S&P 500 es el S&P 500 mismo. Para intentar quedar arriba está el portafolio 5 (apuesta con Nasdaq): desde 2016 rindió más, pero con caídas más grandes y sin ventaja estadísticamente segura." : ev.profile === "crecimiento" ? " Con 15–20% en bonos y oro, rendir menos que el S&P 500 en años buenos es lo esperado (desde 2016 unos 2 puntos al año menos); a cambio cae menos en crisis fuertes (en 2008, -42% contra -51% del S&P 500). Para intentar quedar arriba está el portafolio 5 (apuesta con Nasdaq), con más riesgo." : " Con bonos en la mezcla, rendir menos que el S&P 500 en años buenos es lo esperado; a cambio, las caídas son más chicas."}</div>`;
-  h += `<div class="cards">` + PFS.map((p, i) => `<div class="p card${i === PSEL ? " sel" : ""}"><div class="ph"><h2>${i+1}. ${esc(p.name)}${p.rec ? ` <span class="tagm">recomendado</span>` : ""}${p.bet ? ` <span class="tagm" style="background:var(--amber);color:#000">apuesta</span>` : ""}</h2><small>${esc(p.tag)}</small></div><div class="pb">
+  h += `<div class="cards">` + PFS.map((p, i) => `<div class="p card${i === PSEL ? " sel" : ""}"><div class="ph"><h2>${i+1}. ${esc(p.name)}${p.rec ? ` <span class="tagm">el más simple</span>` : ""}${p.bet ? ` <span class="tagm" style="background:var(--amber);color:#000">apuesta</span>` : ""}</h2><small>${esc(p.tag)}</small></div><div class="pb">
       <div class="eqbig">${pct(p.mix.eq,0)}<small>en acciones${p.w.VOO ? ` · ${pct(p.w.VOO,0)} directo en el S&P 500` : ""}</small></div>
       ${stackHtml(p.mix)}
       <table style="margin-top:6px">${Object.entries(p.w).sort((a, b) => b[1] - a[1]).map(([s, w]) => `<tr><td><a class="sym" href="#${s}" data-an="${s}">${s}</a><span class="sub">${esc(QXP.NAMES[s] || "")}</span></td><td class="wp">${pct(w,0)}</td><td class="mut">${money(w * SIMIN.amount,0)}</td></tr>`).join("")}</table>
@@ -1311,10 +1333,12 @@ function renderSim(){
       </table></div>
       <p class="note"><b>¿Por qué no queda igual que el S&P 500?</b> Porque tiene ${pct(1 - p.mix.eq,0)} en bonos, efectivo y oro, que suben menos en años buenos pero amortiguan las caídas. El portafolio «Pegado al S&P 500» es lo más cerca que se puede estar con tu perfil; para acercarte más hay que subir de perfil (más acciones) y aceptar caídas más grandes. No ajustamos las mezclas para que «salgan bien» en esta gráfica: eso sólo funcionaría hacia atrás.</p>
       <p class="note">Cómo leerlo: si un portafolio queda arriba de <b>tu referencia</b>, sus piezas extra (USMV, JQUA, emergentes, oro…) ayudaron; si queda abajo, habría sido mejor la mezcla simple. Diez años es poco para separar suerte de habilidad.</p>
-      <p class="note">Ojo: 2016–2026 fue una década excepcional para la bolsa de EE. UU. (el S&P 500 rindió más de 12% al año, contra ~10% de su promedio histórico) y por eso casi cualquier portafolio con más bonos se ve «peor» aquí. El S&P 500 solo tuvo caídas de ${pct(spy?.maxDD,0)}; la pregunta importante es si tú las habrías aguantado sin vender. Si un ETF todavía no existía, su peso se repartió entre los demás.</p>`;
+      <p class="note">Ojo: 2016–2026 fue una década excepcional para la bolsa de EE. UU. (el S&P 500 rindió más de 12% al año, contra ~10% de su promedio histórico) y por eso casi cualquier portafolio con más bonos se ve «peor» aquí. El S&P 500 solo tuvo caídas de ${pct(spy?.maxDD,0)}; la pregunta importante es si tú las habrías aguantado sin vender. Si un ETF todavía no existía, su peso se repartió entre los demás. Los precios ya traen descontada la comisión de cada ETF, pero no la de tu broker, impuestos ni inflación.</p>`;
   } else h += `<p class="empty">No hay suficiente historia de precios para estos ETFs.</p>`;
 
   const mc = QXP.monteCarlo(SIMD.series, p.w, {years: SIMIN.years, initial: o.initial, monthly: o.monthly, rf, paths: 2000, seed: 7});
+  const usdmxn = SIMD.rf?.usdmxn;
+  const mxn = (x) => usdmxn && ok(x) ? `≈ ${money(x * usdmxn, 0)} pesos de hoy` : "en dólares de hoy";
   const yl = mc.bands.map(b => b.y === 0 ? "hoy" : `año ${b.y}`);
   h += `<div class="lbl" style="margin-top:16px">Qué podría pasar en los próximos ${SIMIN.years} año${SIMIN.years > 1 ? "s" : ""} (2,000 escenarios)</div>
     <div class="kpis">
@@ -1324,10 +1348,19 @@ function renderSim(){
       ${kpi("Terminar abajo de lo aportado", pct(mc.probBelow,0), "aportarías " + money(mc.contributed,0), mc.probBelow > 0.2 ? "down" : "")}
       ${kpi("Caída de 30% o más", pct(mc.probDD30,0), "en algún momento del camino", mc.probDD30 > 0.3 ? "down" : "")}
     </div>
+    <div class="lbl" style="margin-top:10px">Lo que te quedaría de verdad (después de comisiones, ISR al vender e inflación, en dinero de hoy)</div>
+    <div class="kpis">
+      ${kpi("Escenario malo", money(mc.real.p10,0), mxn(mc.real.p10), cls(mc.real.p10 - mc.real.contributedReal))}
+      ${kpi("Escenario típico", money(mc.real.p50,0), mxn(mc.real.p50), cls(mc.real.p50 - mc.real.contributedReal))}
+      ${kpi("Escenario bueno", money(mc.real.p90,0), mxn(mc.real.p90), "up")}
+      ${kpi("Lo aportado, en dinero de hoy", money(mc.real.contributedReal,0), "la inflación le quita poder de compra")}
+    </div>
     ${svgChart(yl, [{v: mc.bands.map(b => o.initial + o.monthly * 12 * b.y), color:"#5f6f8c", w:1.2, dash:"4 4"}, {v: mc.bands.map(b => b.p50), color:"#f0b44c", w:2}, {v: mc.bands.map(b => b.p10), color:"#ff6f6f", w:1.1}, {v: mc.bands.map(b => b.p90), color:"#33cf96", w:1.1}], {lo: mc.bands.map(b => b.p10), hi: mc.bands.map(b => b.p90), color:"#f0b44c"}, kmoney)}
     <div class="legend" style="flex-wrap:wrap"><span><i style="background:#33cf96"></i>Bueno (90)</span><span><i style="background:#f0b44c"></i>Típico (50)</span><span><i style="background:#ff6f6f"></i>Malo (10)</span><span><i style="background:#5f6f8c"></i>Lo aportado</span></div>
-    <p class="note">Cómo se calcula: cada ETF se mueve con su volatilidad y su correlación reales desde 2016, pero con rendimientos esperados más bajos que los de la última década, a propósito: acciones de EE. UU. 6.5% al año, internacionales 7%, emergentes 7.5%, bonos 4.3%, oro 4% y efectivo a la tasa de hoy (${pct(rf,1)}). Con eso, este portafolio supone ${pct(mc.expRet,1)} al año antes de inflación y comisiones. Son escenarios para entender el rango posible, no un pronóstico: la realidad puede salir fuera de la banda.</p>`;
+    <p class="note">Cómo se calcula: cada ETF se mueve con su volatilidad y su correlación reales desde 2016, pero con rendimientos esperados más bajos que los de la última década, a propósito: acciones de EE. UU. 6.5% al año, internacionales 7%, emergentes 7.5%, bonos 4.3%, oro 4% y efectivo a la tasa de hoy (${pct(rf,1)}). A eso se le resta la comisión anual de cada ETF (${pct(mc.fee,2)} en promedio para este portafolio), así que supone ${pct(mc.expRet,1)} al año antes de inflación. Son escenarios para entender el rango posible, no un pronóstico: la realidad puede salir fuera de la banda.</p>
+    <p class="note"><b>«Lo que te quedaría de verdad»</b> resta un ISR aproximado de ${pct(mc.real.isr,0)} sobre la ganancia al vender y una inflación de ${pct(mc.real.inflation,1)} al año en dólares. El ISR de un residente en México que invierte con un broker del extranjero depende de su caso (puede ser 10% o la tasa de tu declaración anual, y los dividendos pagan aparte): confírmalo con un contador. ${usdmxn ? `Los pesos usan el tipo de cambio de hoy (${fx(usdmxn,2)} por dólar, Reserva Federal vía FRED, dato al ${esc(SIMD.rf.usdmxnDate || "")}). A largo plazo el peso suele perder contra el dólar más o menos lo que México tiene de inflación extra, así que en pesos de hoy el resultado se parece; en plazos cortos el tipo de cambio puede mover el resultado 20% o más para cualquier lado.` : "No tengo el tipo de cambio de hoy, así que no muestro pesos."} No incluye la comisión de tu broker ni el costo de comprar y vender.</p>`;
   if (SIMD.errors?.length) h += `<p class="note">Avisos de datos: ${esc(SIMD.errors.join("; "))}</p>`;
+  if (SIMD.stale?.length) h += `<p class="note"><b class="amb">⚠ Ojo:</b> no pude actualizar ${esc(SIMD.stale.map(x => x.what + " (uso lo guardado el " + String(x.at).slice(0,10) + ")").join("; "))}.</p>`;
   el.innerHTML = h;
 }
 

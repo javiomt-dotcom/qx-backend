@@ -208,7 +208,13 @@ t("Monte Carlo: percentiles ordenados y efectivo puro sin pérdidas", () => {
   const mc = P.monteCarlo(S, { VTI: 0.6, BND: 0.4 }, { years: 10, initial: 10000, monthly: 0, paths: 500, rf: 0.04 });
   assert(mc.p10 < mc.p50 && mc.p50 < mc.p90, "percentiles");
   assert.strictEqual(mc.bands.length, 11);
-  near(mc.expRet, 0.6 * 0.065 + 0.4 * 0.043, 1e-12, "rendimiento esperado");
+  near(mc.expGross, 0.6 * 0.065 + 0.4 * 0.043, 1e-12, "rendimiento esperado antes de comisiones");
+  near(mc.expRet, mc.expGross - (0.6 * 0.0003 + 0.4 * 0.0003), 1e-12, "menos comisión de cada ETF");
+  assert(mc.real.p50 < mc.p50, "después de ISR e inflación queda menos");
+  const sinCom = P.monteCarlo(S, { VTI: 0.6, BND: 0.4 }, { years: 10, initial: 10000, monthly: 0, paths: 500, rf: 0.04, fees: false });
+  assert(sinCom.p50 > mc.p50, "las comisiones restan");
+  const nada = P.monteCarlo(S, { VTI: 0.6, BND: 0.4 }, { years: 10, initial: 10000, monthly: 0, paths: 500, rf: 0.04, inflation: 0, isr: 0 });
+  near(nada.real.p50, nada.p50, 1e-6, "sin inflación ni ISR, real = nominal");
   const cash = P.monteCarlo(S, { BIL: 1 }, { years: 5, initial: 1000, paths: 200, rf: 0.04 });
   assert(cash.probBelow < 0.05 && cash.probDD30 === 0, "efectivo");
   const again = P.monteCarlo(S, { VTI: 0.6, BND: 0.4 }, { years: 10, initial: 10000, monthly: 0, paths: 500, rf: 0.04 });
@@ -238,12 +244,44 @@ t("múltiplos en la historia: P/U por año y veredicto contra su mediana", () =>
   near(h.ps["2020"], 2, 1e-9, "P/V"); near(h.pfcf["2022"], 20, 1e-9, "P/FCF"); near(h.pb["2022"], 5, 1e-9, "P/VL");
   near(h.peg["2022"], 20 / (((100 / 10) / (50 / 10)) ** (1 / 3) - 1) / 100, 1e-9, "PEG");
   const st = Q.multipleStat(h.pe, 30);
-  near(st.med, 15, 1e-9, "mediana"); assert.strictEqual(st.verdict, "caro");
-  assert.strictEqual(Q.multipleStat(h.pe, 15).verdict, "normal"); assert.strictEqual(Q.multipleStat(h.pe, 9).verdict, "barato");
+  near(st.med, 15, 1e-9, "mediana"); assert.strictEqual(st.verdict, "alto");
+  assert.strictEqual(Q.multipleStat(h.pe, 15).verdict, "normal"); assert.strictEqual(Q.multipleStat(h.pe, 9).verdict, "bajo");
   assert.strictEqual(Q.multipleStat({ 2022: 10 }, 9).verdict, undefined, "sin historia no hay veredicto");
   // dividendos: el precio ajustado se corrige hacia arriba en años anteriores
   const d = Q.multiplesHistory({ series: { ...sec.series, div: { 2022: 100 } } }, { t, c });
   near(d.pe["2021"], 10 * (1 + 100 / 2000), 1e-9, "corrige el ajuste por dividendos");
+});
+
+t("DCF: resta los pagos a empleados en acciones (SBC) del flujo libre", () => {
+  const base = { rev: { 2023: 100, 2024: 100, 2025: 100, 2026: 100 }, ocf: { 2024: 30, 2025: 30, 2026: 30 }, capex: { 2024: 5, 2025: 5, 2026: 5 } };
+  const sin = Q.dcfDefaults({ series: base }, null, {});
+  near(sin.margin, 0.25, 1e-12, "sin dato de SBC: margen igual que antes"); assert.strictEqual(sin.hasSbc, false);
+  const con = Q.dcfDefaults({ series: { ...base, sbc: { 2024: 10, 2025: 10, 2026: 10 } } }, null, {});
+  near(con.margin, 0.15, 1e-12, "margen después de SBC"); near(con.marginNoSbc, 0.25, 1e-12, "margen antes de SBC"); near(con.sbcShare, 0.1, 1e-12, "SBC 10% de ventas");
+  // 12 meses sin dato de SBC: usa el % de ventas de los años fiscales
+  const t12 = Q.dcfDefaults({ series: { ...base, sbc: { 2024: 10, 2025: 10, 2026: 10 } },
+    ttm: { rev: { v: 200, end: "2026-09-30", fyEnd: "2026-06-30" }, ocf: { v: 60, end: "2026-09-30" }, capex: { v: 10, end: "2026-09-30" } } }, null, {});
+  near(t12.margin, 0.15, 1e-12, "12m: (60 − 10 − 10% × 200) / 200");
+});
+
+t("múltiplos: precio al cierre del año fiscal, no al 31 de diciembre", () => {
+  assert.strictEqual(Q.fiscalEnd({ fyEnds: { 2024: "2025-01-26" } }, "2024"), "2025-01-26");
+  assert.strictEqual(Q.fiscalEnd({ ttm: { rev: { fyEnd: "2026-01-25" } } }, "2023"), "2024-01-25", "año que cierra en enero");
+  assert.strictEqual(Q.fiscalEnd({ ttm: { rev: { fyEnd: "2025-09-27" } } }, "2023"), "2023-09-27", "año que cierra en septiembre");
+  assert.strictEqual(Q.fiscalEnd({}, "2023"), "2023-12-31");
+  // año fiscal 2023 que cierra en enero 2024: toma el precio de enero 2024 (300), no el de diciembre 2023 (100)
+  const px = { t: ["2023-06-01", "2023-12-29", "2024-01-26", "2024-06-03"], c: [50, 100, 300, 400] };
+  const sec = { series: { sh: { 2023: 10 }, ni: { 2023: 100 }, rev: { 2023: 1000 } }, fyEnds: { 2023: "2024-01-28" } };
+  near(Q.multiplesHistory(sec, px).pe["2023"], 30, 1e-9, "P/U con precio del cierre fiscal");
+});
+
+t("múltiplos de 12 meses con cifras de la SEC (misma base que la historia)", () => {
+  const sec = { series: { rev: { 2025: 800 }, ni: { 2025: 80 }, sh: { 2025: 10 }, eq: { 2025: 300 } },
+    ttm: { rev: { v: 1000, end: "2026-09-30" }, ni: { v: 100, end: "2026-09-30" }, ocf: { v: 150, end: "2026-09-30" }, capex: { v: 50, end: "2026-09-30" },
+           ebit: { v: 120, end: "2026-09-30" }, da: { v: 30, end: "2026-09-30" }, eq: { v: 400, end: "2026-09-30" }, cash: { v: 100, end: "2026-09-30" } } };
+  const f = Q.fundamentals(sec, 200, {}, "Technology");
+  near(f.ttmMult.pe, 20, 1e-9, "P/U 12m"); near(f.ttmMult.ps, 2, 1e-9, "P/V 12m"); near(f.ttmMult.pfcf, 20, 1e-9, "P/FCF 12m");
+  near(f.ttmMult.pb, 5, 1e-9, "P/VL"); near(f.ttmMult.evEbitda, 1900 / 150, 1e-9, "EV/EBITDA");
 });
 
 console.log(`\n${n} pruebas OK`);
