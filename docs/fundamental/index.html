@@ -282,6 +282,7 @@ nav.mob{display:none}
       <div class="sugg" id="sugg" hidden></div>
     </div>
     <div class="recent" id="recent"></div>
+    <button class="btn sm" id="bIdeas" type="button" style="margin-top:8px" hidden>💡 Ver ideas de crecimiento</button>
     <div id="co"></div>
     <div id="ideas"></div>
   </section>
@@ -383,6 +384,10 @@ async function boot(){
   await loadUserData();
   const h = (location.hash||"").slice(1).toUpperCase();
   renderRecent(); renderIdeas();
+  $("bIdeas").onclick = () => {   // cierra la empresa abierta y muestra las ideas
+    CUR = null; $("co").innerHTML = ""; $("q").value = ""; history.replaceState(null, "", location.pathname);
+    $("ideas").hidden = false; $("bIdeas").hidden = true; renderIdeas(); $("ideas").scrollIntoView({behavior: "smooth", block: "start"});
+  };
   setTab(SYM.test(h) ? "buscar" : store.get("fa_tab", EV ? "buscar" : "perfil"));
   if (SYM.test(h)) analyze(h);
 }
@@ -495,6 +500,7 @@ async function analyze(sym){
       if (!d.profile || d.profile.empty) throw new Error(`No encontré datos para ${sym}. Revisa el símbolo (acciones y ETFs de EE. UU.).`);
     }
     CUR = build(d); DCF = CUR.dcfP ? {...CUR.dcfP} : null;
+    $("ideas").hidden = true; $("bIdeas").hidden = false;
     renderCompany();
   }catch(e){ $("co").innerHTML = `<div class="err">${esc(e.message)}</div>`; }
 }
