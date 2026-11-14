@@ -548,7 +548,50 @@
     return `${s}$${a.toFixed(0)}`;
   }
 
-  const QX = { num, years, lastY, lastV, mean, median, std, cov, corr, cagr, clip, normSplits, returns, maxDrawdown, align, monthEnds, sliceYears,
+  // ---------- múltiplos en la historia ----------
+  // Para cada año fiscal: valor en bolsa al cierre del año (precio ajustado por splits) × acciones diluidas de ese año.
+  // Los precios de Alpaca también vienen ajustados por dividendos; se deshace ese ajuste con los dividendos pagados (aprox.).
+  function multiplesHistory(sec, px) {
+    const S = (sec && sec.series) || {};
+    if (!px || !px.t || !px.t.length || !(S.rev || S.ni)) return null;
+    const sh = normSplits(S.sh || {});
+    const endPx = (y) => { let v = null; for (let i = 0; i < px.t.length; i++) { const d = px.t[i]; if (d.slice(0, 4) === y) v = px.c[i]; else if (d.slice(0, 4) > y) break; } return v; };
+    const ys = years(sh).filter((y) => endPx(y) != null);
+    const out = { years: [], pe: {}, ps: {}, pb: {}, pfcf: {}, evEbitda: {}, peg: {}, evSales: {} };
+    if (!ys.length) return out;
+    let F = 1;
+    const mc = {};
+    for (let i = ys.length - 1; i >= 0; i--) {
+      const y = ys[i];
+      if (i < ys.length - 1) { const n = ys[i + 1], d = val(S.div, n); if (d > 0 && mc[n] > 0) F *= 1 + d / mc[n]; }
+      mc[y] = endPx(y) * F * sh[y];
+    }
+    const eps = {}; for (const y of years(S.ni)) if (sh[y] > 0) eps[y] = S.ni[y] / sh[y];
+    for (const y of ys) {
+      const m = mc[y], ni = val(S.ni, y), rev = val(S.rev, y), eq = val(S.eq, y);
+      const ocf = val(S.ocf, y), fcf = ocf != null ? ocf - (val(S.capex, y) || 0) : null;
+      const ebit = val(S.ebit, y), ebitda = ebit != null ? ebit + (val(S.da, y) || 0) : null;
+      const ev = m + (val(S.ltd, y) || 0) + (val(S.std, y) || 0) - (val(S.cash, y) || 0) - (val(S.sti, y) || 0);
+      out.years.push(y);
+      if (ni > 0) out.pe[y] = m / ni;
+      if (rev > 0) { out.ps[y] = m / rev; out.evSales[y] = ev / rev; }
+      if (eq > 0) out.pb[y] = m / eq;
+      if (fcf > 0) out.pfcf[y] = m / fcf;
+      if (ebitda > 0 && ev > 0) out.evEbitda[y] = ev / ebitda;
+      const y3 = String(Number(y) - 3), g = cagr(eps[y3], eps[y], 3);
+      if (out.pe[y] && g > 0) out.peg[y] = out.pe[y] / (g * 100);
+    }
+    return out;
+  }
+  // Resumen de un múltiplo: actual contra la mediana y el rango de su propia historia
+  function multipleStat(hist, cur) {
+    const v = Object.values(hist || {}).filter((x) => num(x) != null && x > 0);
+    if (v.length < 3 || !(cur > 0)) return { n: v.length, cur: cur > 0 ? cur : null };
+    const med = median(v), lo = Math.min(...v), hi = Math.max(...v), ratio = cur / med;
+    return { n: v.length, cur, med, lo, hi, ratio, verdict: ratio < 0.85 ? "barato" : ratio > 1.15 ? "caro" : "normal" };
+  }
+
+  const QX = { multiplesHistory, multipleStat, num, years, lastY, lastV, mean, median, std, cov, corr, cagr, clip, normSplits, returns, maxDrawdown, align, monthEnds, sliceYears,
     riskStats, stockRisk, fundamentals, piotroski, altman, buffett, profitability, dcfDefaults, dcfConservative, dcfValue, dcfScenarios, dcfGrid, impliedGrowth, discountRate, capm, isFinancial,
     etfClass, ETF_LABEL, broadSector, assetBucket, PROFILES, portfolioSeries, riskContrib, recommendations, fmtBig };
   if (typeof module !== "undefined" && module.exports) module.exports = QX; else root.QX = QX;

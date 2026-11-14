@@ -49,6 +49,22 @@ a{color:var(--blue)}
 .ph h2{margin:0;font-family:var(--display);font-weight:600;font-size:16px;letter-spacing:.1em;text-transform:uppercase;color:var(--amber);min-width:0}
 .ph small{color:var(--muted);font-size:10.5px;text-align:right}
 .pb{padding:6px 10px 10px;min-width:0}
+.mx{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:1px;background:var(--rule-soft);border:1px solid var(--rule-soft);margin-top:6px}
+.mx .c{background:var(--panel);padding:10px 12px 12px;min-width:0}
+.mx .k{font-family:var(--display);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;gap:6px}
+.mx .v{font-family:var(--display);font-size:30px;font-weight:600;letter-spacing:.01em;line-height:1.1;margin:4px 0 2px}
+.mx .v small{font-size:13px;color:var(--muted);font-weight:400;margin-left:6px}
+.mx .s{font-size:11px;color:var(--muted);line-height:1.4;margin-top:6px}
+.mx .chip{margin:0}
+.mxbar{position:relative;height:30px;margin:6px 0 0}
+.mxbar .tr{position:absolute;left:0;right:0;top:12px;height:6px;background:var(--rule-soft);border-radius:3px}
+.mxbar .rg{position:absolute;top:12px;height:6px;background:#2b4166;border-radius:3px}
+.mxbar .md{position:absolute;top:8px;width:2px;height:14px;background:var(--muted)}
+.mxbar .sp{position:absolute;top:22px;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:7px solid var(--blue);transform:translateX(-5px)}
+.mxbar .cu{position:absolute;top:8px;width:14px;height:14px;border-radius:50%;transform:translateX(-7px);border:2px solid var(--ink)}
+.mxbar .lb{position:absolute;top:-2px;font-size:9.5px;color:var(--dim);transform:translateX(-50%);white-space:nowrap}
+.mxleg{display:flex;flex-wrap:wrap;gap:12px;font-size:10.5px;color:var(--muted);margin-top:8px}
+.mxleg i{display:inline-block;vertical-align:middle;margin-right:4px}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 10px}
 @media (max-width:860px){.grid2{grid-template-columns:minmax(0,1fr)}}
 .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -267,6 +283,7 @@ nav.mob{display:none}
     </div>
     <div class="recent" id="recent"></div>
     <div id="co"></div>
+    <div id="ideas"></div>
   </section>
 
   <section id="t-port" hidden>
@@ -365,7 +382,7 @@ async function boot(){
   USER = session.user; $("auth").hidden = true; $("app").hidden = false; $("mob").hidden = false;
   await loadUserData();
   const h = (location.hash||"").slice(1).toUpperCase();
-  renderRecent();
+  renderRecent(); renderIdeas();
   setTab(SYM.test(h) ? "buscar" : store.get("fa_tab", EV ? "buscar" : "perfil"));
   if (SYM.test(h)) analyze(h);
 }
@@ -433,6 +450,36 @@ function renderRecent(){
   const all = [...new Set([...r, ...favs])].slice(0, 14);
   $("recent").innerHTML = all.length ? `<span class="mut" style="font-size:11px;margin-right:6px">Recientes:</span>` + all.map(s => `<span class="chip" data-s="${esc(s)}">${esc(s)}</span>`).join("") : "";
   for (const c of $("recent").querySelectorAll(".chip")) c.onclick = () => analyze(c.dataset.s);
+}
+
+// ---- ideas de crecimiento: empresas que hoy pasan reglas fijas, con el historial real de esas reglas ----
+let IDEAS = null, IDEAS_TAB = "growth";
+async function renderIdeas(){
+  const el = $("ideas"); if (!el) return;
+  if (!IDEAS) { try { IDEAS = await (await fetch("ideas.json", {cache: "no-cache"})).json(); } catch { el.innerHTML = ""; return; } }
+  const kpi = (k, v, s, c = "") => `<div class="kpi"><div class="k">${k}</div><div class="v ${c}">${v}</div><div class="s">${s || ""}</div></div>`;
+  const I = IDEAS, bt = I.backtest || {}, list = I[IDEAS_TAB] || [];
+  const key = IDEAS_TAB === "garp" ? "GARP" : "G15", me = bt[key] || {}, sp = bt.SPY || {}, qq = bt.QQQ || {};
+  const yrs = Object.keys((I.byYear || {}).SPY || {});
+  const yrow = (k, lbl) => `<tr><td class="k">${lbl}</td>${yrs.map(y => { const v = I.byYear[k]?.[y]; return `<td class="${cls(v)}">${pct(v,0,true)}</td>`; }).join("")}</tr>`;
+  el.innerHTML = panel("Ideas de crecimiento", `reglas fijas · datos al ${esc(I.asOf || "")}`, `
+    <div class="honest"><b>Ideas para investigar, no una recomendación.</b> Son las empresas que hoy pasan nuestras reglas de crecimiento (${esc(I.rules || "")}). Probamos esas mismas reglas con datos como se veían en cada fecha desde ${esc((I.from||"").slice(0,4))}: la canasta <b>${(me.ann ?? 0) < (sp.ann ?? 0) ? "quedó abajo" : "quedó arriba"} del S&P 500</b> (${pct(me.ann,1,true)} contra ${pct(sp.ann,1,true)} al año) y del Nasdaq 100 (${pct(qq.ann,1,true)}), con peor caída de ${pct(me.dd,0)}. Por eso no es el núcleo de ningún portafolio: úsalas para buscar y analizar, revisando su valuación abajo.</div>
+    <div class="kpis">
+      ${kpi("Canasta al año", pct(me.ann,1,true), `${esc((I.from||"").slice(0,7))} a ${esc((I.to||"").slice(0,7))}`, cls((me.ann ?? 0) - (sp.ann ?? 0)))}
+      ${kpi("S&P 500", pct(sp.ann,1,true), "mismas fechas")}
+      ${kpi("Nasdaq 100", pct(qq.ann,1,true), "mismas fechas")}
+      ${kpi("Peor caída", pct(me.dd,0), "S&P " + pct(sp.dd,0), "down")}
+      ${kpi("Sharpe", fx(me.sharpe), "S&P " + fx(sp.sharpe))}
+    </div>
+    <div class="scroll" style="margin-top:10px"><table><tr><th>Año</th>${yrs.map(y => `<th>${y}</th>`).join("")}</tr>${yrow(key, IDEAS_TAB === "garp" ? "Crecimiento + PEG ≤ 2" : "Canasta de crecimiento")}${yrow("SPY", "S&P 500")}${yrow("QQQ", "Nasdaq 100")}</table></div>
+    <div class="lbl" style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span>Las ${list.length} de hoy</span>
+      <span class="seg" id="ideasSeg"><button data-k="growth" class="${IDEAS_TAB==="growth"?"on":""}">Más crecimiento</button><button data-k="garp" class="${IDEAS_TAB==="garp"?"on":""}">Crecimiento a precio razonable</button></span></div>
+    <div class="scroll"><table><tr><th>#</th><th>Símbolo</th><th class="l">Empresa</th><th>Ventas (3 años, al año)</th><th>Utilidad por acción (3 años, al año)</th><th>PEG</th><th>Último 10-K</th></tr>
+      ${list.map((x, i) => `<tr><td class="mut">${i+1}</td><td class="sym"><a href="#${esc(x.symbol)}" data-is="${esc(x.symbol)}">${esc(x.symbol)}</a></td><td class="l">${esc(x.name || "")}</td><td class="up">${pct(x.revG3,0,true)}</td><td class="${cls(x.epsG3)}">${pct(x.epsG3,0,true)}</td><td>${x.peg ? fx(x.peg,1) : "—"}</td><td class="mut">${esc(x.fy || "")}</td></tr>`).join("")}
+    </table></div>
+    <p class="note">PEG aquí = P/U del último año entre el crecimiento de la utilidad por acción de los últimos 3 años; cuando ese crecimiento fue enorme (salir de pérdidas o de un año malo) el PEG sale casi 0 y exagera lo barato, porque ese ritmo casi nunca se repite. Toca un símbolo para ver su valuación por múltiplos, DCF y calidad. La lista se actualiza cuando volvemos a correr la investigación (research_growth.py). Ofrecer selecciones de acciones a clientes como recomendación puede requerir registro ante la CNBV.</p>`);
+  for (const b of el.querySelectorAll("#ideasSeg button")) b.onclick = () => { IDEAS_TAB = b.dataset.k; renderIdeas(); };
+  for (const a of el.querySelectorAll("[data-is]")) a.onclick = (e) => { e.preventDefault(); analyze(a.dataset.is); };
 }
 
 async function analyze(sym){
@@ -518,6 +565,74 @@ function chartSvg(px, spy, years){
 }
 
 const REF = "Referencia aproximada del S&P 500";
+// ---- valuación por múltiplos: actual contra su historia (10 años) y una referencia aproximada del S&P 500 ----
+const SPX_MULT = { pe: 27, fpe: 22, peg: 2.0, evEbitda: 17, ps: 3.2, pb: 5, pfcf: 33 };   // S&P 500 aprox. 2026, para contexto
+const MULTS = [
+  ["pe", "P/U · PER", "pe", "Pagas este número de dólares por cada $1 de utilidad del último año."],
+  ["fpe", "P/U estimada", null, "Con la utilidad que esperan los analistas para los próximos 12 meses."],
+  ["peg", "PEG", "peg", "P/U entre el crecimiento de la utilidad por acción (3 años). Cerca de 1 = razonable para lo que crece; arriba de 2 = caro."],
+  ["evEbitda", "EV / EBITDA", "evEbitda", "Valor de toda la empresa (con deuda, menos efectivo) entre su utilidad operativa en efectivo. Compara empresas con distinta deuda."],
+  ["ps", "P / Ventas", "ps", "Útil cuando todavía no hay utilidades o vienen de un año raro."],
+  ["pb", "P / Valor en libros", "pb", "Importa sobre todo en bancos y aseguradoras; en software casi no dice nada."],
+  ["pfcf", "P / Flujo libre", "pfcf", "Precio entre el efectivo que de verdad le queda al negocio después de invertir."],
+];
+function mxBar(st, sp){
+  if (!st || st.med == null) return `<div class="s">Sin suficiente historia para comparar (${st?.n ?? 0} años).</div>`;
+  const vals = [st.lo, st.hi, st.cur, sp].filter(x => ok(x) && x > 0);
+  let a = Math.min(...vals), b = Math.max(...vals); const pad = (b - a) * 0.08 || 1; a = Math.max(0, a - pad); b += pad;
+  const X = (x) => ((x - a) / (b - a) * 100).toFixed(1) + "%";
+  const col = st.verdict === "barato" ? "var(--up)" : st.verdict === "caro" ? "var(--down)" : "var(--amber)";
+  return `<div class="mxbar" role="img" aria-label="Actual ${fx(st.cur,1)}, mediana ${fx(st.med,1)}, rango ${fx(st.lo,1)} a ${fx(st.hi,1)}">
+    <div class="tr"></div><div class="rg" style="left:${X(st.lo)};width:calc(${X(st.hi)} - ${X(st.lo)})"></div>
+    <div class="md" style="left:${X(st.med)}"></div><span class="lb" style="left:${X(st.med)}">med ${fx(st.med,1)}</span>
+    ${ok(sp) ? `<div class="sp" style="left:${X(sp)}" title="S&P 500 aprox. ${fx(sp,1)}×"></div>` : ""}
+    <div class="cu" style="left:${X(st.cur)};background:${col}"></div></div>`;
+}
+function mxSpark(hist){
+  const ys = Object.keys(hist || {}).sort(); if (ys.length < 3) return "";
+  const v = ys.map(y => hist[y]), lo = Math.min(...v), hi = Math.max(...v), W = 220, H = 34;
+  const pts = v.map((x, i) => `${(i / (v.length - 1) * W).toFixed(1)},${(H - 3 - (hi > lo ? (x - lo) / (hi - lo) : 0.5) * (H - 6)).toFixed(1)}`).join(" ");
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" aria-hidden="true" style="display:block;margin-top:6px"><polyline points="${pts}" fill="none" stroke="#5f7fb0" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>
+    <div class="meta" style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--dim)"><span>${ys[0]}</span><span>al cierre de cada año</span><span>${ys[ys.length-1]}</span></div>`;
+}
+function multiplesHtml(C){
+  const f = C.f, mh = C.mh;
+  if (C.mhErr) {} else if (!mh) setTimeout(loadMultHist, 0);
+  const cards = MULTS.map(([key, name, hk, read]) => {
+    let cur = f[key];
+    if (key === "peg" && !(cur > 0) && f.pe > 0 && f.eps5 > 0) cur = f.pe / (f.eps5 * 100);
+    if (key === "evEbitda" && f.financial) return "";
+    const st = hk && mh ? QX.multipleStat(mh[hk], cur) : null, sp = SPX_MULT[key];
+    const chip = !ok(cur) ? "" : cur <= 0 ? `<span class="chip neg">negativo</span>` : st?.verdict === "barato" ? `<span class="chip pos">barato vs su historia</span>` : st?.verdict === "caro" ? `<span class="chip neg">caro vs su historia</span>` : st?.verdict ? `<span class="chip amb">en su rango normal</span>` : "";
+    const vsSp = ok(cur) && cur > 0 && ok(sp) ? `${cur < sp ? pct(1 - cur/sp,0) + " abajo" : pct(cur/sp - 1,0) + " arriba"} del S&P 500 (≈${fx(sp,1)}×)` : "";
+    return `<div class="c"><div class="k"><span>${name}</span>${chip}</div>
+      <div class="v">${!ok(cur) ? "—" : cur <= 0 ? "neg." : fx(cur,1) + "×"}${st?.med ? `<small>mediana ${fx(st.med,1)}×</small>` : ""}</div>
+      ${hk ? (mh ? mxBar(st, sp) : `<div class="s"><span class="spin"></span> cargando 10 años…</div>`) : `<div class="s">${vsSp ? "" : "Sin estimado de analistas."}</div>`}
+      ${hk && mh ? mxSpark(mh[hk]) : ""}
+      <div class="s">${vsSp ? `<b>${vsSp}</b>. ` : ""}${read}</div></div>`;
+  }).join("");
+  // resumen: cuántos múltiplos están caros, normales o baratos contra su historia
+  const vs = mh ? MULTS.filter(x => x[2]).map(([key, , hk]) => { let cur = f[key]; if (key === "peg" && !(cur > 0) && f.pe > 0 && f.eps5 > 0) cur = f.pe / (f.eps5 * 100); return QX.multipleStat(mh[hk], cur).verdict; }).filter(Boolean) : [];
+  const nC = vs.filter(v => v === "caro").length, nN = vs.filter(v => v === "normal").length, nB = vs.filter(v => v === "barato").length;
+  const sum = vs.length ? `<div class="c" style="background:var(--panel-2)"><div class="k"><span>En resumen</span></div>
+    <div class="v" style="font-size:22px">${nC > vs.length / 2 ? `<span class="down">Caro</span>` : nB > vs.length / 2 ? `<span class="up">Barato</span>` : `<span class="amb">Mixto</span>`}<small>contra su propia historia</small></div>
+    <div class="s"><span class="down">${nC} caro${nC === 1 ? "" : "s"}</span> · <span class="amb">${nN} en su rango</span> · <span class="up">${nB} barato${nB === 1 ? "" : "s"}</span> de ${vs.length} múltiplos con historia.</div>
+    <div class="s">Úsalo junto con el DCF de abajo y la calidad del negocio: el precio sólo dice cuánto pagas, no si el negocio vale la pena.</div></div>` : "";
+  return `<div class="mx">${cards}${sum}</div>
+    <div class="mxleg"><span><i style="width:10px;height:10px;border-radius:50%;background:var(--amber)"></i>hoy</span><span><i style="width:2px;height:10px;background:var(--muted)"></i>mediana de sus años</span><span><i style="width:18px;height:6px;background:#2b4166;border-radius:3px"></i>su rango (mín. a máx.)</span><span><i style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:7px solid var(--blue)"></i>S&P 500 aprox.</span></div>
+    <p class="note">Historia: valor en bolsa al cierre de cada año (precios desde 2016) entre las cifras de su 10-K. «Barato» o «caro» es sólo contra su propio pasado: una empresa que crece más rápido suele merecer múltiplos más altos, y un múltiplo bajo puede ser una trampa si el negocio se está achicando. El S&P 500 es una referencia redonda de 2026. ${C.mhErr ? `<span class="down">No pude bajar la historia de precios (${esc(C.mhErr)}).</span>` : ""}</p>`;
+}
+async function loadMultHist(){
+  const C = CUR; if (!C || !C.f || C.mh || C.mhLoading) return;
+  C.mhLoading = true;
+  try {
+    const r = await call({action:"history", symbols:[C.d.symbol], years:11});
+    C.mh = QX.multiplesHistory(C.d.sec, r.series?.[C.d.symbol]) || {years: []};
+  } catch (e) { C.mhErr = e.message; }
+  C.mhLoading = false;
+  if (CUR === C && $("multP")) $("multP").querySelector(".pb").innerHTML = multiplesHtml(C);
+}
+
 function renderCompany(){
   const C = CUR, {d, f, risk, price, prof} = C, m = d.metric || {};
   const dv = DCF ? QX.dcfValue(DCF) : null;
@@ -566,21 +681,17 @@ function renderCompany(){
   if (f){
     const rd = (x, lo, hi, good, bad, mid) => !ok(x) ? "" : x <= lo ? good : x >= hi ? bad : mid;
     const vrow = (k, v, read) => `<tr><td class="k">${k}</td><td>${v}</td><td class="read">${read||""}</td></tr>`;
-    h += panel("Valuación", "múltiplos", `<div class="scroll"><table><tr><th>Métrica</th><th>Valor</th><th class="l">Cómo leerlo</th></tr>
-      ${vrow("P/U (precio / utilidad)", mult(f.pe), (ok(f.pe) && f.pe>0 ? `Pagas $${f.pe.toFixed(0)} por cada $1 de utilidad anual. ` : "") + "S&P 500 ≈ 22×.")}
-      ${vrow("P/U estimada (12 meses)", mult(f.fpe), "Con la utilidad que esperan los analistas.")}
-      ${vrow("PEG", mult(f.peg), "P/U dividido entre el crecimiento. Cerca de 1 = razonable; arriba de 2 = caro para lo que crece.")}
-      ${vrow("EV / EBITDA", mult(f.evEbitda), "Valor de toda la empresa (incluye deuda) entre su utilidad operativa en efectivo. S&P ≈ 16×.")}
-      ${vrow("P / Ventas", mult(f.ps), "Útil cuando todavía no hay utilidades.")}
-      ${vrow("P / Valor en libros", mult(f.pb), "Importa sobre todo en bancos y aseguradoras.")}
-      ${vrow("P / Flujo libre", mult(f.pfcf), "")}
+    h += panel("Lo que el negocio te regresa", "rendimientos", `<div class="scroll"><table><tr><th>Métrica</th><th>Valor</th><th class="l">Cómo leerlo</th></tr>
       ${vrow("Rendimiento de flujo libre", `<span class="${cls(f.fcfYield)}">${pct(f.fcfYield,1)}</span>`, "Flujo libre del año entre el valor en bolsa. Como una «tasa» que genera el negocio. S&P ≈ 3–4%.")}
       ${vrow("Rendimiento de utilidades (EBIT/EV)", pct(f.earnYield,1), "La métrica de Greenblatt: más alto = más barato.")}
       ${vrow("Dividendo", pct(f.divYield,2), ok(f.payout) ? `Reparte ${pct(f.payout,0)} de su utilidad.` : "")}
       ${vrow("Recompras", pct(f.buybackYield,2), "Dinero usado en recomprar acciones entre el valor en bolsa.")}
+      ${vrow("Total al accionista", pct(f.shYield,2), "Dividendo + recompras.")}
       </table></div><p class="note">${REF}: cifras redondas para dar contexto, no un objetivo.</p>`);
   }
   h += `</div>`;
+
+  if (f) h += panel("Valuación por múltiplos", "contra su propia historia y el S&P 500", multiplesHtml(C), "multP");
 
   // DCF
   if (f && !f.financial && DCF){
@@ -1119,7 +1230,7 @@ function renderResult(){
     $("simOut")?.scrollIntoView({behavior: "smooth", block: "start"});
   };
   $("sGo").onclick = () => { readSimInputs(); renderResult(); };
-  const syms = [...new Set(["SPY", ...Object.keys(REF), ...PFS.flatMap(p => Object.keys(p.w))])].sort();
+  const syms = [...new Set(["SPY", "BIL", ...Object.keys(REF), ...PFS.flatMap(p => Object.keys(p.w))])].sort();
   if (SIMD && SIMKEY === syms.join(",")) renderSim(); else loadSim(syms);
 }
 function readSimInputs(){
@@ -1176,6 +1287,7 @@ function renderSim(){
         ${kpi("Solo S&P 500", money(bt.finalSpy,0), "mismos aportes y fechas")}
         ${kpi("Rendimiento anual", pct(bt.cagr,1,true), "S&P " + pct(spy?.cagr,1,true))}
         ${kpi("Peor caída", pct(bt.maxDD,1), "S&P " + pct(spy?.maxDD,1), "down")}
+        ${kpi("Sharpe", fx(bt.sharpe), "S&P " + fx(spy?.sharpe) + " · rendimiento por riesgo", bt.sharpe != null && spy?.sharpe != null ? (bt.sharpe >= spy.sharpe ? "up" : "") : "")}
       </div>
       ${spy ? `<div class="lbl" style="margin-top:10px">Qué tan cerca del S&P 500 quedó</div>
       <div class="kpis">
@@ -1186,10 +1298,10 @@ function renderSim(){
       </div>` : ""}
       ${svgChart(bt.path.map(x => x.m), [{v: bt.path.map(x => x.contrib), color:"#5f6f8c", w:1.2, dash:"4 4"}, {v: bt.path.map(x => x.vs), color:"#6cc4ff", w:1.3}, ...(refAt && bt.path.every(x => refAt.has(x.m)) ? [{v: bt.path.map(x => refAt.get(x.m)), color:"#b48cff", w:1.3, dash:"6 3"}] : []), {v: bt.path.map(x => x.v), color:"#f0b44c", w:2}], null, kmoney)}
       <div class="legend"><span><i style="background:#f0b44c"></i>${esc(p.name)}</span><span><i style="background:#b48cff"></i>Tu referencia</span><span><i style="background:#6cc4ff"></i>Sólo S&P 500</span><span><i style="background:#5f6f8c"></i>Lo que aportaste</span></div>
-      <div class="scroll" style="margin-top:10px"><table><tr><th>Portafolio</th><th>Desde</th><th>Rend. anual</th><th>% de la ganancia del S&P</th><th>Volatilidad</th><th>Peor caída</th><th>Peor año</th><th>Terminarías con</th></tr>
-        ${bts.map((b, i) => b ? `<tr${i === PSEL ? ' style="background:var(--panel-2)"' : ""}><td class="k">${i+1}. ${esc(PFS[i].name)}</td><td class="mut">${ym(b.start)}</td><td class="${cls(b.cagr)}">${pct(b.cagr,1,true)}</td><td class="wp" style="text-align:left">${spy ? pct(gainShare(b, spy),0) : "—"}</td><td>${pct(b.vol,1)}</td><td class="down">${pct(b.maxDD,1)}</td><td>${pct(b.worstYear.r,1,true)} <span class="mut">${b.worstYear.y}</span></td><td>${money(b.final,0)}</td></tr>` : "").join("")}
-        ${ref ? `<tr><td class="k mut">Tu referencia (${esc(Object.entries(QXP.referenceWeights(EV, SET.answers || ANS || {})).map(([s, w]) => pct(w,0) + " " + s).join(" / "))})</td><td class="mut">${ym(ref.start)}</td><td>${pct(ref.cagr,1,true)}</td><td class="mut">${spy ? pct(gainShare(ref, spy),0) : "—"}</td><td>${pct(ref.vol,1)}</td><td class="down">${pct(ref.maxDD,1)}</td><td>${pct(ref.worstYear.r,1,true)} <span class="mut">${ref.worstYear.y}</span></td><td>${money(ref.final,0)}</td></tr>` : ""}
-        ${spy ? `<tr><td class="k mut">Sólo S&P 500 (SPY)</td><td class="mut">${ym(spy.start)}</td><td>${pct(spy.cagr,1,true)}</td><td class="mut">100%</td><td>${pct(spy.vol,1)}</td><td class="down">${pct(spy.maxDD,1)}</td><td>${pct(spy.worstYear.r,1,true)} <span class="mut">${spy.worstYear.y}</span></td><td>${money(spy.final,0)}</td></tr>` : ""}
+      <div class="scroll" style="margin-top:10px"><table><tr><th>Portafolio</th><th>Desde</th><th>Rend. anual</th><th>% de la ganancia del S&P</th><th>Volatilidad</th><th>Sharpe</th><th>Peor caída</th><th>Peor año</th><th>Terminarías con</th></tr>
+        ${bts.map((b, i) => b ? `<tr${i === PSEL ? ' style="background:var(--panel-2)"' : ""}><td class="k">${i+1}. ${esc(PFS[i].name)}</td><td class="mut">${ym(b.start)}</td><td class="${cls(b.cagr)}">${pct(b.cagr,1,true)}</td><td class="wp" style="text-align:left">${spy ? pct(gainShare(b, spy),0) : "—"}</td><td>${pct(b.vol,1)}</td><td>${fx(b.sharpe)}</td><td class="down">${pct(b.maxDD,1)}</td><td>${pct(b.worstYear.r,1,true)} <span class="mut">${b.worstYear.y}</span></td><td>${money(b.final,0)}</td></tr>` : "").join("")}
+        ${ref ? `<tr><td class="k mut">Tu referencia (${esc(Object.entries(QXP.referenceWeights(EV, SET.answers || ANS || {})).map(([s, w]) => pct(w,0) + " " + s).join(" / "))})</td><td class="mut">${ym(ref.start)}</td><td>${pct(ref.cagr,1,true)}</td><td class="mut">${spy ? pct(gainShare(ref, spy),0) : "—"}</td><td>${pct(ref.vol,1)}</td><td>${fx(ref.sharpe)}</td><td class="down">${pct(ref.maxDD,1)}</td><td>${pct(ref.worstYear.r,1,true)} <span class="mut">${ref.worstYear.y}</span></td><td>${money(ref.final,0)}</td></tr>` : ""}
+        ${spy ? `<tr><td class="k mut">Sólo S&P 500 (SPY)</td><td class="mut">${ym(spy.start)}</td><td>${pct(spy.cagr,1,true)}</td><td class="mut">100%</td><td>${pct(spy.vol,1)}</td><td>${fx(spy.sharpe)}</td><td class="down">${pct(spy.maxDD,1)}</td><td>${pct(spy.worstYear.r,1,true)} <span class="mut">${spy.worstYear.y}</span></td><td>${money(spy.final,0)}</td></tr>` : ""}
       </table></div>
       <p class="note"><b>¿Por qué no queda igual que el S&P 500?</b> Porque tiene ${pct(1 - p.mix.eq,0)} en bonos, efectivo y oro, que suben menos en años buenos pero amortiguan las caídas. El portafolio «Pegado al S&P 500» es lo más cerca que se puede estar con tu perfil; para acercarte más hay que subir de perfil (más acciones) y aceptar caídas más grandes. No ajustamos las mezclas para que «salgan bien» en esta gráfica: eso sólo funcionaría hacia atrás.</p>
       <p class="note">Cómo leerlo: si un portafolio queda arriba de <b>tu referencia</b>, sus piezas extra (USMV, JQUA, emergentes, oro…) ayudaron; si queda abajo, habría sido mejor la mezcla simple. Diez años es poco para separar suerte de habilidad.</p>
