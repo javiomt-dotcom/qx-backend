@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>QX Fundamental</title>
 <meta name="description" content="Análisis fundamental de empresas, métricas de tu portafolio y favoritos">
-<meta name="theme-color" content="#17120d">
+<meta name="theme-color" content="#0f1113">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,14 +14,14 @@
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="icon" href="../icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
 <style>
-/* Tonos cálidos tipo terminal antigua: fondo café espresso, texto crema, mostaza para acciones, verde oliva / rojo ladrillo para sube y baja, verde azulado para el S&P 500. */
+/* Grafito y cobre: fondo gris carbón, texto casi blanco, cobre para acciones y selección, verde menta / coral para sube y baja, azul pizarra para el S&P 500. */
 :root{
-  --ink:#17120d; --panel:#1f1812; --panel-2:#2a2018; --rule:#463627; --rule-soft:#33281d;
-  --fg:#f1e6d2; --muted:#c3b29a; --dim:#a8957b;
-  --amber:#e0a446; --up:#9ccc6b; --down:#e8685a; --blue:#6fb3b0; --warn:#ecd29a;
-  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --ink:#0f1113; --panel:#16191c; --panel-2:#1d2125; --rule:#30363c; --rule-soft:#24292e;
+  --fg:#eceff1; --muted:#aab3bb; --dim:#8e98a2;
+  --amber:#e08a57; --up:#4fc79f; --down:#f2676b; --blue:#8fa9cc; --warn:#f1c48f;
+  --display:"Space Grotesk",system-ui,sans-serif;
   --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
   --safe-b:env(safe-area-inset-bottom,0px); --safe-t:env(safe-area-inset-top,0px);
@@ -59,7 +59,7 @@ a{color:var(--blue)}
 .mx .chip{margin:0}
 .mxbar{position:relative;height:30px;margin:6px 0 0}
 .mxbar .tr{position:absolute;left:0;right:0;top:12px;height:6px;background:var(--rule-soft);border-radius:3px}
-.mxbar .rg{position:absolute;top:12px;height:6px;background:#5a4630;border-radius:3px}
+.mxbar .rg{position:absolute;top:12px;height:6px;background:#3d4650;border-radius:3px}
 .mxbar .md{position:absolute;top:8px;width:2px;height:14px;background:var(--muted)}
 .mxbar .sp{position:absolute;top:22px;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:7px solid var(--blue);transform:translateX(-5px)}
 .mxbar .cu{position:absolute;top:8px;width:14px;height:14px;border-radius:50%;transform:translateX(-7px);border:2px solid var(--ink)}
@@ -80,7 +80,7 @@ td.k{color:var(--fg)}
 .sub{display:block;color:var(--dim);font-size:10.5px;max-width:200px;overflow:hidden;text-overflow:ellipsis}
 .up{color:var(--up)}.down{color:var(--down)}.mut{color:var(--muted)}.amb{color:var(--amber)}.blue{color:var(--blue)}
 .chip{display:inline-block;font-size:10.5px;padding:1px 6px;border:1px solid var(--rule);border-radius:2px;color:var(--muted);margin:2px 4px 2px 0;white-space:nowrap}
-.chip.pos{border-color:#4c6b34;color:var(--up)}.chip.neg{border-color:#7a3a2c;color:var(--down)}.chip.amb{border-color:#7a5a2a;color:var(--amber)}
+.chip.pos{border-color:#2a6b55;color:var(--up)}.chip.neg{border-color:#7a3236;color:var(--down)}.chip.amb{border-color:#6b4429;color:var(--amber)}
 .note{color:var(--muted);font-size:11px;margin:8px 0 0;line-height:1.5}
 .empty{color:var(--muted);padding:14px 0;white-space:normal;text-align:left}
 .err{color:var(--down);font-size:12px;margin:8px 0;white-space:normal}
@@ -100,7 +100,7 @@ input.in,select.in{font-family:var(--mono);font-size:16px;color:var(--fg);backgr
 .search input{flex:1;font-size:18px;padding:11px 12px}
 .sugg{position:absolute;left:0;right:0;top:100%;z-index:5;background:var(--panel-2);border:1px solid var(--rule);border-top:0;max-height:320px;overflow:auto}
 .sugg button{display:flex;gap:10px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--rule-soft);padding:8px 10px;cursor:pointer}
-.sugg button:hover,.sugg button.on{background:#382a1e}
+.sugg button:hover,.sugg button.on{background:#262b30}
 .recent{margin-top:8px}
 .recent .chip{cursor:pointer}
 
@@ -161,7 +161,7 @@ input.in,select.in{font-family:var(--mono);font-size:16px;color:var(--fg);backgr
 .spark i.neg{background:var(--down)}
 
 .big{font-family:var(--display);font-size:28px;font-weight:600}
-.grid td.c0{background:#22301a}.grid td.c1{background:#252a19}.grid td.c2{background:#2b2618}.grid td.c3{background:#33201a}.grid td.c4{background:#3d1d17}
+.grid td.c0{background:#173329}.grid td.c1{background:#1a2b25}.grid td.c2{background:#24262a}.grid td.c3{background:#33201f}.grid td.c4{background:#3d1b1d}
 .grid td.cur{outline:1px solid var(--amber);outline-offset:-1px}
 
 .bars .row{display:grid;grid-template-columns:minmax(0,140px) minmax(0,1fr) 52px;gap:8px;align-items:center;padding:3px 0;font-size:11.5px}
@@ -188,8 +188,8 @@ details.gl dd{margin:2px 0 0;color:var(--muted);font-size:11.5px}
 section[hidden]{display:none}
 
 /* mi perfil */
-.badge{border:1px solid #7a5a2a;color:var(--amber);background:none;border-radius:3px;padding:4px 8px;font:600 12px var(--display);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
-.banner{margin-top:10px;padding:8px 10px;border:1px solid #7a5a2a;background:#2e2214;color:var(--warn);font-size:12px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.badge{border:1px solid #6b4429;color:var(--amber);background:none;border-radius:3px;padding:4px 8px;font:600 12px var(--display);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
+.banner{margin-top:10px;padding:8px 10px;border:1px solid #6b4429;background:#2b1e16;color:var(--warn);font-size:12px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .banner[hidden]{display:none}
 @media (max-width:600px){.top .brand span{display:none}}
 .prog{height:6px;background:var(--rule-soft);border-radius:3px;margin-top:8px;overflow:hidden}
@@ -202,7 +202,7 @@ section[hidden]{display:none}
 .opts{display:flex;flex-wrap:wrap;gap:6px}
 .opt{background:var(--ink);border:1px solid var(--rule);border-radius:3px;padding:8px 11px;text-align:left;cursor:pointer;color:var(--muted);font-size:12.5px;line-height:1.3}
 .opt:hover{border-color:var(--dim)}
-.opt.on{border-color:var(--amber);color:var(--fg);background:#2e2214}
+.opt.on{border-color:var(--amber);color:var(--fg);background:#2b1e16}
 @media (max-width:600px){.opts{flex-direction:column}.opt{width:100%}}
 .qend{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin:12px 0}
 .qend .err{flex:1 1 100%;text-align:right;margin:0}
@@ -228,13 +228,13 @@ section[hidden]{display:none}
 nav.mob{display:none}
 @media (max-width:700px){
   .tabs{display:none}
-  nav.mob{position:fixed;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(4,1fr);background:rgba(23,18,13,.96);
+  nav.mob{position:fixed;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(4,1fr);background:rgba(15,17,19,.96);
     backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--rule);padding:4px 4px calc(var(--safe-b) + 4px);z-index:10}
   nav.mob button{background:none;border:0;border-top:2px solid transparent;padding:7px 0 5px;font:600 13px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px}
   nav.mob button svg{width:20px;height:20px}
   nav.mob button[aria-selected="true"]{color:var(--amber);border-top-color:var(--amber)}
 }
-.honest{border:1px solid var(--rule-soft);border-left:3px solid #c48f9f;background:var(--panel-2);padding:10px 12px;margin:8px 0 10px;font-size:13px;line-height:1.45;border-radius:6px}
+.honest{border:1px solid var(--rule-soft);border-left:3px solid #b39ddb;background:var(--panel-2);padding:10px 12px;margin:8px 0 10px;font-size:13px;line-height:1.45;border-radius:6px}
 
 /* ---- Legibilidad (revisión de diseño): texto en sans, cifras en mono, tamaños y contraste ---- */
 table,.kpi .v,.hero .px b,.wp,.eqbig,input.in,.sym,.chip,.recent .chip{font-family:var(--mono)}
@@ -631,13 +631,13 @@ function chartSvg(px, spy, years){
   const lo = Math.min(...na, ...nb), hi = Math.max(...na, ...nb), span = hi - lo || 1;
   const X = (i) => P.l + i*(W-P.l-P.r)/(al.t.length-1), Y = (v) => P.t + (hi - v)*(H-P.t-P.b)/span;
   const path = (s) => s.map((v,i) => (i?"L":"M") + X(i).toFixed(1) + " " + Y(v).toFixed(1)).join("");
-  const ticks = [lo, lo+span/2, hi].map(v => `<text x="${P.l-6}" y="${Y(v)+3}" text-anchor="end" fill="#a8957b" font-size="10">${pct(v,0,true)}</text><line x1="${P.l}" x2="${W-P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#33281d"/>`).join("");
-  const zero = lo < 0 && hi > 0 ? `<line x1="${P.l}" x2="${W-P.r}" y1="${Y(0)}" y2="${Y(0)}" stroke="#463627" stroke-dasharray="3 3"/>` : "";
-  const xl = [0, Math.floor(al.t.length/2), al.t.length-1].map((i,k) => `<text x="${X(i)}" y="${H-6}" text-anchor="${["start","middle","end"][k]}" fill="#a8957b" font-size="10">${al.t[i]}</text>`).join("");
+  const ticks = [lo, lo+span/2, hi].map(v => `<text x="${P.l-6}" y="${Y(v)+3}" text-anchor="end" fill="#8e98a2" font-size="10">${pct(v,0,true)}</text><line x1="${P.l}" x2="${W-P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#24292e"/>`).join("");
+  const zero = lo < 0 && hi > 0 ? `<line x1="${P.l}" x2="${W-P.r}" y1="${Y(0)}" y2="${Y(0)}" stroke="#30363c" stroke-dasharray="3 3"/>` : "";
+  const xl = [0, Math.floor(al.t.length/2), al.t.length-1].map((i,k) => `<text x="${X(i)}" y="${H-6}" text-anchor="${["start","middle","end"][k]}" fill="#8e98a2" font-size="10">${al.t[i]}</text>`).join("");
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Precio contra SPY">${ticks}${zero}
-    <path d="${path(nb)}" fill="none" stroke="#6fb3b0" stroke-width="1.4" opacity=".8" vector-effect="non-scaling-stroke"/>
-    <path d="${path(na)}" fill="none" stroke="#e0a446" stroke-width="1.8" vector-effect="non-scaling-stroke"/>${xl}</svg>
-    <div class="legend"><span><i style="background:#e0a446"></i>${esc(CUR.d.symbol)} ${pct(na[na.length-1],1,true)}</span><span><i style="background:#6fb3b0"></i>SPY ${pct(nb[nb.length-1],1,true)}</span></div>`;
+    <path d="${path(nb)}" fill="none" stroke="#8fa9cc" stroke-width="1.4" opacity=".8" vector-effect="non-scaling-stroke"/>
+    <path d="${path(na)}" fill="none" stroke="#e08a57" stroke-width="1.8" vector-effect="non-scaling-stroke"/>${xl}</svg>
+    <div class="legend"><span><i style="background:#e08a57"></i>${esc(CUR.d.symbol)} ${pct(na[na.length-1],1,true)}</span><span><i style="background:#8fa9cc"></i>SPY ${pct(nb[nb.length-1],1,true)}</span></div>`;
 }
 
 const REF = "Referencia aproximada del S&P 500";
@@ -668,7 +668,7 @@ function mxSpark(hist){
   const ys = Object.keys(hist || {}).sort(); if (ys.length < 3) return "";
   const v = ys.map(y => hist[y]), lo = Math.min(...v), hi = Math.max(...v), W = 220, H = 34;
   const pts = v.map((x, i) => `${(i / (v.length - 1) * W).toFixed(1)},${(H - 3 - (hi > lo ? (x - lo) / (hi - lo) : 0.5) * (H - 6)).toFixed(1)}`).join(" ");
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" aria-hidden="true" style="display:block;margin-top:6px"><polyline points="${pts}" fill="none" stroke="#a08a68" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" aria-hidden="true" style="display:block;margin-top:6px"><polyline points="${pts}" fill="none" stroke="#7d8995" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>
     <div class="meta" style="display:flex;justify-content:space-between;font-size:9.5px;color:var(--dim)"><span>${ys[0]}</span><span>al cierre de cada año fiscal</span><span>${ys[ys.length-1]}</span></div>`;
 }
 // Múltiplo de hoy con la misma base que la historia: cifras de la SEC de los últimos 12 meses; si faltan, el dato de Finnhub
@@ -701,7 +701,7 @@ function multiplesHtml(C){
     <div class="s"><span class="down">${nC} alto${nC === 1 ? "" : "s"}</span> · <span class="amb">${nN} en su rango</span> · <span class="up">${nB} bajo${nB === 1 ? "" : "s"}</span> de ${vs.length} múltiplos con historia.</div>
     <div class="s">Úsalo junto con el DCF de abajo y la calidad del negocio: el precio sólo dice cuánto pagas, no si el negocio vale la pena.</div></div>` : "";
   return `<div class="mx">${cards}${sum}</div>
-    <div class="mxleg"><span><i style="width:10px;height:10px;border-radius:50%;background:var(--amber)"></i>hoy</span><span><i style="width:2px;height:10px;background:var(--muted)"></i>mediana de sus años</span><span><i style="width:18px;height:6px;background:#5a4630;border-radius:3px"></i>su rango (mín. a máx.)</span><span><i style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:7px solid var(--blue)"></i>S&P 500 aprox.</span></div>
+    <div class="mxleg"><span><i style="width:10px;height:10px;border-radius:50%;background:var(--amber)"></i>hoy</span><span><i style="width:2px;height:10px;background:var(--muted)"></i>mediana de sus años</span><span><i style="width:18px;height:6px;background:#3d4650;border-radius:3px"></i>su rango (mín. a máx.)</span><span><i style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:7px solid var(--blue)"></i>S&P 500 aprox.</span></div>
     <p class="note">Historia: valor en bolsa el día que cerró cada año fiscal (precios desde 2016) entre las cifras de ese 10-K. Hoy: valor en bolsa entre las cifras de la SEC de los últimos 12 meses${f.ttmMult?.end ? ` (al ${esc(f.ttmMult.end)})` : ""}, para comparar con la misma base. «Alto» o «bajo» es sólo contra su propio pasado y no dice si conviene comprar: una empresa que crece más rápido suele merecer múltiplos más altos, y un múltiplo bajo puede ser una trampa si el negocio se está achicando. El S&P 500 es una referencia redonda de 2026. ${C.mhErr ? `<span class="down">No pude bajar la historia de precios (${esc(C.mhErr)}).</span>` : ""}</p>`;
 }
 async function loadMultHist(){
@@ -820,7 +820,7 @@ function renderCompany(){
     let ah = "";
     if (rec){
       const tot = rec.strongBuy + rec.buy + rec.hold + rec.sell + rec.strongSell;
-      const seg = [["Compra fuerte",rec.strongBuy,"#9ccc6b"],["Compra",rec.buy,"#b5d98f"],["Mantener",rec.hold,"#c3b29a"],["Venta",rec.sell,"#f0a08c"],["Venta fuerte",rec.strongSell,"#e8685a"]];
+      const seg = [["Compra fuerte",rec.strongBuy,"#4fc79f"],["Compra",rec.buy,"#8fe0c2"],["Mantener",rec.hold,"#aab3bb"],["Venta",rec.sell,"#f79b9d"],["Venta fuerte",rec.strongSell,"#f2676b"]];
       ah += `<div style="display:flex;height:12px;margin:8px 0 6px">${seg.map(s => s[1] ? `<i style="flex:${s[1]};background:${s[2]}"></i>` : "").join("")}</div>`
         + `<div style="display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px">${seg.map(s => `<span><i style="display:inline-block;width:8px;height:8px;background:${s[2]};margin-right:4px"></i>${s[0]} ${s[1]}</span>`).join("")}</div>`
         + `<p class="note">${tot} analistas, ${esc(rec.period)}. Los analistas suelen ser optimistas: 7 de cada 10 recomendaciones en el mercado son «compra».</p>`;
@@ -1121,7 +1121,7 @@ function renderPortfolio(){
 
   // correlaciones
   if (risk && ps.syms.length >= 2 && ps.syms.length <= 20){
-    const col = (c) => c==null ? "transparent" : c >= 0 ? `rgba(224,164,70,${(c*0.75).toFixed(2)})` : `rgba(111,179,176,${(-c*0.75).toFixed(2)})`;
+    const col = (c) => c==null ? "transparent" : c >= 0 ? `rgba(224,138,87,${(c*0.75).toFixed(2)})` : `rgba(143,169,204,${(-c*0.75).toFixed(2)})`;
     h += panel("Correlación entre tus posiciones", risk.avgCorr!=null ? `promedio ${fx(risk.avgCorr)}` : "", `<div class="scroll"><table class="heat"><tr><th></th>${ps.syms.map(s => `<th>${esc(s)}</th>`).join("")}</tr>
       ${ps.syms.map((a,i) => `<tr><td class="sym" style="text-align:left">${esc(a)}</td>${ps.syms.map((b,j) => `<td style="background:${col(risk.corr[i][j])}">${risk.corr[i][j]!=null ? risk.corr[i][j].toFixed(2) : "—"}</td>`).join("")}</tr>`).join("")}
       </table></div><p class="note">1 = se mueven igual; 0 = sin relación; negativo = se compensan. Cuanto más bajas, mejor diversifican.</p>`);
@@ -1137,7 +1137,7 @@ let SIMD = null, SIMKEY = "", SIMERR = "", SIMIN = null, simBusy = false;
 const PLABEL = (p) => QX.PROFILES[p]?.label || p;
 const HZ_YEARS = [1, 3, 5, 10, 20];
 const LEVELS = ["Principiante", "Básico", "Intermedio", "Avanzado"];
-const MIXL = {eq:["Acciones","#e0a446"], bond:["Bonos","#6fb3b0"], cash:["Efectivo","#c3b29a"], gold:["Oro","#ecd29a"]};
+const MIXL = {eq:["Acciones","#e08a57"], bond:["Bonos","#8fa9cc"], cash:["Efectivo","#aab3bb"], gold:["Oro","#f1c48f"]};
 const kmoney = (v) => !ok(v) ? "—" : (v<0?"-":"") + "$" + (Math.abs(v) >= 1e6 ? (Math.abs(v)/1e6).toFixed(2) + "M" : Math.abs(v) >= 1e4 ? (Math.abs(v)/1e3).toFixed(0) + "k" : fx(Math.abs(v),0));
 
 function initProfile(){
@@ -1346,9 +1346,9 @@ function svgChart(labels, lines, band, fmt){
   const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
   const X = (i) => P.l + i * (W - P.l - P.r) / Math.max(1, n - 1), Y = (v) => P.t + (hi - v) * (H - P.t - P.b) / span;
   const pts = (s) => s.map((v, i) => X(i).toFixed(1) + " " + Y(v).toFixed(1));
-  const ticks = [lo, lo + span / 2, hi].map(v => `<text x="${P.l-6}" y="${Y(v)+3}" text-anchor="end" fill="#a8957b" font-size="10">${fmt(v)}</text><line x1="${P.l}" x2="${W-P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#33281d"/>`).join("");
+  const ticks = [lo, lo + span / 2, hi].map(v => `<text x="${P.l-6}" y="${Y(v)+3}" text-anchor="end" fill="#8e98a2" font-size="10">${fmt(v)}</text><line x1="${P.l}" x2="${W-P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#24292e"/>`).join("");
   const xi = [...new Set([0, Math.floor((n - 1) / 2), n - 1])];
-  const xl = xi.map(i => `<text x="${X(i)}" y="${H-6}" text-anchor="${i === 0 ? "start" : i === n - 1 ? "end" : "middle"}" fill="#a8957b" font-size="10">${esc(labels[i])}</text>`).join("");
+  const xl = xi.map(i => `<text x="${X(i)}" y="${H-6}" text-anchor="${i === 0 ? "start" : i === n - 1 ? "end" : "middle"}" fill="#8e98a2" font-size="10">${esc(labels[i])}</text>`).join("");
   const area = band ? `<path d="M${pts(band.hi).join("L")}L${pts(band.lo).reverse().join("L")}Z" fill="${band.color}" opacity=".16"/>` : "";
   const ls = lines.map(l => `<path d="M${pts(l.v).join("L")}" fill="none" stroke="${l.color}" stroke-width="${l.w || 1.6}"${l.dash ? ` stroke-dasharray="${l.dash}"` : ""} vector-effect="non-scaling-stroke"/>`).join("");
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img">${ticks}${area}${ls}${xl}</svg>`;
@@ -1390,8 +1390,8 @@ function renderSim(){
         ${kpi("Diferencia al año", pct(bt.cagr - spy.cagr,1,true), "contra el S&P 500", cls(bt.cagr - spy.cagr))}
         ${kpi("Acciones en el portafolio", pct(p.mix.eq,0), "el S&P 500 es 100% acciones")}
       </div>` : ""}
-      ${svgChart(bt.path.map(x => x.m), [{v: bt.path.map(x => x.contrib), color:"#a8957b", w:1.2, dash:"4 4"}, {v: bt.path.map(x => x.vs), color:"#6fb3b0", w:1.3}, ...(refAt && bt.path.every(x => refAt.has(x.m)) ? [{v: bt.path.map(x => refAt.get(x.m)), color:"#c48f9f", w:1.3, dash:"6 3"}] : []), {v: bt.path.map(x => x.v), color:"#e0a446", w:2}], null, kmoney)}
-      <div class="legend"><span><i style="background:#e0a446"></i>${esc(p.name)}</span><span><i style="background:#c48f9f"></i>Tu referencia</span><span><i style="background:#6fb3b0"></i>Sólo S&P 500</span><span><i style="background:#a8957b"></i>Lo que aportaste</span></div>
+      ${svgChart(bt.path.map(x => x.m), [{v: bt.path.map(x => x.contrib), color:"#8e98a2", w:1.2, dash:"4 4"}, {v: bt.path.map(x => x.vs), color:"#8fa9cc", w:1.3}, ...(refAt && bt.path.every(x => refAt.has(x.m)) ? [{v: bt.path.map(x => refAt.get(x.m)), color:"#b39ddb", w:1.3, dash:"6 3"}] : []), {v: bt.path.map(x => x.v), color:"#e08a57", w:2}], null, kmoney)}
+      <div class="legend"><span><i style="background:#e08a57"></i>${esc(p.name)}</span><span><i style="background:#b39ddb"></i>Tu referencia</span><span><i style="background:#8fa9cc"></i>Sólo S&P 500</span><span><i style="background:#8e98a2"></i>Lo que aportaste</span></div>
       <div class="scroll" style="margin-top:10px"><table><tr><th>Portafolio</th><th>Desde</th><th>Rend. anual</th><th>% de la ganancia del S&P</th><th>Volatilidad</th><th>Sharpe</th><th>Peor caída</th><th>Peor año</th><th>Terminarías con</th></tr>
         ${bts.map((b, i) => b ? `<tr${i === PSEL ? ' style="background:var(--panel-2)"' : ""}><td class="k">${i+1}. ${esc(PFS[i].name)}</td><td class="mut">${ym(b.start)}</td><td class="${cls(b.cagr)}">${pct(b.cagr,1,true)}</td><td class="wp" style="text-align:left">${spy ? pct(gainShare(b, spy),0) : "—"}</td><td>${pct(b.vol,1)}</td><td>${fx(b.sharpe)}</td><td class="down">${pct(b.maxDD,1)}</td><td>${pct(b.worstYear.r,1,true)} <span class="mut">${b.worstYear.y}</span></td><td>${money(b.final,0)}</td></tr>` : "").join("")}
         ${ref ? `<tr><td class="k mut">Tu referencia (${esc(Object.entries(QXP.referenceWeights(EV, SET.answers || ANS || {})).map(([s, w]) => pct(w,0) + " " + s).join(" / "))})</td><td class="mut">${ym(ref.start)}</td><td>${pct(ref.cagr,1,true)}</td><td class="mut">${spy ? pct(gainShare(ref, spy),0) : "—"}</td><td>${pct(ref.vol,1)}</td><td>${fx(ref.sharpe)}</td><td class="down">${pct(ref.maxDD,1)}</td><td>${pct(ref.worstYear.r,1,true)} <span class="mut">${ref.worstYear.y}</span></td><td>${money(ref.final,0)}</td></tr>` : ""}
@@ -1421,8 +1421,8 @@ function renderSim(){
       ${kpi("Escenario bueno", money(mc.real.p90,0), mxn(mc.real.p90), "up")}
       ${kpi("Lo aportado, en dinero de hoy", money(mc.real.contributedReal,0), "la inflación le quita poder de compra")}
     </div>
-    ${svgChart(yl, [{v: mc.bands.map(b => o.initial + o.monthly * 12 * b.y), color:"#a8957b", w:1.2, dash:"4 4"}, {v: mc.bands.map(b => b.p50), color:"#e0a446", w:2}, {v: mc.bands.map(b => b.p10), color:"#e8685a", w:1.1}, {v: mc.bands.map(b => b.p90), color:"#9ccc6b", w:1.1}], {lo: mc.bands.map(b => b.p10), hi: mc.bands.map(b => b.p90), color:"#e0a446"}, kmoney)}
-    <div class="legend" style="flex-wrap:wrap"><span><i style="background:#9ccc6b"></i>Bueno (90)</span><span><i style="background:#e0a446"></i>Típico (50)</span><span><i style="background:#e8685a"></i>Malo (10)</span><span><i style="background:#a8957b"></i>Lo aportado</span></div>
+    ${svgChart(yl, [{v: mc.bands.map(b => o.initial + o.monthly * 12 * b.y), color:"#8e98a2", w:1.2, dash:"4 4"}, {v: mc.bands.map(b => b.p50), color:"#e08a57", w:2}, {v: mc.bands.map(b => b.p10), color:"#f2676b", w:1.1}, {v: mc.bands.map(b => b.p90), color:"#4fc79f", w:1.1}], {lo: mc.bands.map(b => b.p10), hi: mc.bands.map(b => b.p90), color:"#e08a57"}, kmoney)}
+    <div class="legend" style="flex-wrap:wrap"><span><i style="background:#4fc79f"></i>Bueno (90)</span><span><i style="background:#e08a57"></i>Típico (50)</span><span><i style="background:#f2676b"></i>Malo (10)</span><span><i style="background:#8e98a2"></i>Lo aportado</span></div>
     <p class="note">Cómo se calcula: cada ETF se mueve con su volatilidad y su correlación reales desde 2016, pero con rendimientos esperados más bajos que los de la última década, a propósito: acciones de EE. UU. 6.5% al año, internacionales 7%, emergentes 7.5%, bonos 4.3%, oro 4% y efectivo a la tasa de hoy (${pct(rf,1)}). A eso se le resta la comisión anual de cada ETF (${pct(mc.fee,2)} en promedio para este portafolio), así que supone ${pct(mc.expRet,1)} al año antes de inflación. Son escenarios para entender el rango posible, no un pronóstico: la realidad puede salir fuera de la banda.</p>
     <p class="note"><b>«Lo que te quedaría de verdad»</b> resta un ISR aproximado de ${pct(mc.real.isr,0)} sobre la ganancia al vender y una inflación de ${pct(mc.real.inflation,1)} al año en dólares. El ISR de un residente en México que invierte con un broker del extranjero depende de su caso (puede ser 10% o la tasa de tu declaración anual, y los dividendos pagan aparte): confírmalo con un contador. ${usdmxn ? `Los pesos usan el tipo de cambio de hoy (${fx(usdmxn,2)} por dólar, Reserva Federal vía FRED, dato al ${esc(SIMD.rf.usdmxnDate || "")}). A largo plazo el peso suele perder contra el dólar más o menos lo que México tiene de inflación extra, así que en pesos de hoy el resultado se parece; en plazos cortos el tipo de cambio puede mover el resultado 20% o más para cualquier lado.` : "No tengo el tipo de cambio de hoy, así que no muestro pesos."} No incluye la comisión de tu broker ni el costo de comprar y vender.</p>`;
   if (SIMD.errors?.length) h += `<p class="note">Avisos de datos: ${esc(SIMD.errors.join("; "))}</p>`;
