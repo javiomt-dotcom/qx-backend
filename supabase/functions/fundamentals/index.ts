@@ -8,8 +8,10 @@
 // POST { action: "brief", symbols }        -> resumen ligero por símbolo (favoritos)
 // POST { action: "quotes", symbols }       -> último precio y cierre previo
 // POST { action: "search", q }             -> búsqueda de símbolo por nombre (Finnhub)
+// POST { action: "copilot", symbol, name, question, metrics } -> explicación en español con RAG sobre el último 10-K (Claude, ANTHROPIC_API_KEY)
 // Caché en la tabla fa_cache (sólo service role).
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { copilot, ragProbe } from "./copilot.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -430,7 +432,7 @@ async function brief(symbols: string[]) {
 }
 
 async function selftest() {
-  return await cached("selftest:v7", 10 * 60_000, async () => {
+  return await cached("selftest:v8", 10 * 60_000, async () => {
     const r: Record<string, string> = {};
     const t = async (n: string, f: () => Promise<string>) => {
       try { r[n] = await f(); } catch (e) { r[n] = "error: " + (e as Error).message; }
@@ -447,6 +449,8 @@ async function selftest() {
     await t("ttm_nvda", async () => { const e: any = await edgar("NVDA"); return JSON.stringify({ ttm: e?.ttm ?? null, fyEnds: e?.fyEnds ?? null }); });
     await t("alpaca", async () => { const c = await closes("SPY", 11); return `ok (${c.t.length} días, de ${c.t[0]} a ${c.t[c.t.length - 1]})`; });
     await t("rf", async () => JSON.stringify(await riskFree()));
+    await t("copilot", async () => Deno.env.get("ANTHROPIC_API_KEY") ? "llave configurada" : "falta ANTHROPIC_API_KEY");
+    await t("sec10k_nvda", () => ragProbe("NVDA", { cached, cikMap, ua: UA }));
     return r;
   });
 }
@@ -497,6 +501,15 @@ Deno.serve(async (req) => {
         const result = (r?.result ?? []).filter((x: any) => SYM.test(x.symbol) && !x.symbol.includes("."))
           .slice(0, 10).map((x: any) => ({ symbol: x.symbol, name: x.description, type: x.type }));
         return json({ result });
+      }
+      case "copilot": {
+        const s = clean(body.symbol);
+        if (!SYM.test(s)) return json({ error: "símbolo inválido" }, 400);
+        const question = String(body.question ?? "").trim().slice(0, 300);
+        if (question.length < 3) return json({ error: "escribe una pregunta" }, 400);
+        const name = String(body.name ?? s).slice(0, 120);
+        const metrics = String(body.metrics ?? "").slice(0, 3000);
+        return json(await copilot(s, name, question, metrics, { cached, cikMap, ua: UA }));
       }
       default:
         return json({ error: "acción desconocida" }, 400);

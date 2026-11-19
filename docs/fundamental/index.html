@@ -82,6 +82,17 @@ td.k{color:var(--fg)}
 .chip{display:inline-block;font-size:10.5px;padding:1px 6px;border:1px solid var(--rule);border-radius:2px;color:var(--muted);margin:2px 4px 2px 0;white-space:nowrap}
 .chip.pos{border-color:#2a6b55;color:var(--up)}.chip.neg{border-color:#7a3236;color:var(--down)}.chip.amb{border-color:#6b4429;color:var(--amber)}
 .note{color:var(--muted);font-size:11px;margin:8px 0 0;line-height:1.5}
+.ai .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.ai .chips button{font:500 13px var(--sans);color:var(--fg);background:var(--panel-2);border:1px solid var(--rule);border-radius:16px;padding:7px 12px;cursor:pointer;min-height:36px}
+.ai .chips button:hover{border-color:var(--amber);color:var(--amber)}
+.ai .ans{margin-top:12px;font-size:15px;line-height:1.6;color:var(--fg)}
+.ai .ans p{margin:0 0 8px}.ai .ans ul{margin:0 0 8px;padding-left:20px}.ai .ans li{margin:4px 0}
+.ai .ans .q{color:var(--amber);font:600 13px var(--display);letter-spacing:.06em;text-transform:uppercase;margin:16px 0 6px}
+.ai sup a{color:var(--amber);text-decoration:none;font-size:11px;font-weight:600}
+.ai details{border-top:1px solid var(--rule-soft);padding:6px 0;font-size:13px;color:var(--muted)}
+.ai details summary{cursor:pointer;color:var(--fg)}
+.ai .src p{margin:6px 0 0;line-height:1.5;font-size:12.5px}
+.ai .foot{color:var(--dim);font-size:12px;margin-top:8px;line-height:1.5}
 .empty{color:var(--muted);padding:14px 0;white-space:normal;text-align:left}
 .err{color:var(--down);font-size:12px;margin:8px 0;white-space:normal}
 
@@ -715,6 +726,61 @@ async function loadMultHist(){
   if (CUR === C && $("multP")) $("multP").querySelector(".pb").innerHTML = multiplesHtml(C);
 }
 
+// ---------------- copiloto IA (Claude + RAG sobre el 10-K) ----------------
+const AI = {};   // respuestas por símbolo, para no perderlas si la empresa se vuelve a pintar
+const AI_Q = ["¿Cómo gana dinero esta empresa?", "¿Cuáles son sus riesgos principales?", "¿Por qué el DCF sale arriba o abajo del precio?", "¿Qué cambió en el último año?"];
+function aiHtml(C){
+  const name = C.prof.name || C.d.sec?.name || C.d.symbol;
+  return `<div class="ai"><p class="note" style="margin-top:0">Pregúntale sobre ${esc(name)}. Contesta con extractos de su último reporte anual (10-K) en la SEC y con los números de esta página, y cita de dónde sale cada idea. Es educativo: no dice qué comprar ni vender.</p>
+    <div class="chips">${AI_Q.map(q => `<button type="button" data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div>
+    <div class="search"><input class="in" id="aiQ" maxlength="300" placeholder="Escribe tu pregunta (ej. ¿quiénes son sus competidores?)" autocomplete="off"><button class="btn pri" id="aiGo" type="button">Preguntar</button></div>
+    <div id="aiOut">${(AI[C.d.symbol] || []).map(aiAnswerHtml).join("")}</div></div>`;
+}
+function aiMetrics(C){
+  const dv = DCF ? QX.dcfValue(DCF) : null, m = C.d.metric || {};
+  const lines = [`Precio: ${money(C.price)}`];
+  try { for (const v of verdicts(C, dv)) lines.push(`${v.k}: ${v.v}. ${v.s}`); } catch(e){}
+  if (dv && dv.perShare) lines.push(`Valor estimado por acción (DCF caso base): ${money(dv.perShare)}.`);
+  if (ok(m.peTTM)) lines.push(`P/U 12 meses: ${mult(m.peTTM)}`);
+  if (ok(m.revenueGrowthTTMYoy)) lines.push(`Crecimiento de ventas 12 meses: ${fx(m.revenueGrowthTTMYoy,1)}%`);
+  return lines.join("\n");
+}
+function aiAnswerHtml(a){
+  if (a.err) return `<div class="ans"><div class="q">${esc(a.q)}</div><div class="err">${esc(a.err)}</div></div>`;
+  if (!a.r) return `<div class="ans"><div class="q">${esc(a.q)}</div><div class="empty"><span class="spin"></span>Leyendo el 10-K y pensando la respuesta… suele tardar de 20 a 40 segundos.</div></div>`;
+  const r = a.r, id = a.id;
+  const cite = (t) => esc(t).replace(/\[(\d{1,2})\]/g, (m, n) => `<sup><a href="#${id}-s${n}">[${n}]</a></sup>`);
+  let body = "", list = [];
+  const flush = () => { if (list.length){ body += `<ul>${list.map(x => `<li>${cite(x)}</li>`).join("")}</ul>`; list = []; } };
+  for (const line of String(r.answer || "").split(/\n+/)){
+    const t = line.trim(); if (!t) continue;
+    if (/^[-•*]\s+/.test(t)) list.push(t.replace(/^[-•*]\s+/, "").replace(/\*\*/g, ""));
+    else { flush(); body += `<p>${cite(t.replace(/\*\*/g, ""))}</p>`; }
+  }
+  flush();
+  const src = (r.sources || []).map(s => `<details class="src" id="${id}-s${s.n}"><summary>[${s.n}] ${esc(s.item)}</summary><p>${esc(s.text)}…</p></details>`).join("");
+  const u = r.usage || {};
+  return `<div class="ans"><div class="q">${esc(a.q)}</div>${body}${src}
+    <div class="foot">Fuente: <a href="${esc(r.filing?.url)}" target="_blank" rel="noopener">${esc(r.filing?.form)} presentado el ${esc(r.filing?.date)}</a> · ${esc(r.model)} · ${(u.input||0).toLocaleString("en-US")} tokens de entrada y ${(u.output||0).toLocaleString("en-US")} de salida · costo ≈ $${fx(u.usd, 3)} USD${u.seconds ? ` · ${u.seconds} s` : ""}. Herramienta educativa; la IA puede equivocarse: revisa las citas.</div></div>`;
+}
+function aiWire(C){
+  const sym = C.d.symbol, name = C.prof.name || C.d.sec?.name || sym;
+  const paint = () => { if (CUR === C && $("aiOut")) $("aiOut").innerHTML = (AI[sym] || []).map(aiAnswerHtml).join(""); };
+  const ask = async (q) => {
+    q = String(q || "").trim(); if (q.length < 3) return;
+    const a = {q, id: "ai" + Date.now()};
+    (AI[sym] ||= []).unshift(a); paint();
+    $("aiGo").disabled = true;
+    try { a.r = await call({action:"copilot", symbol:sym, name, question:q, metrics: aiMetrics(C)}); }
+    catch(e){ a.err = /ANTHROPIC_API_KEY/.test(e.message) ? "El copiloto todavía no está encendido: falta la llave de la API de Claude en Supabase." : e.message; }
+    if ($("aiGo")) $("aiGo").disabled = false;
+    paint();
+  };
+  for (const b of document.querySelectorAll("#aiP .chips button")) b.onclick = () => ask(b.dataset.q);
+  $("aiGo").onclick = () => { ask($("aiQ").value); $("aiQ").value = ""; };
+  $("aiQ").addEventListener("keydown", e => { if (e.key === "Enter") $("aiGo").click(); });
+}
+
 function renderCompany(){
   const C = CUR, {d, f, risk, price, prof} = C, m = d.metric || {};
   const dv = DCF ? QX.dcfValue(DCF) : null;
@@ -736,6 +802,7 @@ function renderCompany(){
 
   h += dataDates(C);
   h += `<div class="tiles">${verdicts(C, dv).map(v => `<div class="tile"><div class="k">${v.k}</div><div class="v ${v.c}">${esc(v.v)}</div><div class="s">${esc(v.s)}</div></div>`).join("")}</div>`;
+  if (!C.isEtf) h += panel("Copiloto IA", "explica con el 10-K de la SEC", aiHtml(C), "aiP");
   if (f) h += profitHtml(C);
 
   // precio vs SPY
@@ -851,6 +918,7 @@ function renderCompany(){
   $("co").innerHTML = h;
 
   $("bFav").onclick = () => addFav(d.symbol);
+  if (!C.isEtf) aiWire(C);
   $("bAddPos").onclick = () => { setTab("port"); $("pSym").value = d.symbol; $("pSh").focus(); };
   for (const b of $("rng").querySelectorAll("button")) b.onclick = () => { CH_RANGE = +b.dataset.y; $("chart").innerHTML = chartSvg(d.prices, d.spy, CH_RANGE); $("rng").querySelectorAll("button").forEach(x => x.classList.toggle("on", x===b)); };
   bindDcf();
