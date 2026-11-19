@@ -134,7 +134,8 @@ Reglas:
 - Máximo 230 palabras. Formato: un párrafo corto de respuesta directa y luego de 3 a 5 viñetas que empiecen con "- ". Sin títulos ni tablas.`;
 
 export async function copilot(sym: string, name: string, question: string, metrics: string, d: Deps) {
-  const key = Deno.env.get("ANTHROPIC_API_KEY");
+  // limpia espacios, saltos de línea, comillas o un "Bearer " pegados con la llave
+  const key = (Deno.env.get("ANTHROPIC_API_KEY") ?? "").replace(/^\s*(bearer\s+)?["']?|["']?\s*$/gi, "").replace(/\s+/g, "");
   if (!key) throw new Error("Falta ANTHROPIC_API_KEY en los secretos de Supabase");
   const m = await d.cikMap();
   const cik = m[sym] ?? m[sym.replace(".", "-")];
