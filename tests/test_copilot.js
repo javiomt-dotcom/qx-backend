@@ -17,6 +17,14 @@ globalThis.__MockAnthropic = class {
   constructor(o) { this.o = o; this.beta = { messages: { create: async (req) => {
     calls.push(req);
     if (req.output_config && req.output_config.format) return { content: [{ type: "text", text: JSON.stringify({ terms: ["supply chain", "export controls", "competition"] }) }], usage: { input_tokens: 300, output_tokens: 60 }, stop_reason: "end_turn" };
+    if (/Wall Street/.test(JSON.stringify(req.messages[0]))) {
+      // primera vuelta: la búsqueda se pausa (pause_turn); segunda: responde citando la web
+      if (req.messages.length === 1) return { content: [{ type: "server_tool_use", id: "s1", name: "web_search", input: { query: "NVIDIA analysts" } }], usage: { input_tokens: 2000, output_tokens: 50, server_tool_use: { web_search_requests: 1 } }, stop_reason: "pause_turn", model: "claude-opus-5-5" };
+      return { content: [{ type: "web_search_tool_result", tool_use_id: "s1", content: [] },
+        { type: "text", text: "Según Reuters, la mayoría de los analistas la ven con buenos ojos", citations: [{ type: "web_search_result_location", url: "https://www.reuters.com/x", title: "Analistas y NVIDIA", cited_text: "..." }] },
+        { type: "text", text: " y la página muestra 50 recomendaciones de compra.", citations: [{ type: "web_search_result_location", url: "https://www.reuters.com/x", title: "Analistas y NVIDIA" }, { type: "web_search_result_location", url: "https://www.cnbc.com/y", title: "CNBC" }] }],
+        usage: { input_tokens: 6000, output_tokens: 300, server_tool_use: { web_search_requests: 1 } }, stop_reason: "end_turn", model: "claude-opus-5-5" };
+    }
     return { content: [{ type: "text", text: "Sus riesgos principales son la cadena de suministro [1] y los controles de exportación [2].\n- Depende de pocos fabricantes [1]\n- Ventas a China limitadas [2]" }], usage: { input_tokens: 5000, output_tokens: 400 }, stop_reason: "end_turn", model: "claude-opus-5-5" };
   } } }; }
 };
@@ -70,7 +78,7 @@ function fakeFetch(url) {
   const ans = calls[1];
   assert.strictEqual(ans.model, "claude-opus-5-5");
   assert.deepStrictEqual(ans.betas, ["server-side-fallback-2026-07-01"]); assert.strictEqual(ans.fallbacks, "default");
-  assert(ans.system.includes("nunca digas que compre"), "regla educativa en el sistema");
+  assert(ans.system.includes("nunca le digas al usuario que compre"), "regla educativa en el sistema");
   assert(ans.messages[0].content.includes("[1] (Item"), "manda extractos numerados con su sección");
   console.log("ok flujo completo con SEC y Claude simulados");
 
@@ -79,7 +87,18 @@ function fakeFetch(url) {
   assert.strictEqual(calls.length, n, "la misma pregunta sale de caché");
   console.log("ok caché de respuestas");
 
+  const k = calls.length;
+  const w = await copilot("NVDA", "NVIDIA", "¿Qué opina Wall Street de ella?", "Analistas: compra 50", deps);
+  assert.strictEqual(calls.length, k + 3, "términos + 2 vueltas por pause_turn");
+  assert.strictEqual(calls[k + 2].messages.length, 2, "reanuda con la respuesta pausada, sin mensaje extra");
+  assert.strictEqual(calls[k + 1].tools[0].type, "web_search_20260209");
+  assert(w.answer.startsWith("Según Reuters") && w.answer.includes("50 recomendaciones"), "une el texto de todos los bloques");
+  assert.deepStrictEqual(w.web.map((x) => x.url), ["https://www.reuters.com/x", "https://www.cnbc.com/y"], "links citados sin repetir");
+  assert.strictEqual(w.usage.searches, 2);
+  assert(Math.abs(w.usage.usd - ((300 + 2000 + 6000) * 4 + (60 + 50 + 300) * 20) / 1e6 - 0.02) < 1e-4, "costo incluye búsquedas");
+  console.log("ok búsqueda web con pause_turn y fuentes");
+
   await assert.rejects(copilot("ZZZZ", "Z", "hola mundo", "", deps), /SEC/);
   console.log("ok empresa sin reportes en la SEC");
-  console.log("\n6 pruebas del copiloto OK");
+  console.log("\n7 pruebas del copiloto OK");
 })().catch((e) => { console.error("FALLÓ:", e.message); process.exit(1); });
