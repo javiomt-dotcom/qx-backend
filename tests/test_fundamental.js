@@ -284,4 +284,35 @@ t("múltiplos de 12 meses con cifras de la SEC (misma base que la historia)", ()
   near(f.ttmMult.pb, 5, 1e-9, "P/VL"); near(f.ttmMult.evEbitda, 1900 / 150, 1e-9, "EV/EBITDA");
 });
 
+t("perfil CNBV (Anexo 3): elementos del perfil, faltantes = lo más prudente, préstamo limita, restricciones", () => {
+  const ids = new Set(P.QUESTIONS.map((q) => q.id));
+  for (const id of ["k0", "k0b", "k3b", "k3c", "k3d", "f8", "f9", "f4b", "p9", "p10"]) assert(ids.has(id), "falta pregunta " + id);
+  // escalas con palabras, no sólo números (apartado B)
+  for (const q of P.QUESTIONS) if (q.opts) for (const o of q.opts) assert(/[a-záéíóúñ]{2}/i.test(o[0]), "opción sólo numérica: " + q.id + " " + o[0]);
+  const a = answersFor(1), full = P.evaluate(a);
+  const sinDatos = { ...a }; delete sinDatos.t1; delete sinDatos.t2; delete sinDatos.t3;
+  const e = P.evaluate(sinDatos);
+  assert(e.will < full.will, "faltantes bajan la disposición"); assert(e.notes.some((n) => /más prudente/.test(n)));
+  assert.strictEqual(P.evaluate({}).profile, "conservador", "sin respuestas = conservador");
+  const prestamo = P.evaluate({ ...a, f8: 2 });
+  assert.strictEqual(prestamo.profile, "moderado_conservador"); assert(prestamo.caps.some((c) => /préstamo/.test(c)));
+  const esg = P.buildPortfolios(full, { ...a, p7: 1, p9: [1] });
+  assert(esg[1].w.ESGV && !esg[1].w.VTI, "restricción de combustibles fósiles usa ESG");
+  assert(P.evaluate({ ...a, p8: 1, p9: [3] }).notes.every((n) => !/^Cripto/.test(n)), "sin nota de cripto si la excluyó");
+});
+
+t("perfil CNBV: categorías con riesgo y rendimiento crecientes y confirmación cada 2 años", () => {
+  const tab = P.profileTable();
+  assert.deepStrictEqual(tab.map((r) => r.profile), P.PROFILE_ORDER);
+  for (let i = 1; i < tab.length; i++) {
+    assert(tab[i].eq > tab[i - 1].eq && tab[i].expected > tab[i - 1].expected && tab[i].drop < tab[i - 1].drop, "riesgo-rendimiento " + tab[i].profile);
+  }
+  for (const txt of Object.values(P.PROFILE_TEXT)) assert(!/nervios|valiente|mejor/i.test(txt), "juicio de valor: " + txt);
+  const now = Date.parse("2026-11-26T00:00:00Z");
+  assert.strictEqual(P.needsReview("2024-11-01T00:00:00Z", null, now), true);
+  assert.strictEqual(P.needsReview("2024-11-01T00:00:00Z", "2026-01-01T00:00:00Z", now), false);
+  assert.strictEqual(P.needsReview("2026-01-01T00:00:00Z", null, now), false);
+  assert.strictEqual(P.needsReview(null, null, now), false);
+});
+
 console.log(`\n${n} pruebas OK`);

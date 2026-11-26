@@ -1,6 +1,11 @@
 // QX Fundamental: perfil del inversionista, portafolios recomendados y simulaciones.
 // Funciones puras (sin red ni pantalla); las usan la página y las pruebas (node tests/test_fundamental.js).
 // Educativo: los portafolios son modelos de referencia, no recomendaciones personalizadas de un asesor registrado.
+// Cuestionario alineado (2026-11-26) con las Disposiciones de servicios de inversión de la CNBV (DOF 9-ene-2015 y reformas):
+// art. 4 y Anexo 3 (elementos del perfil, preguntas claras que no induzcan, faltantes = lo más prudente, informar el perfil
+// y pedir conformidad, no pedir que el cliente elija su categoría, categorías con variables cuantitativas y cualitativas y
+// relación riesgo-rendimiento, confirmar cada 2 años). Referencias: FINRA 2111 (EE. UU.) y MiFID II art. 25(2) /
+// Reglamento Delegado (UE) 2017/565 art. 54. Detalle y citas en REGULACION y en la skill del proyecto.
 (function (root) {
   "use strict";
 
@@ -9,20 +14,31 @@
   // dim: "know" conocimiento · "cap" capacidad de asumir riesgo · "will" disposición · "pref" preferencias (no puntúa)
   const SECTIONS = [
     { id: "know", title: "Conocimiento y experiencia", intro: "Para saber qué tan complejo puede ser tu portafolio y cuánto explicarte.", qs: [
+      { id: "k0", dim: "know", kind: "one", q: "¿Cuál es tu último nivel de estudios?", opts: [
+        ["Primaria o secundaria", 0], ["Preparatoria o carrera técnica", 0.5], ["Licenciatura", 1], ["Posgrado", 1]], w: 0.5 },
+      { id: "k0b", dim: "know", kind: "one", q: "¿Tu trabajo actual o alguno anterior tiene que ver con finanzas o inversiones?", opts: [
+        ["No", 0], ["Algo relacionado (contabilidad, banca, economía, seguros)", 1], ["Sí, directamente (inversiones, mercados, análisis financiero)", 2]], w: 0.5 },
       { id: "k1", dim: "know", kind: "one", q: "¿Cuánto sabes de inversiones?", opts: [
         ["Nada o casi nada", 0], ["Lo básico: sé qué es una acción, un bono y un ETF", 1],
         ["Intermedio: entiendo diversificación, P/U, tasas de interés y riesgo", 2], ["Avanzado: analizo estados financieros, valuación o derivados", 3]] },
       { id: "k2", dim: "know", kind: "one", q: "¿Cuánto tiempo llevas invirtiendo en bolsa?", opts: [
         ["Nunca he invertido", 0], ["Menos de 1 año", 1], ["De 1 a 3 años", 2], ["De 3 a 10 años", 3], ["Más de 10 años", 3]] },
-      { id: "k3", dim: "know", kind: "many", q: "¿En qué has invertido alguna vez? (marca todas las que apliquen)", opts: [
+      { id: "k3", dim: "know", kind: "many", q: "En los últimos 2 años, ¿en qué has invertido? (marca todas las que apliquen; si en ninguna, déjala vacía)", opts: [
         ["CETES, pagarés o depósitos a plazo", 0.5], ["Fondos de inversión o ETFs", 1], ["Acciones individuales", 1],
         ["Opciones, futuros o apalancamiento", 1], ["Criptomonedas", 0.5], ["Bienes raíces o FIBRAs", 0.5]] },
+      { id: "k3b", dim: "know", kind: "one", q: "En esos 2 años, ¿qué tan seguido invertiste?", opts: [
+        ["No invertí", 0], ["Una o dos veces en total", 0.5], ["Varias veces al año", 2], ["Cada mes o más seguido", 3]] },
+      { id: "k3c", dim: "know", kind: "one", q: "¿Cómo has invertido normalmente?", opts: [
+        ["No he invertido", 0], ["Compro y mantengo por años", 2], ["Compro y vendo en semanas o meses", 2], ["Compro y vendo en el mismo día o uso dinero prestado del broker (margen)", 3]] },
+      { id: "k3d", dim: "know", kind: "one", q: "¿Qué tipo de servicio de inversión has usado?", opts: [
+        ["Ninguno", 0], ["Compro y vendo yo mismo en una app o casa de bolsa", 2],
+        ["Un banco, casa de bolsa o asesor me recomienda y yo decido", 1], ["Alguien maneja mi cuenta por mí (fondo o gestión)", 1]] },
       { id: "k4", dim: "know", kind: "one", q: "Si las tasas de interés suben, ¿qué pasa normalmente con el precio de los bonos que ya existen?", opts: [
         ["Sube", 0], ["Baja", 3], ["No cambia", 0], ["No sé", 0]] },
       { id: "k5", dim: "know", kind: "one", q: "¿Qué es más riesgoso, en general?", opts: [
         ["Tener todo en una sola acción", 3], ["Tener todo en un ETF del S&P 500", 0], ["Es igual", 0], ["No sé", 0]] },
       { id: "k6", dim: "know", kind: "one", q: "Un fondo rindió 30% el año pasado. ¿Qué te dice eso de este año?", opts: [
-        ["Que probablemente vuelva a rendir mucho", 0], ["Casi nada: el rendimiento pasado no garantiza el futuro", 3], ["Que ya no va a subir", 0], ["No sé", 0]] },
+        ["Que probablemente vuelva a rendir mucho", 0], ["Casi nada sobre lo que pasará este año", 3], ["Que ya no va a subir", 0], ["No sé", 0]] },
     ] },
     { id: "goals", title: "Objetivos y horizonte", intro: "El plazo es lo que más define cuánto riesgo puedes tomar.", qs: [
       { id: "o1", dim: "pref", kind: "one", q: "¿Cuál es el objetivo principal de este dinero?", opts: [
@@ -31,7 +47,7 @@
       { id: "o2", dim: "cap", kind: "one", q: "¿Cuándo vas a necesitar la mayor parte de este dinero?", opts: [
         ["En menos de 1 año", 0], ["En 1 a 3 años", 1], ["En 3 a 5 años", 2], ["En 5 a 10 años", 3], ["En más de 10 años", 4]], w: 2 },
       { id: "o3", dim: "cap", kind: "one", q: "¿Qué edad tienes?", opts: [
-        ["Menos de 30", 4], ["30 a 44", 3], ["45 a 59", 2], ["60 a 69", 1], ["70 o más", 0]] },
+        ["Menos de 30 años", 4], ["De 30 a 44 años", 3], ["De 45 a 59 años", 2], ["De 60 a 69 años", 1], ["70 años o más", 0]] },
       { id: "o4", dim: "cap", kind: "one", q: "¿Necesitarás sacar dinero de esta inversión de forma regular?", opts: [
         ["Sí, cada mes", 0], ["De vez en cuando", 2], ["No, la dejo crecer", 4]] },
     ] },
@@ -40,10 +56,16 @@
         ["Muy inestables o no tengo ingresos fijos", 0], ["Variables (comisiones, negocio propio)", 1], ["Estables (sueldo fijo)", 3], ["Muy estables y con otras fuentes de ingreso", 4]] },
       { id: "f2", dim: "cap", kind: "one", q: "¿Tienes un fondo de emergencia aparte de esta inversión?", opts: [
         ["No tengo", 0], ["Menos de 3 meses de gastos", 1], ["De 3 a 6 meses de gastos", 3], ["Más de 6 meses de gastos", 4]] },
-      { id: "f3", dim: "cap", kind: "one", q: "¿Qué parte de tu patrimonio (sin contar tu casa) es este dinero?", opts: [
+      { id: "f8", dim: "cap", kind: "one", q: "¿De dónde viene el dinero que vas a invertir?", opts: [
+        ["De mi ahorro (sueldo, negocio o ingresos propios)", 4], ["De una venta, herencia, liquidación o premio", 3], ["De un préstamo o crédito", 0]] },
+      { id: "f9", dim: "cap", kind: "one", q: "¿Qué parte de tu ingreso mensual piensas destinar a invertir?", opts: [
+        ["Más de la mitad", 1], ["Entre una cuarta parte y la mitad", 3], ["Entre 10% y una cuarta parte", 4], ["Menos de 10%", 4]] },
+      { id: "f3", dim: "cap", kind: "one", q: "¿Qué parte de tu patrimonio (sin contar tu casa, y sumando lo que tengas en otros bancos o casas de bolsa) es este dinero?", opts: [
         ["Más de 75%", 0], ["De 50 a 75%", 1], ["De 25 a 50%", 3], ["Menos de 25%", 4]] },
       { id: "f4", dim: "cap", kind: "one", q: "¿Tienes deudas caras, como tarjetas de crédito que no pagas completas?", opts: [
         ["Sí, bastantes", 0], ["Algunas", 2], ["No", 4]] },
+      { id: "f4b", dim: "cap", kind: "one", q: "¿Cuánto de tu ingreso mensual se va en pagar deudas (hipoteca, auto, créditos)?", opts: [
+        ["Más de 40%", 0], ["Entre 20% y 40%", 2], ["Menos de 20%", 3], ["No tengo deudas", 4]] },
       { id: "f5", dim: "cap", kind: "one", q: "¿Cuántas personas dependen económicamente de ti?", opts: [
         ["Tres o más", 1], ["Una o dos", 2], ["Ninguna", 4]] },
       { id: "f6", dim: "pref", kind: "num", q: "¿Cuánto piensas invertir al inicio? (dólares)", ph: "10000" },
@@ -53,9 +75,9 @@
       { id: "t1", dim: "will", kind: "one", q: "Inviertes $10,000 y en 3 meses valen $7,500 (−25%) porque todo el mercado cayó. ¿Qué haces?", opts: [
         ["Vendo todo para no perder más", 0], ["Vendo una parte", 1], ["Espero sin hacer nada", 3], ["Compro más porque está barato", 4]], w: 2 },
       { id: "t2", dim: "will", kind: "one", q: "¿Qué rango de resultados en un año malo y uno bueno prefieres?", opts: [
-        ["Entre −2% y +6%", 0], ["Entre −8% y +12%", 1], ["Entre −18% y +25%", 3], ["Entre −35% y +45%", 4]], w: 2 },
+        ["Muy estable: entre −2% y +6%", 0], ["Estable: entre −8% y +12%", 1], ["Con altibajos: entre −18% y +25%", 3], ["Con altibajos fuertes: entre −35% y +45%", 4]], w: 2 },
       { id: "t3", dim: "will", kind: "one", q: "¿Cuál es la mayor caída que aguantarías sin vender?", opts: [
-        ["5%", 0], ["10 a 15%", 1], ["20 a 30%", 3], ["40% o más", 4]] },
+        ["Muy poca: 5%", 0], ["Poca: 10 a 15%", 1], ["Grande: 20 a 30%", 3], ["Muy grande: 40% o más", 4]] },
       { id: "t4", dim: "will", kind: "one", q: "¿Qué frase te describe mejor?", opts: [
         ["Evito perder dinero a toda costa", 0], ["Acepto un poco de riesgo por algo más de rendimiento", 1],
         ["Acepto riesgo moderado por un rendimiento claramente mayor", 3], ["Acepto mucho riesgo por el mayor rendimiento posible", 4]] },
@@ -76,18 +98,39 @@
       { id: "p6", dim: "pref", kind: "one", q: "¿En qué moneda vas a gastar este dinero?", opts: [["Pesos", 0], ["Dólares", 1], ["En las dos", 2]] },
       { id: "p7", dim: "pref", kind: "one", q: "¿Te importa invertir con criterios ambientales y sociales (ESG)?", opts: [["Sí", 1], ["Me da igual", 0]] },
       { id: "p8", dim: "pref", kind: "one", q: "¿Te interesa tener algo en criptomonedas?", opts: [["No", 0], ["Sí, una parte muy pequeña", 1]] },
+      { id: "p9", dim: "pref", kind: "many", q: "¿Hay algo en lo que NO quieras invertir? (marca las que apliquen; si no, déjala vacía)", opts: [
+        ["Armas, tabaco o apuestas", 0], ["Petróleo, gas o carbón", 0], ["Productos apalancados, inversos o derivados", 0], ["Criptomonedas", 0]] },
+      { id: "p10", dim: "pref", kind: "one", q: "¿Dónde pagas tus impuestos?", opts: [["En México", 0], ["En Estados Unidos", 1], ["En otro país", 2]] },
     ] },
   ];
   const QUESTIONS = SECTIONS.flatMap((s) => s.qs);
 
   const PROFILE_ORDER = ["conservador", "moderado_conservador", "moderado", "crecimiento", "agresivo"];
+  // Textos sin juicios de valor y con la relación riesgo-rendimiento explícita (Anexo 3, apartado C, fracciones II y III).
   const PROFILE_TEXT = {
-    conservador: "Prioridad: no perder. Mayoría en bonos de corto plazo y CETES; algo de acciones para no perder contra la inflación.",
-    moderado_conservador: "Crecimiento moderado con caídas acotadas. Más renta fija que acciones.",
-    moderado: "Balance entre crecer y aguantar caídas. Alrededor de 60% acciones y 40% renta fija.",
-    crecimiento: "Busca crecer a largo plazo y acepta caídas fuertes en el camino.",
-    agresivo: "Todo en acciones, sin bonos. Puede caer 50% en una crisis (el S&P 500 cayó -51% en 2008); sólo tiene sentido con plazo largo y nervios firmes.",
+    conservador: "Cerca de 25% en acciones y el resto en bonos, efectivo (T-bills o CETES) y algo de oro. Es el de menor riesgo y menor rendimiento esperado: las caídas suelen ser chicas, pero el dinero crece poco más que la inflación.",
+    moderado_conservador: "Cerca de 40% en acciones y 60% en bonos, efectivo y oro. Riesgo bajo a medio: caídas más chicas que las del mercado de acciones y rendimiento esperado algo mayor que el conservador.",
+    moderado: "Cerca de 60% en acciones y 40% en bonos, efectivo y oro. Riesgo medio: en una crisis fuerte puede caer alrededor de 30%, y a largo plazo se espera que rinda más que los dos anteriores.",
+    crecimiento: "Cerca de 80% en acciones y 20% en bonos y oro. Riesgo alto: en una crisis fuerte puede caer alrededor de 40%, a cambio de un rendimiento esperado mayor a largo plazo.",
+    agresivo: "100% en acciones, sin bonos. Es el de mayor riesgo y mayor rendimiento esperado: puede caer alrededor de 50% en una crisis (el S&P 500 cayó -51% en 2008-2009) y tardar años en recuperarse.",
   };
+  // Variables cuantitativas y cualitativas de cada categoría (Anexo 3, apartado C, fracción I). Las caídas y rangos son
+  // aproximados, de mezclas de índices de EE. UU. (S&P 500, bonos y T-bills) entre 2000 y 2025; no son promesa de nada.
+  const PROFILE_INFO = {
+    conservador:          { risk: "Bajo", horizon: "Menos de 3 años o no quieres sustos", drop: -0.10, year: [-0.05, 0.10] },
+    moderado_conservador: { risk: "Bajo a medio", horizon: "1 a 3 años o más", drop: -0.18, year: [-0.10, 0.15] },
+    moderado:             { risk: "Medio", horizon: "3 a 5 años o más", drop: -0.30, year: [-0.18, 0.22] },
+    crecimiento:          { risk: "Alto", horizon: "5 años o más", drop: -0.40, year: [-0.28, 0.28] },
+    agresivo:             { risk: "Muy alto", horizon: "10 años o más", drop: -0.51, year: [-0.37, 0.32] },
+  };
+
+  function profileTable() {
+    return PROFILE_ORDER.map((p) => {
+      const m = MIX[p], E = EXPECTED, cashR = 0.035;
+      const exp = m.eq * E.us + m.bond * E.bond + m.cash * cashR + m.gold * E.gold;
+      return { profile: p, eq: m.eq, fixed: m.bond + m.cash, gold: m.gold, expected: exp, text: PROFILE_TEXT[p], ...PROFILE_INFO[p] };
+    });
+  }
 
   function scoreOne(q, a) {
     if (a == null) return null;
@@ -106,10 +149,10 @@
       if (!acc[q.dim]) continue;
       const w = q.w || 1, s = scoreOne(q, answers[q.id]);
       const max = q.kind === "many" ? 3 : Math.max(...q.opts.map((o) => o[1]));
-      if (s == null) continue;
-      acc[q.dim][0] += w * Math.min(s, max); acc[q.dim][1] += w * max;
+      // Si falta la respuesta, cuenta como la opción más prudente (Anexo 3, apartado A): 0 puntos, pero sí suma al máximo.
+      acc[q.dim][0] += w * Math.min(s == null ? 0 : s, max); acc[q.dim][1] += w * max;
     }
-    const r = (d) => (acc[d][1] ? acc[d][0] / acc[d][1] : 0.5);
+    const r = (d) => (acc[d][1] ? acc[d][0] / acc[d][1] : 0);
     const cap = r("cap"), will = r("will"), know = r("know");
     let score = Math.min(cap, will) * 0.75 + Math.max(cap, will) * 0.25;
     const cuts = [0.3, 0.45, 0.6, 0.76];
@@ -121,15 +164,24 @@
     else if (hz === 2 && idx > 2) { idx = 2; caps.push("Con un plazo de 3 a 5 años el perfil se limita a moderado."); }
     if (answers.o4 === 0 && idx > 2) { idx = 2; caps.push("Como vas a retirar dinero cada mes, el perfil se limita a moderado."); }
     if (answers.f2 === 0 && idx > 2) { idx = 2; caps.push("Sin fondo de emergencia el perfil se limita a moderado: una urgencia te obligaría a vender en mal momento."); }
+    if (answers.f8 === 2 && idx > 1) { idx = 1; caps.push("Como el dinero viene de un préstamo, el perfil se limita a moderado conservador: si el mercado cae, la deuda sigue igual."); }
+    const miss = missing(answers);
+    if (miss.length) notes.push(`Faltan ${miss.length} respuesta${miss.length > 1 ? "s" : ""}; por regla se toma la opción más prudente en cada una. Contéstalas para un perfil más preciso.`);
     const level = know < 0.3 ? 0 : know < 0.55 ? 1 : know < 0.8 ? 2 : 3;
     if (answers.f2 === 0 || answers.f2 === 1) notes.push("Antes de invertir más, junta de 3 a 6 meses de gastos en algo líquido y seguro (CETES a 28 días o cuenta de ahorro).");
+    if (answers.f4b === 0) notes.push("Más de 40% de tu ingreso se va en deudas: invertir con poco margen aumenta la probabilidad de tener que vender en una caída.");
     if (answers.f4 === 0 || answers.f4 === 1) notes.push("Pagar tarjetas que cobran 40–60% al año rinde más que cualquier inversión. Conviene hacerlo primero.");
     if (Math.abs(cap - will) > 0.3) notes.push(cap < will
       ? "Tu disposición al riesgo es mayor que tu capacidad (plazo, ingresos, fondo de emergencia). El perfil sigue a la capacidad."
       : "Tu situación permite más riesgo del que te sientes cómodo tomando. El perfil respeta tu comodidad: un portafolio que no aguantas termina vendiéndose en el peor momento.");
     if (level <= 1) notes.push("Como vas empezando, los portafolios usan pocos ETFs amplios. Las acciones individuales quedan para cuando tengas más experiencia.");
     if (answers.p6 === 0) notes.push("Vas a gastar en pesos: si inviertes en dólares, el tipo de cambio sube o baja tu resultado. La parte de efectivo conviene tenerla en CETES.");
-    if (answers.p8 === 1) notes.push(idx >= 2 && level >= 1
+    const noGo = new Set(Array.isArray(answers.p9) ? answers.p9 : []);
+    if (noGo.has(0) || noGo.has(1)) notes.push("Pediste evitar armas, tabaco, apuestas o combustibles fósiles: los portafolios usan las versiones con filtro ESG (ESGV y VSGX). Los demás ETFs (bonos, oro, S&P 500) no tienen ese filtro; si te importa, cámbialos por sus versiones ESG.");
+    if (noGo.has(2)) notes.push("Pediste evitar apalancados, inversos y derivados: ningún portafolio modelo los usa.");
+    if (answers.p10 === 1) notes.push("Pagas impuestos en EE. UU.: la simulación supone un residente en México (ISR aproximado de 10%); tu caso fiscal es distinto.");
+    else if (answers.p10 === 2) notes.push("Pagas impuestos en otro país: la simulación supone un residente en México; revisa con un especialista de tu país.");
+    if (answers.p8 === 1 && !noGo.has(3)) notes.push(idx >= 2 && level >= 1
       ? "Cripto: si quieres, limítala a 1–5% del total y cuéntala dentro de tu parte de acciones. No entra en los portafolios modelo porque su historia es corta y muy volátil."
       : "Cripto: con tu perfil o experiencia actual conviene dejarla fuera; puede caer 70% o más en un año.");
     const profile = PROFILE_ORDER[idx];
@@ -198,7 +250,8 @@
     const m = profileMix(ev, answers);
     const lowVol = CAUTIOUS[ev.profile] ? 0.5 : 0;
     const intlShare = answers.p2 === 0 ? 0.1 : answers.p2 === 1 ? 0.25 : 0.4;
-    const esg = answers.p7 === 0;
+    const noGo = Array.isArray(answers.p9) ? answers.p9 : [];
+    const esg = answers.p7 === 0 || noGo.includes(0) || noGo.includes(1);
     const US = esg ? "ESGV" : "VTI", INTL = esg ? "VSGX" : "VXUS";
     const div = answers.p3 === 0, mx = answers.p4 === 1;
     const out = [];
@@ -422,6 +475,15 @@
     return mix;
   }
 
-  const QXP = { SECTIONS, QUESTIONS, PROFILE_ORDER, PROFILE_TEXT, MIX, ASSET, NAMES, KIND, EXPECTED, TER, REAL, evaluate, withProfile, missing, buildPortfolios, referenceWeights, monthly, backtest, monteCarlo, mixOf };
+  // Confirmación periódica del perfil (Anexo 3, apartado C: al menos cada 2 años)
+  const REVIEW_DAYS = 730;
+  function needsReview(profileAt, confirmedAt, now) {
+    const t = (d) => (d ? Date.parse(d) || 0 : 0);
+    const last = Math.max(t(profileAt), t(confirmedAt));
+    if (!last) return false;
+    return ((now == null ? Date.now() : now) - last) / 864e5 > REVIEW_DAYS;
+  }
+
+  const QXP = { SECTIONS, QUESTIONS, PROFILE_ORDER, PROFILE_TEXT, PROFILE_INFO, REVIEW_DAYS, profileTable, needsReview, MIX, ASSET, NAMES, KIND, EXPECTED, TER, REAL, evaluate, withProfile, missing, buildPortfolios, referenceWeights, monthly, backtest, monteCarlo, mixOf };
   if (typeof module !== "undefined" && module.exports) module.exports = QXP; else root.QXP = QXP;
 })(typeof self !== "undefined" ? self : this);

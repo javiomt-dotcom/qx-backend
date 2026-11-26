@@ -230,6 +230,19 @@ section[hidden]{display:none}
 .ladder em{font-style:normal;font-size:10px;color:var(--dim);opacity:.8}
 .tagm{font-size:11px;font-weight:600;vertical-align:middle;color:var(--ink);background:var(--amber);border-radius:4px;padding:1px 6px}
 .pick5{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.agree{border:1px solid var(--amber);background:var(--panel-2);border-radius:6px;padding:12px;margin:10px 0}
+.agree h3{margin:0 0 6px;font:600 14px var(--display);color:var(--amber)}
+.agree .row2{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.4;margin-top:8px;cursor:pointer}
+.chk input{margin-top:3px;width:18px;height:18px;flex:0 0 auto}
+.ptab{width:100%;font-size:12.5px}
+.ptab{table-layout:auto}.ptab td,.ptab th{white-space:normal;font-family:inherit;padding:6px 6px;vertical-align:top;border-bottom:1px solid var(--rule-soft);text-align:left}
+.ptab th{color:var(--dim);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.ptab tr.on td{color:var(--amber)}
+@media (max-width:600px){.ptab .hide-s{display:none}.ptab td,.ptab th{padding:6px 4px;font-size:12px}}
+details.reg{margin-top:10px}
+details.reg summary{cursor:pointer;color:var(--amber);font:600 12px var(--display);letter-spacing:.08em;text-transform:uppercase;padding:4px 0}
+details.reg li{margin:6px 0;font-size:12.5px;line-height:1.45;color:var(--muted)}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:10px}
 .wp{font-size:16px;font-weight:700;color:var(--amber);text-align:right;white-space:nowrap}
 .eqbig{font-size:22px;font-weight:700;color:var(--amber);line-height:1.1}
@@ -1036,7 +1049,13 @@ function glossary(){
 let PH = null;   // historial del portafolio
 $("bSet").onclick = async () => {
   const cash = parseFloat($("cash").value) || 0;
-  const row = {user_id: USER.id, profile: $("prof").value, cash, updated_at: new Date().toISOString()};
+  const want = $("prof").value;
+  if (want !== SET.profile && riskierThanQuiz(want) && SET.result?.riskier_ack?.profile !== want){
+    $("prof").value = SET.profile || QEV.profile;
+    $("pErr").textContent = `Tu cuestionario dio ${PLABEL(QEV.profile)}. Para usar un perfil con más riesgo confírmalo en la pestaña Mi perfil, donde te mostramos sus riesgos.`;
+    return;
+  }
+  const row = {user_id: USER.id, profile: want, cash, updated_at: new Date().toISOString()};
   const {error} = await sb.from("fa_settings").upsert(row);
   if (error){ $("pErr").textContent = error.message; return; }
   if (!SET.answers || QXP.missing(SET.answers).length) row.result = {manual: true, profile: row.profile};
@@ -1207,7 +1226,7 @@ function renderPortfolio(){
 }
 
 // ---------------- mi perfil ----------------
-let ANS = {}, EV = null, QEV = null, PFS = null, PSEL = 0, EDIT = false;
+let ANS = {}, EV = null, QEV = null, PFS = null, PSEL = 0, EDIT = false, NEWQ = 0, RISKY = null;
 let SIMD = null, SIMKEY = "", SIMERR = "", SIMIN = null, simBusy = false;
 const PLABEL = (p) => QX.PROFILES[p]?.label || p;
 const HZ_YEARS = [1, 3, 5, 10, 20];
@@ -1217,7 +1236,10 @@ const kmoney = (v) => !ok(v) ? "—" : (v<0?"-":"") + "$" + (Math.abs(v) >= 1e6 
 
 function initProfile(){
   const saved = SET.answers && typeof SET.answers === "object" && !QXP.missing(SET.answers).length ? SET.answers : null;
-  ANS = saved ? {...saved} : store.get("fa_ans_draft", {}) || {};
+  // Respuestas guardadas con una versión anterior del cuestionario: se conservan y sólo se piden las preguntas nuevas
+  const old = !saved && SET.answers && typeof SET.answers === "object" ? SET.answers : null;
+  NEWQ = old ? QXP.missing(old).length : 0;
+  ANS = saved ? {...saved} : old ? {...old, ...(store.get("fa_ans_draft", {}) || {})} : store.get("fa_ans_draft", {}) || {};
   QEV = saved ? QXP.evaluate(saved) : null;      // se recalcula con la versión actual de las reglas
   // Perfil activo: el del cuestionario, salvo que lo hayas elegido a mano (SET.profile distinto al que dio el cuestionario)
   const R = SET.result || {};
@@ -1232,10 +1254,10 @@ function initProfile(){
 function badge(){
   const b = $("pBadge");
   b.hidden = false;
-  b.textContent = EV ? "Perfil: " + PLABEL(EV.profile) : "Contesta tu perfil";
+  b.textContent = EV ? (EV.noQuiz ? "Ejemplo: " : "Perfil: ") + PLABEL(EV.profile) : "Contesta tu perfil";
   b.title = EV ? "Tu perfil de inversionista (toca para verlo)" : "Contesta el cuestionario de perfil";
   const pf = $("profFrom");
-  if (pf) pf.textContent = !QEV ? (EV ? "· elegido a mano" : "· contesta el cuestionario") : SET.profile === QEV.profile ? "· según tu cuestionario" : `· elegido a mano; tu cuestionario dice ${PLABEL(QEV.profile)}`;
+  if (pf) pf.textContent = !QEV ? (EV ? "· ejemplo, contesta el cuestionario" : "· contesta el cuestionario") : SET.profile === QEV.profile ? "· según tu cuestionario" : `· elegido a mano; tu cuestionario dice ${PLABEL(QEV.profile)}`;
 }
 $("pBadge").onclick = () => setTab("perfil");
 $("pfBannerGo").onclick = () => setTab("perfil");
@@ -1251,10 +1273,17 @@ function profileFit(b){
 }
 
 // Elegir el perfil a mano (o volver al del cuestionario). Ajusta portafolios modelo, simulación, «Mi portafolio» y «Buscar».
-async function setProfile(p){
+// Regla (Anexo 3, apartado C): el perfil sale del cuestionario; bajar de riesgo es libre, pero subirlo pide que confirmes
+// que entiendes los riesgos de ese perfil. Sin cuestionario sólo se ven ejemplos de cada categoría.
+function riskierThanQuiz(p){ return !!QEV && QXP.PROFILE_ORDER.indexOf(p) > QEV.idx; }
+async function setProfile(p, ack){
   if (!QX.PROFILES[p]) return;
-  const row = {user_id: USER.id, profile: p, cash: +SET.cash || 0, updated_at: new Date().toISOString()};
+  if (riskierThanQuiz(p) && !ack){ RISKY = p; renderPerfil(); $("riskBox")?.scrollIntoView({behavior: "smooth", block: "center"}); return; }
+  RISKY = null;
+  const now = new Date().toISOString();
+  const row = {user_id: USER.id, profile: p, cash: +SET.cash || 0, updated_at: now};
   if (!QEV) row.result = {manual: true, profile: p};
+  else if (ack) row.result = {...(SET.result || {}), riskier_ack: {profile: p, at: now}};
   SET = {...SET, ...row}; $("prof").value = p;
   initProfile(); EDIT = false; renderPerfil();
   const {error} = await sb.from("fa_settings").upsert(row);
@@ -1265,6 +1294,21 @@ function ladderHtml(cur, quiz){
 }
 function bindLadder(){
   for (const b of $("perfOut").querySelectorAll("[data-setp]")) b.onclick = () => setProfile(b.dataset.setp);
+}
+// Las 5 categorías con variables cuantitativas y cualitativas y su relación riesgo-rendimiento (Anexo 3, apartado C)
+function profileTableHtml(cur){
+  return `<table class="ptab"><tr><th>Perfil</th><th>Acciones</th><th class="hide-s">Bonos y efectivo</th><th class="hide-s">Riesgo</th><th>Caída en una crisis fuerte</th><th class="hide-s">Un año malo / bueno</th><th>Rendimiento esperado al año</th><th class="hide-s">Plazo sugerido</th></tr>
+    ${QXP.profileTable().map(r => `<tr class="${r.profile === cur ? "on" : ""}"><td><b>${esc(PLABEL(r.profile))}</b></td><td>${pct(r.eq,0)}</td><td class="hide-s">${pct(r.fixed,0)}${r.gold ? ` + ${pct(r.gold,0)} oro` : ""}</td><td class="hide-s">${esc(r.risk)}</td><td class="down">${pct(r.drop,0)}</td><td class="hide-s">${pct(r.year[0],0)} / +${pct(r.year[1],0)}</td><td>${pct(r.expected,1)}</td><td class="hide-s">${esc(r.horizon)}</td></tr>`).join("")}</table>
+    <p class="note">A más acciones, más rendimiento esperado a largo plazo y caídas más grandes en el camino: no hay forma de tener lo primero sin lo segundo. Las caídas y rangos son aproximados, de mezclas de índices de EE. UU. entre 2000 y 2025. El rendimiento esperado es un supuesto prudente en dólares antes de comisiones, impuestos e inflación (el mismo que usa la simulación), no una promesa.</p>`;
+}
+function regHtml(){
+  return `<details class="reg"><summary>Qué es esta herramienta y en qué reglas se basa</summary><ul>
+    <li><b>Es educativa.</b> No es asesoría de inversiones: la CNBV la define como recomendaciones personalizadas para decidir sobre productos financieros (art. 1 de las Disposiciones de carácter general aplicables a las entidades financieras y demás personas que proporcionen servicios de inversión). Quien da asesoría de forma habitual y profesional debe estar registrado como asesor en inversiones (art. 225 de la Ley del Mercado de Valores). QX no está registrado, así que los portafolios son modelos generales y no te dice qué comprar.</li>
+    <li><b>El cuestionario sigue el Anexo 3 de esas Disposiciones</b> (art. 4): conocimientos y experiencia (estudios, ocupación, en qué, qué tan seguido y cómo invertiste en los últimos 2 años, servicios que conoces), situación y capacidad financiera (origen del dinero, parte de tus ingresos y de tu patrimonio, deudas) y objetivos (propósito, plazo, tolerancia al riesgo y lo que no quieres en tu portafolio).</li>
+    <li><b>Reglas del Anexo 3 que aplicamos:</b> preguntas claras que no te empujan a una respuesta; escalas con palabras, no sólo números; si falta una respuesta se toma la más prudente; te explicamos tu perfil y pedimos tu conformidad; no te pedimos que elijas tu categoría (sí puedes bajar de riesgo; subirlo pide confirmar que entiendes los riesgos); cada categoría muestra su riesgo y rendimiento; te pedimos confirmar tu perfil al menos cada 2 años.</li>
+    <li><b>Tus datos:</b> tus respuestas incluyen datos patrimoniales, que piden tu consentimiento expreso (art. 7 de la Ley Federal de Protección de Datos Personales en Posesión de los Particulares, DOF 20-mar-2025). Sólo tú las ves y puedes borrarlas cuando quieras.</li>
+    <li><b>Referencias de otros países:</b> la regla 2111 de FINRA en EE. UU. (edad, otras inversiones, situación financiera, situación fiscal, objetivos, experiencia, plazo, necesidad de liquidez y tolerancia al riesgo) y MiFID II en Europa (art. 25(2) de la Directiva 2014/65/UE y art. 54 del Reglamento Delegado 2017/565, que incluye la capacidad de soportar pérdidas). Por eso también preguntamos dónde pagas impuestos.</li>
+  </ul></details>`;
 }
 
 function renderPerfil(){
@@ -1291,14 +1335,19 @@ function quizProgress(){
 function renderQuiz(){
   let n = 0;
   let h = panel("Conoce tu perfil de inversionista", `<span id="qProg"></span>`,
-    `<p class="note" style="margin-top:2px">${QXP.QUESTIONS.length} preguntas en 5 partes (unos 7 minutos): qué tanto sabes, para qué es el dinero, tu situación, cómo reaccionas a las caídas y tus gustos. Con eso calculo tu perfil de riesgo, armo 4 o 5 portafolios modelo y simulo cómo les habría ido desde 2016 y qué rango de resultados esperar. Sólo tú ves tus respuestas.</p>
+    `${NEWQ ? `<div class="honest"><b>Agregamos ${NEWQ} pregunta${NEWQ > 1 ? "s" : ""} para seguir las reglas de perfilamiento de la CNBV.</b> Tus respuestas anteriores se conservan: sólo contesta las marcadas en rojo y vuelve a ver tu perfil.</div>` : ""}
+     <p class="note" style="margin-top:2px">${QXP.QUESTIONS.length} preguntas en 5 partes (unos 9 minutos): qué tanto sabes, para qué es el dinero, tu situación, cómo reaccionas a las caídas y tus gustos. Con eso calculo tu perfil de riesgo, armo 4 o 5 portafolios modelo y simulo cómo les habría ido desde 2016 y qué rango de resultados esperar. Es una herramienta educativa, no asesoría de inversiones. Sólo tú ves tus respuestas.</p>
      <div class="prog"><i id="qBar" style="width:0"></i></div>
-     <div class="lbl" style="margin-top:12px">¿Ya sabes tu perfil? Elígelo directo y ve sus portafolios (puedes contestar el cuestionario después)</div>
-     <div class="pick5">${QXP.PROFILE_ORDER.map(p => `<button type="button" class="opt${EV && EV.profile === p ? " on" : ""}" data-setp="${p}">${esc(PLABEL(p))}</button>`).join("")}</div>`);
+     <details class="reg"><summary>Antes de empezar: cómo son los 5 perfiles</summary>${profileTableHtml(null)}
+       <div class="lbl" style="margin-top:8px">Ver portafolios de ejemplo de una categoría (no es tu perfil: tu perfil sale de tus respuestas)</div>
+       <div class="pick5">${QXP.PROFILE_ORDER.map(p => `<button type="button" class="opt${EV && EV.noQuiz && EV.profile === p ? " on" : ""}" data-setp="${p}">Ejemplo ${esc(PLABEL(p))}</button>`).join("")}</div></details>
+     ${regHtml()}`);
   for (const sec of QXP.SECTIONS) h += panel(esc(sec.title), esc(sec.intro), sec.qs.map(q => qHtml(q, ++n)).join(""));
+  h += `<label class="chk"><input type="checkbox" id="qConsent"${SET.result?.consent_at ? " checked" : ""}><span>Doy mi consentimiento para que se guarden mis respuestas, incluidos los datos de mi patrimonio e ingresos, sólo para calcular mi perfil y mis portafolios modelo. Puedo borrarlas cuando quiera desde esta pestaña.</span></label>`;
   h += `<div class="qend"><div class="err" id="qErr"></div>${EV ? `<button class="btn" id="qCancel">Cancelar</button>` : ""}<button class="btn pri" id="qGo">Ver mi perfil</button></div>`;
   $("perfOut").innerHTML = h;
   quizProgress();
+  if (NEWQ) for (const id of QXP.missing(ANS)) $("q-" + id)?.classList.add("miss");
   $("perfOut").onclick = (e) => {
     const b = e.target.closest(".opt"); if (!b || b.dataset.setp) return;
     const q = QXP.QUESTIONS.find(x => x.id === b.dataset.q), i = +b.dataset.i;
@@ -1329,21 +1378,58 @@ async function saveProfile(){
     $("q-" + miss[0]).scrollIntoView({behavior: "smooth", block: "center"});
     return;
   }
+  if (!$("qConsent").checked){ $("qErr").textContent = "Para guardar tus respuestas necesitamos tu consentimiento (la casilla de arriba)."; return; }
   const ev = QXP.evaluate(ANS);
   const now = new Date().toISOString();
   const row = {user_id: USER.id, profile: ev.profile, cash: +SET.cash || 0, answers: ANS, updated_at: now, profile_at: now, chosen_portfolio: null,
-    result: {profile: ev.profile, score: ev.score, cap: ev.cap, will: ev.will, know: ev.know, level: ev.level, caps: ev.caps, notes: ev.notes}};
+    result: {profile: ev.profile, score: ev.score, cap: ev.cap, will: ev.will, know: ev.know, level: ev.level, caps: ev.caps, notes: ev.notes, consent_at: now, agreed_at: null}};
   $("qGo").disabled = true; $("qErr").textContent = "";
   const {error} = await sb.from("fa_settings").upsert(row);
   $("qGo").disabled = false;
   if (error){ $("qErr").textContent = "No se guardó: " + error.message; return; }
-  SET = {...SET, ...row}; store.set("fa_ans_draft", null);
+  SET = {...SET, ...row}; store.set("fa_ans_draft", null); RISKY = null;
   $("prof").value = ev.profile; EDIT = false;
   initProfile(); $("pfBanner").hidden = true;
   renderPerfil(); window.scrollTo(0, 0);
 }
 
 // ---- resultado, portafolios y simulación ----
+function riskBoxHtml(p, ev){
+  const r = QXP.profileTable().find(x => x.profile === p), q = QXP.profileTable().find(x => x.profile === ev.quizProfile || x.profile === QEV?.profile);
+  return `<div class="agree" id="riskBox"><h3>Antes de subir a ${esc(PLABEL(p))}</h3>
+    <p class="note">Tu cuestionario dio <b>${esc(PLABEL(q.profile))}</b>. El perfil ${esc(PLABEL(p))} lleva alrededor de ${pct(r.eq,0)} en acciones (contra ${pct(q.eq,0)}): en una crisis fuerte puede caer cerca de ${pct(r.drop,0)} (contra ${pct(q.drop,0)}), un año malo puede ser de ${pct(r.year[0],0)} y conviene un plazo de ${esc(r.horizon.toLowerCase())}. A cambio, el rendimiento esperado a largo plazo sube de ${pct(q.expected,1)} a ${pct(r.expected,1)} al año, sin garantía.</p>
+    <label class="chk"><input type="checkbox" id="riskOk"><span>Entiendo que con este perfil puedo perder más dinero y por más tiempo que con el que salió de mi cuestionario, y lo elijo a propósito.</span></label>
+    <div class="row2"><button class="btn sm pri" id="riskGo">Usar ${esc(PLABEL(p))}</button><button class="btn sm" id="riskNo">Mejor no</button></div><div class="err" id="riskErr"></div></div>`;
+}
+async function saveResult(patch){
+  const result = {...(SET.result || {}), ...patch};
+  SET = {...SET, result};
+  const {error} = await sb.from("fa_settings").update({result, updated_at: new Date().toISOString()}).eq("user_id", USER.id);
+  if (error && $("pfMsg")) $("pfMsg").textContent = "No se guardó: " + error.message;
+}
+function bindResultCommon(ev){
+  $("pfRedo").onclick = () => { EDIT = true; RISKY = null; ANS = {...(SET.answers || ANS)}; renderPerfil(); window.scrollTo(0, 0); };
+  if ($("pfAuto")) $("pfAuto").onclick = () => setProfile(ev.quizProfile);
+  bindLadder();
+  if ($("pfAgree")) $("pfAgree").onclick = async () => { await saveResult({agreed_at: new Date().toISOString()}); renderPerfil(); };
+  if ($("pfDisagree")) $("pfDisagree").onclick = () => $("pfRedo").onclick();
+  if ($("pfSame")) $("pfSame").onclick = async () => { await saveResult({confirmed_at: new Date().toISOString()}); renderPerfil(); };
+  if ($("pfRedo2")) $("pfRedo2").onclick = () => $("pfRedo").onclick();
+  if ($("riskNo")) $("riskNo").onclick = () => { RISKY = null; renderPerfil(); };
+  if ($("riskGo")) $("riskGo").onclick = () => {
+    if (!$("riskOk").checked){ $("riskErr").textContent = "Marca la casilla para confirmar que entiendes los riesgos."; return; }
+    setProfile(RISKY, true);
+  };
+  if ($("pfDel")) $("pfDel").onclick = async () => {
+    const b = $("pfDel");
+    if (b.dataset.sure !== "1"){ b.dataset.sure = "1"; b.textContent = "Toca otra vez para borrar"; return; }
+    const row = {answers: null, result: null, profile_at: null, chosen_portfolio: null, updated_at: new Date().toISOString()};
+    const {error} = await sb.from("fa_settings").update(row).eq("user_id", USER.id);
+    if (error){ $("pfMsg").textContent = "No se borró: " + error.message; return; }
+    SET = {...SET, ...row}; store.set("fa_ans_draft", null); ANS = {}; RISKY = null;
+    initProfile(); renderPerfil(); window.scrollTo(0, 0);
+  };
+}
 function stackHtml(mix){
   const parts = Object.entries(mix).filter(([, v]) => v > 0.001);
   return `<div class="stack">${parts.map(([k, v]) => `<i style="width:${(v*100).toFixed(1)}%;background:${MIXL[k][1]}"></i>`).join("")}</div>
@@ -1355,18 +1441,38 @@ function renderResult(){
   const meter = (k, v) => `<div class="row"><span>${k}</span><div class="bar"><i style="width:${(v*100).toFixed(0)}%"></i></div><span>${(v*100).toFixed(0)}/100</span></div>`;
   const item = (icon, t) => `<div class="rec">${icon}<div><p>${esc(t)}</p></div></div>`;
   const riskier = ev.manual && ev.quizIdx != null && ev.idx > ev.quizIdx;
-  let h = panel("Tu perfil de inversionista", ev.noQuiz ? "elegido a mano, sin cuestionario" : SET.profile_at ? "contestado el " + new Date(SET.profile_at).toLocaleDateString("es-MX", {day:"numeric", month:"long", year:"numeric"}) : "",
-    `<div class="pfhead"><div><div class="lbl">${ev.manual ? "Perfil que elegiste" : "Resultado"}</div><div class="big amb">${esc(PLABEL(ev.profile))}${ev.manual ? ` <span class="tagm">elegido a mano</span>` : ""}</div>
+  const R = SET.result || {};
+  // Conformidad (Anexo 3, apartado C): el perfil del cuestionario se explica y se pide tu conformidad antes de mostrar portafolios.
+  // Elegir otro perfil en la escalera cuenta como tu decisión (bajar es libre; subir pide confirmar los riesgos).
+  const needAgree = !ev.noQuiz && !ev.manual && !R.agreed_at;
+  const review = !ev.noQuiz && !needAgree && QXP.needsReview(SET.profile_at, R.confirmed_at);
+  const info = QXP.profileTable().find(r => r.profile === ev.profile);
+  let h = "";
+  if (review) h += `<div class="agree"><h3>Confirma tu perfil</h3><p class="note">Contestaste el cuestionario hace más de 2 años. ¿Tu situación (ingresos, ahorros, deudas, plazo u objetivos) sigue igual? Si no la confirmas, seguimos usando el mismo perfil.</p>
+      <div class="row2"><button class="btn sm pri" id="pfSame">Sigue igual</button><button class="btn sm" id="pfRedo2">Cambió: volver a contestar</button></div></div>`;
+  h += panel("Tu perfil de inversionista", ev.noQuiz ? "ejemplo de la categoría, sin cuestionario" : SET.profile_at ? "contestado el " + new Date(SET.profile_at).toLocaleDateString("es-MX", {day:"numeric", month:"long", year:"numeric"}) : "",
+    `<div class="pfhead"><div><div class="lbl">${ev.noQuiz ? "Ejemplo (no es tu perfil)" : ev.manual ? "Perfil que elegiste" : "Resultado"}</div><div class="big amb">${esc(PLABEL(ev.profile))}${ev.noQuiz ? ` <span class="tagm">ejemplo</span>` : ev.manual ? ` <span class="tagm">elegido por ti</span>` : ""}</div>
        <p class="note" style="margin-top:2px">${esc(ev.text)}</p>
        ${ev.noQuiz ? "" : `<div class="bars" style="margin-top:10px">${meter("Capacidad", ev.cap)}${meter("Disposición", ev.will)}${meter("Conocimiento", ev.know)}</div>`}</div>
-     <div><div class="lbl">Cambia tu perfil aquí</div>${ladderHtml(ev.idx, ev.quizIdx)}
+     <div><div class="lbl">${ev.noQuiz ? "Ver otro ejemplo" : "Cambia tu perfil aquí"}</div>${ladderHtml(ev.idx, ev.quizIdx)}
        ${ev.manual && ev.quizProfile ? `<button class="btn sm" id="pfAuto" style="margin-top:6px">Usar el de mi cuestionario (${esc(PLABEL(ev.quizProfile))})</button>` : ""}
        <div class="err" id="pfMsg"></div></div></div>
-     ${ev.manual ? `<p class="note" style="margin-top:8px">${ev.noQuiz ? "No has contestado el cuestionario, así que los portafolios usan supuestos generales: experiencia básica, 25% fuera de EE. UU. y $10,000 sin aportes. Contestarlo los ajusta a ti." : riskier ? `<b class="amb">Elegiste más riesgo del que sugiere tu cuestionario (${esc(PLABEL(ev.quizProfile))}).</b> Está bien si es a propósito, pero recuerda que un portafolio que no aguantas suele venderse en el peor momento.` : `Elegiste menos riesgo del que sugiere tu cuestionario (${esc(PLABEL(ev.quizProfile))}). Es más tranquilo, pero con el tiempo suele crecer menos.`} Los portafolios, la simulación, «Mi portafolio» y «Buscar» ya usan el perfil que elegiste.</p>` : ""}
+     ${ev.manual ? `<p class="note" style="margin-top:8px">${ev.noQuiz ? "Es un ejemplo de la categoría, no tu perfil: tu perfil sale de tus respuestas al cuestionario, no de elegirlo. Los portafolios usan supuestos generales: experiencia básica, 25% fuera de EE. UU. y $10,000 sin aportes." : riskier ? `<b class="amb">Elegiste más riesgo del que sugiere tu cuestionario (${esc(PLABEL(ev.quizProfile))}) y confirmaste que entiendes sus riesgos${R.riskier_ack?.at ? " el " + new Date(R.riskier_ack.at).toLocaleDateString("es-MX", {day:"numeric", month:"long", year:"numeric"}) : ""}.</b> Recuerda que un portafolio que no aguantas suele venderse en el peor momento.` : `Elegiste menos riesgo del que sugiere tu cuestionario (${esc(PLABEL(ev.quizProfile))}). Es más tranquilo, pero con el tiempo suele crecer menos.`} Los portafolios, la simulación, «Mi portafolio» y «Buscar» ya usan el perfil que elegiste.</p>` : ""}
      <p class="note">${ev.noQuiz ? "" : `Experiencia: <b>${LEVELS[ev.level]}</b>. Capacidad es lo que tu plazo, ingresos y ahorros permiten; disposición es lo que aguantarías sin vender. Pesa más la más baja de las dos. `}Con este perfil, tu portafolio debería tener una beta de ${P.beta[0]} a ${P.beta[1]}${P.minBonds > 0 ? `, al menos ${pct(P.minBonds,0)} en renta fija` : ""} y no más de ${pct(P.maxStock,0)} en una sola acción. Así se configuran las observaciones de «Mi portafolio» y la lectura de riesgo en «Buscar».</p>
      ${ev.caps.length ? `<div class="lbl" style="margin-top:10px">Límites que aplican</div>` + ev.caps.map(c => item(`<span class="lvl amb">◆</span>`, c)).join("") : ""}
      ${ev.notes.length ? `<div class="lbl" style="margin-top:10px">Para tomar en cuenta</div>` + ev.notes.map(c => item(`<span class="lvl blue">i</span>`, c)).join("") : ""}
-     <div style="margin-top:10px"><button class="btn sm" id="pfRedo">${ev.noQuiz ? "Contestar el cuestionario" : "Volver a contestar"}</button></div>`);
+     ${RISKY ? riskBoxHtml(RISKY, ev) : ""}
+     ${needAgree ? `<div class="agree" id="agreeBox"><h3>¿Estás de acuerdo con este perfil?</h3>
+        <p class="note">Perfil <b>${esc(PLABEL(ev.profile))}</b>: riesgo ${esc(info.risk.toLowerCase())}, alrededor de ${pct(info.eq,0)} en acciones, una caída de ${pct(info.drop,0)} es posible en una crisis fuerte y el rendimiento esperado es cerca de ${pct(info.expected,1)} al año a largo plazo (supuesto, no promesa). Plazo sugerido: ${esc(info.horizon.toLowerCase())}. Si no estás de acuerdo, revisa tus respuestas o elige un perfil de menos riesgo en la escalera; para uno de más riesgo te pediremos confirmar que entiendes sus riesgos.</p>
+        <div class="row2"><button class="btn sm pri" id="pfAgree">Sí, estoy de acuerdo</button><button class="btn sm" id="pfDisagree">No, quiero revisar mis respuestas</button></div></div>` : ""}
+     <details class="reg"><summary>Cómo se comparan los 5 perfiles</summary>${profileTableHtml(ev.profile)}</details>
+     <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" id="pfRedo">${ev.noQuiz ? "Contestar el cuestionario" : "Volver a contestar"}</button>${SET.answers ? `<button class="btn sm" id="pfDel">Borrar mis respuestas</button>` : ""}</div>`);
+  if (needAgree){
+    h += regHtml();
+    $("perfOut").innerHTML = h; $("perfOut").onclick = null;
+    bindResultCommon(ev);
+    return;
+  }
 
   h += `<div class="p" style="border:0;background:none"><div class="ph" style="background:none;border:0;padding:8px 0 0"><h2>${PFS.length} portafolios modelo para tu perfil</h2><small>montos para ${money(SIMIN.amount,0)}</small></div></div>`;
   const REF = QXP.referenceWeights(ev, SET.answers || ANS || {});
@@ -1385,12 +1491,11 @@ function renderResult(){
         <div><span class="lbl">Años hacia adelante</span><select class="in" id="sYrs">${[1,3,5,10,15,20,25,30].map(y => `<option value="${y}"${y === SIMIN.years ? " selected" : ""}>${y}</option>`).join("")}</select></div>
         <div class="go"><button class="btn pri" id="sGo">Simular</button></div></div>
       <div id="simOut"><p class="mut"><span class="spin"></span>Bajando 10 años de precios de los ETFs…</p></div></div></div>`;
-  h += `<p class="note">Estos portafolios son modelos educativos hechos con reglas fijas a partir de tus respuestas; no son una recomendación personalizada de un asesor registrado. Antes de invertir revisa costos, impuestos en México por invertir en el extranjero y tu situación completa.</p>`;
+  h += `<p class="note">Estos portafolios son modelos educativos hechos con reglas fijas a partir de tus respuestas; no son asesoría de inversiones ni una recomendación personalizada de un asesor registrado ante la CNBV, y no garantizan ningún resultado. Antes de invertir revisa costos, impuestos en México por invertir en el extranjero y tu situación completa.</p>`;
+  h += regHtml();
   $("perfOut").innerHTML = h;
   $("perfOut").onclick = null;
-  $("pfRedo").onclick = () => { EDIT = true; ANS = {...(SET.answers || ANS)}; renderPerfil(); window.scrollTo(0, 0); };
-  if ($("pfAuto")) $("pfAuto").onclick = () => setProfile(ev.quizProfile);
-  bindLadder();
+  bindResultCommon(ev);
   for (const a of $("perfOut").querySelectorAll("[data-an]")) a.onclick = (e) => { e.preventDefault(); analyze(a.dataset.an); };
   for (const b of $("perfOut").querySelectorAll("[data-pick]")) b.onclick = async () => {
     PSEL = +b.dataset.pick; SET.chosen_portfolio = PFS[PSEL].id;
